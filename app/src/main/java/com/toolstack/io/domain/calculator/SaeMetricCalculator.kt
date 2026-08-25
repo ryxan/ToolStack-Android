@@ -14,13 +14,11 @@ object SaeMetricCalculator {
     private const val MM_PER_INCH = 25.4
     private const val STEPS_PER_INCH = 64
 
-    private val COMMON_BELOW_ONE = setOf(
-        1, 2, 4, 8, 10, 12, 16, 20, 24, 28, 32, 40, 48, 56, 64
-    )
+    // Common SAE wrench/drill sizes in 1/16" increments (4/64 steps).
+    private val COMMON_BELOW_ONE = (4..64 step 4).toSet()
 
-    private val COMMON_ABOVE_ONE = setOf(
-        0, 16, 32, 48
-    )
+    // Same 1/16" increments as remainders after a whole number of inches.
+    private val COMMON_ABOVE_ONE = (0..60 step 4).toSet()
 
     fun generate(maxInches: Int): List<SaeMetricEntry> {
         require(maxInches in listOf(1, 2, 3, 5, 10)) {

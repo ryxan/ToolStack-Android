@@ -35,7 +35,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.toolstack.io.R
 import com.toolstack.io.domain.model.SaeMetricEntry
 
@@ -44,7 +44,7 @@ import com.toolstack.io.domain.model.SaeMetricEntry
 fun SaeMetricScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: SaeMetricViewModel = viewModel()
+    viewModel: SaeMetricViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val ranges = listOf(1, 2, 3, 5, 10)

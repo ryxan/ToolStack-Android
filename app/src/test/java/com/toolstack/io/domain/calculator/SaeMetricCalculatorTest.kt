@@ -29,7 +29,12 @@ class SaeMetricCalculatorTest {
         assertTrue("1/2 should be common", half.isCommon)
         assertTrue("3/4 should be common", threeQuarter.isCommon)
 
+        val oneSixtyFourth = entries.first { it.fractionLabel == "1/64" }
+        val oneThirtySecond = entries.first { it.fractionLabel == "1/32" }
         val fiveSixtyFourth = entries.first { it.fractionLabel == "5/64" }
+
+        assertTrue("1/64 should not be common", !oneSixtyFourth.isCommon)
+        assertTrue("1/32 should not be common", !oneThirtySecond.isCommon)
         assertTrue("5/64 should not be common", !fiveSixtyFourth.isCommon)
     }
 
