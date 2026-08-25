@@ -1,4 +1,4 @@
-package com.industrialutility.domain.model
+package com.toolstack.io.domain.model
 
 /**
  * A single row in the SAE to Metric conversion table.

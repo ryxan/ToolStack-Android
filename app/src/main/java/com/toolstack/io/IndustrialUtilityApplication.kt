@@ -1,4 +1,4 @@
-package com.industrialutility
+package com.toolstack.io
 
 import android.app.Application
 import dagger.hilt.android.HiltAndroidApp

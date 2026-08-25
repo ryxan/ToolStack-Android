@@ -61,7 +61,7 @@ domain/                       # Models + use cases (or keep inside features for 
 For a smaller MVP, a single-module app with clear packages is acceptable:
 
 ```
-com.industrialutility/
+com.toolstack.io/
   ui/
     theme/
     components/          # Reusable table, search bar, disclaimer

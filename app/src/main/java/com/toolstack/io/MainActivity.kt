@@ -1,4 +1,4 @@
-package com.industrialutility
+package com.toolstack.io
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -12,9 +12,9 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.industrialutility.ui.home.HomeScreen
-import com.industrialutility.ui.saemetric.SaeMetricScreen
-import com.industrialutility.ui.theme.IndustrialUtilityTheme
+import com.toolstack.io.ui.home.HomeScreen
+import com.toolstack.io.ui.saemetric.SaeMetricScreen
+import com.toolstack.io.ui.theme.IndustrialUtilityTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint

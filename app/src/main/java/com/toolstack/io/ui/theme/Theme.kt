@@ -1,4 +1,4 @@
-package com.industrialutility.ui.theme
+package com.toolstack.io.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme

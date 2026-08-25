@@ -1,4 +1,4 @@
-package com.industrialutility.ui.saemetric
+package com.toolstack.io.ui.saemetric
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
@@ -36,8 +36,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.industrialutility.R
-import com.industrialutility.domain.model.SaeMetricEntry
+import com.toolstack.io.R
+import com.toolstack.io.domain.model.SaeMetricEntry
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable

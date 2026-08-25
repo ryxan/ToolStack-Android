@@ -26,5 +26,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "IndustrialToolsAndroid"
+rootProject.name = "ToolStack-Android"
 include(":app")

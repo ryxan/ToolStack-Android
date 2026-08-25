@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Industrial Utility</string>
-    <string name="home_title">Industrial Utility</string>
+    <string name="app_name">ToolStack</string>
+    <string name="home_title">ToolStack</string>
     <string name="sae_to_metric">SAE to Metric</string>
     <string name="taps_and_drills">Taps and Drills</string>
     <string name="bearings">Bearings</string>

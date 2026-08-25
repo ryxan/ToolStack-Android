@@ -1,4 +1,4 @@
-package com.industrialutility.ui.theme
+package com.toolstack.io.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

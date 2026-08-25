@@ -1,4 +1,4 @@
-package com.industrialutility.domain.calculator
+package com.toolstack.io.domain.calculator
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

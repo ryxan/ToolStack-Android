@@ -1,10 +1,10 @@
-package com.industrialutility.ui.saemetric
+package com.toolstack.io.ui.saemetric
 
 import androidx.compose.runtime.Stable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.industrialutility.domain.calculator.SaeMetricCalculator
-import com.industrialutility.domain.model.SaeMetricEntry
+import com.toolstack.io.domain.calculator.SaeMetricCalculator
+import com.toolstack.io.domain.model.SaeMetricEntry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive

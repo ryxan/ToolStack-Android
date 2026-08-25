@@ -14,6 +14,13 @@ captures
 .cxx
 local.properties
 
+# Signing keys (never commit a keystore)
+*.jks
+*.keystore
+
+# Android Studio release bundle / APK output directory
+app/release/
+
 # Kotlin compiler session / build cache
 .kotlin/
 

@@ -1,6 +1,6 @@
-package com.industrialutility.domain.calculator
+package com.toolstack.io.domain.calculator
 
-import com.industrialutility.domain.model.SaeMetricEntry
+import com.toolstack.io.domain.model.SaeMetricEntry
 import java.util.Locale
 
 /**
