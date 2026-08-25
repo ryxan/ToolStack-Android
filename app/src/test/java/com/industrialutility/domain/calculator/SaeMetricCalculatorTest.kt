@@ -69,12 +69,18 @@ class SaeMetricCalculatorTest {
     @Test
     fun `entries have precomputed display strings`() {
         val entries = SaeMetricCalculator.generate(1)
+
+        val oneSixtyFourth = entries.first()
+        assertEquals("1/64", oneSixtyFourth.fractionLabel)
+        assertEquals("0.0156", oneSixtyFourth.decimalDisplay)
+        assertEquals("0.397", oneSixtyFourth.metricDisplay)
+
         val one = entries.last()
-        assertEquals("1.000", one.decimalDisplay)
+        assertEquals("1.0000", one.decimalDisplay)
         assertEquals("25.400", one.metricDisplay)
 
         val fiveSixteenths = entries.first { it.fractionLabel == "5/16" }
-        assertEquals("0.313", fiveSixteenths.decimalDisplay)
+        assertEquals("0.3125", fiveSixteenths.decimalDisplay)
         assertEquals("7.938", fiveSixteenths.metricDisplay)
     }
 }

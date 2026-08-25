@@ -39,7 +39,7 @@ object SaeMetricCalculator {
                     decimalInch = decimal,
                     metricMm = metric,
                     isCommon = isCommon(step, maxInches),
-                    decimalDisplay = roundMetricForDisplay(decimal, 3),
+                    decimalDisplay = roundMetricForDisplay(decimal, 4),
                     metricDisplay = roundMetricForDisplay(metric, 3)
                 )
             )
