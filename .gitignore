@@ -17,6 +17,7 @@ local.properties
 # Signing keys (never commit a keystore)
 *.jks
 *.keystore
+toolstack-release
 
 # Android Studio release bundle / APK output directory
 app/release/
