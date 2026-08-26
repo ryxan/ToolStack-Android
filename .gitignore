@@ -1,0 +1,32 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Signing keys (never commit a keystore)
+*.jks
+*.keystore
+toolstack-release
+
+# Android Studio release bundle / APK output directory
+app/release/
+
+# Kotlin compiler session / build cache
+.kotlin/
+
+# Android Studio / IDE configuration
+.idea/
+
+# All Gradle build output directories
+build/

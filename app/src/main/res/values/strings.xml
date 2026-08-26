@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ToolStack</string>
+    <string name="home_title">ToolStack</string>
+    <string name="content_description_back">Back</string>
+    <string name="sae_to_metric">SAE to Metric</string>
+    <string name="taps_and_drills">Taps and Drills</string>
+    <string name="bearings">Bearings</string>
+    <string name="components_selection">Components Selection</string>
+    <string name="wire_calculation">Wire Calculation</string>
+    <string name="ropes">Ropes</string>
+    <string name="chains">Chains</string>
+    <string name="range_select_label">Up to</string>
+    <string name="show_only_common">Show only common</string>
+    <string name="sae_header">SAE</string>
+    <string name="decimal_header">Decimal (in)</string>
+    <string name="metric_header">Metric (mm)</string>
+    <string name="disclaimer">Reference values only. Verify critical measurements against official standards and manufacturer data.</string>
+</resources>
