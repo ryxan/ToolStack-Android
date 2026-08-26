@@ -27,20 +27,34 @@ class SaeMetricViewModel @Inject constructor(
     val uiState: StateFlow<SaeMetricUiState> = _uiState.asStateFlow()
 
     private var generateJob: Job? = null
+    private var hasUserSelectedMaxInches = false
 
     init {
         viewModelScope.launch {
             val savedMaxInches = preferencesRepository.saeMetricMaxInches.first()
-            loadEntries(savedMaxInches)
+            val savedShowOnlyCommon = preferencesRepository.saeMetricShowOnlyCommon.first()
+            _uiState.update { it.copy(showOnlyCommon = savedShowOnlyCommon) }
+            if (!hasUserSelectedMaxInches) {
+                loadEntries(savedMaxInches)
+            }
         }
     }
 
     fun onRangeSelected(maxInches: Int) {
         if (maxInches == _uiState.value.maxInches) return
+        hasUserSelectedMaxInches = true
         viewModelScope.launch {
             preferencesRepository.saveSaeMetricMaxInches(maxInches)
         }
         loadEntries(maxInches)
+    }
+
+    fun onShowOnlyCommonChanged(showOnlyCommon: Boolean) {
+        if (showOnlyCommon == _uiState.value.showOnlyCommon) return
+        viewModelScope.launch {
+            preferencesRepository.saveSaeMetricShowOnlyCommon(showOnlyCommon)
+        }
+        _uiState.update { it.copy(showOnlyCommon = showOnlyCommon) }
     }
 
     private fun loadEntries(maxInches: Int) {
@@ -59,5 +73,9 @@ class SaeMetricViewModel @Inject constructor(
 
 data class SaeMetricUiState(
     val maxInches: Int = 1,
+    val showOnlyCommon: Boolean = false,
     val entries: List<SaeMetricEntry> = emptyList()
-)
+) {
+    val displayedEntries: List<SaeMetricEntry>
+        get() = if (showOnlyCommon) entries.filter { it.isCommon } else entries
+}

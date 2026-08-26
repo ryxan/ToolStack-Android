@@ -10,6 +10,7 @@
     <string name="ropes">Ropes</string>
     <string name="chains">Chains</string>
     <string name="range_select_label">Up to</string>
+    <string name="show_only_common">Show only common</string>
     <string name="sae_header">SAE</string>
     <string name="decimal_header">Decimal (in)</string>
     <string name="metric_header">Metric (mm)</string>

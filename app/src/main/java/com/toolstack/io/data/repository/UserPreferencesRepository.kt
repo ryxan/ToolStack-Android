@@ -2,6 +2,7 @@ package com.toolstack.io.data.repository
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import kotlinx.coroutines.flow.Flow
@@ -24,8 +25,21 @@ class UserPreferencesRepository @Inject constructor(
         }
     }
 
+    val saeMetricShowOnlyCommon: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[KEY_SAE_METRIC_SHOW_ONLY_COMMON] ?: DEFAULT_SHOW_ONLY_COMMON
+    }
+
+    suspend fun saveSaeMetricShowOnlyCommon(showOnlyCommon: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[KEY_SAE_METRIC_SHOW_ONLY_COMMON] = showOnlyCommon
+        }
+    }
+
     companion object {
         private val KEY_SAE_METRIC_MAX_INCHES = intPreferencesKey("sae_metric_max_inches")
         private const val DEFAULT_MAX_INCHES = 1
+
+        private val KEY_SAE_METRIC_SHOW_ONLY_COMMON = booleanPreferencesKey("sae_metric_show_only_common")
+        private const val DEFAULT_SHOW_ONLY_COMMON = false
     }
 }
