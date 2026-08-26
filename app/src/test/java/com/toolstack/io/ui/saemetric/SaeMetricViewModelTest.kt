@@ -75,6 +75,28 @@ class SaeMetricViewModelTest {
             assertEquals(true, viewModel.uiState.value.showOnlyCommon)
         }
 
+    @Test
+    fun `first range selection equal to default is persisted and ignores restored range`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            val dataStore = FakeDataStore()
+            val repository = UserPreferencesRepository(dataStore)
+            val viewModel = SaeMetricViewModel(repository)
+
+            // Select the default range (1) before the saved preference read completes.
+            viewModel.onRangeSelected(1)
+
+            val savedPreferences = preferencesOf(
+                saeMetricMaxInchesKey to 10,
+                saeMetricShowOnlyCommonKey to true
+            )
+            dataStore.emit(savedPreferences)
+            dataStore.emit(savedPreferences)
+            advanceUntilIdle()
+
+            assertEquals(1, viewModel.uiState.value.maxInches)
+            assertEquals(true, viewModel.uiState.value.showOnlyCommon)
+        }
+
     class MainDispatcherRule(
         val dispatcher: TestDispatcher = StandardTestDispatcher()
     ) : TestWatcher() {

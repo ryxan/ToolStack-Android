@@ -41,7 +41,7 @@ class SaeMetricViewModel @Inject constructor(
     }
 
     fun onRangeSelected(maxInches: Int) {
-        if (maxInches == _uiState.value.maxInches) return
+        if (hasUserSelectedMaxInches && maxInches == _uiState.value.maxInches) return
         hasUserSelectedMaxInches = true
         viewModelScope.launch {
             preferencesRepository.saveSaeMetricMaxInches(maxInches)
