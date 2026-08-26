@@ -1,6 +1,16 @@
-# Keep all app classes to avoid runtime issues with Hilt/Navigation/Compose.
-# Library code is still shrunk.
--keep class com.toolstack.io.** { *; }
+# Keep only app classes and members that reflection-based runtimes (Hilt/Navigation/Compose) need.
+-keep @dagger.hilt.android.HiltAndroidApp class * { *; }
+-keep @dagger.hilt.android.AndroidEntryPoint class * { *; }
+-keep @dagger.hilt.android.lifecycle.HiltViewModel class * { *; }
+-keep @dagger.Module class * { *; }
+-keep @dagger.hilt.InstallIn class * { *; }
+-keepclassmembers class * {
+    @javax.inject.Inject <init>(...);
+    @javax.inject.Inject <fields>;
+    @javax.inject.Inject <methods>;
+    @dagger.Provides <methods>;
+    @dagger.Binds <methods>;
+}
 
 # Hilt / Dagger
 -keepclassmembers class * {

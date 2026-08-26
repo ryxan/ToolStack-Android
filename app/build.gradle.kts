@@ -19,19 +19,19 @@ val versionProps = Properties().apply {
 val appVersionCode = versionProps.getProperty("VERSION_CODE")?.trim()?.toIntOrNull() ?: 1
 val appVersionName = versionProps.getProperty("VERSION_NAME")?.trim() ?: "1.0"
 
-// Configure release signing only when all RELEASE_* properties are present and the keystore file
-// actually exists. This lets bundleRelease still build an unsigned bundle on fresh clones/CI
+// Configure release signing only when all RELEASE_* properties are non-blank and the keystore
+// file is a regular file. This lets bundleRelease still build an unsigned bundle on fresh clones/CI
 // without failing on missing signing, and it keeps signing from failing at configuration time.
 val localProperties = Properties().apply {
     val f = rootProject.file("local.properties")
     if (f.exists()) load(f.inputStream())
 }
 val releaseStoreFile = localProperties.getProperty("RELEASE_STORE_FILE")
-val hasReleaseSigning = releaseStoreFile != null &&
-    localProperties.getProperty("RELEASE_STORE_PASSWORD") != null &&
-    localProperties.getProperty("RELEASE_KEY_ALIAS") != null &&
-    localProperties.getProperty("RELEASE_KEY_PASSWORD") != null &&
-    file(releaseStoreFile).exists()
+val hasReleaseSigning = !releaseStoreFile.isNullOrBlank() &&
+    !localProperties.getProperty("RELEASE_STORE_PASSWORD").isNullOrBlank() &&
+    !localProperties.getProperty("RELEASE_KEY_ALIAS").isNullOrBlank() &&
+    !localProperties.getProperty("RELEASE_KEY_PASSWORD").isNullOrBlank() &&
+    file(releaseStoreFile).isFile
 
 android {
     namespace = "com.toolstack.io"
