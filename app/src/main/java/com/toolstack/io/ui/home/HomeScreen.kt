@@ -145,7 +145,7 @@ private sealed class Module(
     val isImplemented: Boolean = false
 ) {
     data object SaeMetric : Module("sae_metric", R.string.sae_to_metric, Icons.Filled.Straighten, true)
-    data object TapsAndDrills : Module("taps_and_drills", R.string.taps_and_drills, Icons.Filled.Build)
+    data object TapsAndDrills : Module("taps_and_drills", R.string.taps_and_drills, Icons.Filled.Build, true)
     data object Bearings : Module("bearings", R.string.bearings, Icons.Filled.DonutLarge)
     data object Components : Module("components", R.string.components_selection, Icons.Filled.ViewModule)
     data object Wire : Module("wire", R.string.wire_calculation, Icons.Filled.ElectricalServices)

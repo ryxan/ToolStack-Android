@@ -14,6 +14,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.toolstack.io.ui.home.HomeScreen
 import com.toolstack.io.ui.saemetric.SaeMetricScreen
+import com.toolstack.io.ui.tapsanddrills.TapsAndDrillsScreen
 import com.toolstack.io.ui.theme.IndustrialUtilityTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -46,6 +47,9 @@ class MainActivity : ComponentActivity() {
                         composable(Screen.SaeMetric.route) {
                             SaeMetricScreen(onBack = { navController.popBackStack() })
                         }
+                        composable(Screen.TapsAndDrills.route) {
+                            TapsAndDrillsScreen(onBack = { navController.popBackStack() })
+                        }
                     }
                 }
             }
@@ -56,4 +60,5 @@ class MainActivity : ComponentActivity() {
 sealed class Screen(val route: String) {
     data object Home : Screen("home")
     data object SaeMetric : Screen("sae_metric")
+    data object TapsAndDrills : Screen("taps_and_drills")
 }
