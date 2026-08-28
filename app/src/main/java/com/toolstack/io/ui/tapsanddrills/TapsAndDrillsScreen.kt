@@ -357,7 +357,7 @@ private fun TableHeaderCell(text: String, width: Dp) {
         text = text,
         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
         color = MaterialTheme.colorScheme.onPrimaryContainer,
-        textAlign = TextAlign.Start,
+        textAlign = TextAlign.Center,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier.width(width)
@@ -438,6 +438,7 @@ private fun ThreadCell(
         Text(
             text = thread.designation,
             style = style,
+            textAlign = TextAlign.Center,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f, fill = true)
@@ -468,7 +469,7 @@ private fun TableCell(
         text = text,
         style = style,
         color = color,
-        textAlign = TextAlign.Start,
+        textAlign = TextAlign.Center,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier.width(width)
