@@ -15,5 +15,25 @@
     <string name="sae_header">SAE</string>
     <string name="decimal_header">Decimal (in)</string>
     <string name="metric_header">Metric (mm)</string>
+    <string name="tap_drill_search_hint">Search thread size or drill…</string>
+    <string name="tap_drill_spark_plug_only">Spark plug taps only</string>
+    <string name="tap_drill_thread_header">Thread</string>
+    <string name="tap_drill_pitch_header">Pitch</string>
+    <string name="tap_drill_major_header">Major Dia</string>
+    <string name="tap_drill_tap_header">Tap Drill</string>
+    <string name="tap_drill_columns">Columns</string>
+    <string name="tap_drill_decimal_header">Decimal</string>
+    <string name="tap_drill_fractional_header">Fractional</string>
+    <string name="tap_drill_category_all">ALL THREADS</string>
+    <string name="tap_drill_category_unc">UNC (Coarse)</string>
+    <string name="tap_drill_category_unf">UNF (Fine)</string>
+    <string name="tap_drill_category_uns">UNS (Special)</string>
+    <string name="tap_drill_category_unef">UNEF (Extra Fine)</string>
+    <string name="tap_drill_category_metric">METRIC</string>
+    <string name="tap_drill_category_pipe">NPT PIPE</string>
+    <string name="tap_drill_spark_plug_badge">SPARK PLUG</string>
+    <string name="tap_drill_spark_plug">Spark plug</string>
+    <string name="tap_drill_filter">Filter</string>
+    <string name="tap_drill_empty">No threads found matching your search.</string>
     <string name="disclaimer">Reference values only. Verify critical measurements against official standards and manufacturer data.</string>
 </resources>
