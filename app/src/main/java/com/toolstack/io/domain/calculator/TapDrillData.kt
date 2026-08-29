@@ -52,7 +52,7 @@ object TapDrillData {
         TapDrillThread(designation = "1 3/8-12", standard = "UNF", majorDiameter = 1.375, pitch = 12.0, tapDrill75 = "1 19/64", tapDrill75Decimal = 1.2969),
         TapDrillThread(designation = "1 1/2-12", standard = "UNF", majorDiameter = 1.5, pitch = 12.0, tapDrill75 = "1 27/64", tapDrill75Decimal = 1.4219),
         TapDrillThread(designation = "#4-36", standard = "UNS", majorDiameter = 0.112, pitch = 36.0, tapDrill75 = "#44", tapDrill75Decimal = 0.086),
-        TapDrillThread(designation = "#1/8-40", standard = "UNS", majorDiameter = 0.125, pitch = 40.0, tapDrill75 = "#38", tapDrill75Decimal = 0.1015),
+        TapDrillThread(designation = "1/8-40", standard = "UNS", majorDiameter = 0.125, pitch = 40.0, tapDrill75 = "#38", tapDrill75Decimal = 0.1015),
         TapDrillThread(designation = "#6-36", standard = "UNS", majorDiameter = 0.138, pitch = 36.0, tapDrill75 = "#34", tapDrill75Decimal = 0.111),
         TapDrillThread(designation = "#6-48", standard = "UNS", majorDiameter = 0.138, pitch = 48.0, tapDrill75 = "#31", tapDrill75Decimal = 0.12),
         TapDrillThread(designation = "#8-40", standard = "UNS", majorDiameter = 0.164, pitch = 40.0, tapDrill75 = "#28", tapDrill75Decimal = 0.1405),

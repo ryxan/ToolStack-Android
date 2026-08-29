@@ -227,15 +227,36 @@ fun TapsAndDrillsScreen(
                     .fillMaxWidth()
                     .weight(1f)
             ) {
-                val visibleColumnWidths = uiState.visibleColumns.mapNotNull { columnWidths[it] }
-                val tableMinWidth = if (visibleColumnWidths.isEmpty()) {
+                val visibleColumnIds = uiState.visibleColumns
+                val visibleColumnWidthList = visibleColumnIds.mapNotNull { columnWidths[it] }
+                val contentMinWidth = visibleColumnWidthList.fold(0.dp) { acc, width -> acc + width }
+                val tableMinWidth = if (visibleColumnIds.isEmpty()) {
                     0.dp
                 } else {
-                    visibleColumnWidths.fold(0.dp) { acc, width -> acc + width } +
-                        ((uiState.visibleColumns.size - 1) * 4).dp +
+                    contentMinWidth +
+                        ((visibleColumnIds.size - 1) * 4).dp +
                         16.dp
                 }
-                val tableWidth = tableMinWidth.coerceAtLeast(0.dp)
+                val tableWidth = if (visibleColumnIds.isEmpty()) 0.dp else maxWidth.coerceAtLeast(tableMinWidth)
+
+                val tableContentWidth = tableWidth - 16.dp
+                val totalCellWidth = if (visibleColumnIds.isEmpty()) {
+                    0.dp
+                } else {
+                    tableContentWidth - ((visibleColumnIds.size - 1) * 4).dp
+                }
+
+                val displayColumnWidths = remember(tableWidth, visibleColumnIds, columnWidths) {
+                    if (contentMinWidth == 0.dp) {
+                        emptyMap()
+                    } else {
+                        visibleColumnIds.associateWith { columnId ->
+                            val minWidth = columnWidths[columnId] ?: 0.dp
+                            totalCellWidth * (minWidth / contentMinWidth)
+                        }
+                    }
+                }
+
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -247,47 +268,47 @@ fun TapsAndDrillsScreen(
                             .width(tableWidth)
                             .fillMaxHeight()
                     ) {
-                    stickyHeader {
-                        TableHeader(
-                            visibleColumns = uiState.visibleColumns,
-                            columnWidths = columnWidths
-                        )
-                    }
+                        stickyHeader {
+                            TableHeader(
+                                visibleColumns = uiState.visibleColumns,
+                                columnWidths = displayColumnWidths
+                            )
+                        }
 
-                    if (uiState.displayedThreads.isEmpty()) {
-                        item {
-                            Box(
-                                modifier = Modifier
-                                    .fillParentMaxSize()
-                                    .padding(32.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.tap_drill_empty),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                        if (uiState.displayedThreads.isEmpty()) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillParentMaxSize()
+                                        .padding(32.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.tap_drill_empty),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        } else {
+                            items(
+                                items = uiState.displayedThreads,
+                                key = { it.designation }
+                            ) { thread ->
+                                TableRow(
+                                    thread = thread,
+                                    visibleColumns = uiState.visibleColumns,
+                                    columnWidths = displayColumnWidths
+                                )
+                                HorizontalDivider(
+                                    thickness = 1.dp,
+                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
                                 )
                             }
-                        }
-                    } else {
-                        items(
-                            items = uiState.displayedThreads,
-                            key = { it.designation }
-                        ) { thread ->
-                            TableRow(
-                                thread = thread,
-                                visibleColumns = uiState.visibleColumns,
-                                columnWidths = columnWidths
-                            )
-                            HorizontalDivider(
-                                thickness = 1.dp,
-                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-                            )
                         }
                     }
                 }
             }
-        }
     }
 }
 }
@@ -336,7 +357,7 @@ private fun TableHeaderCell(text: String, width: Dp) {
         text = text,
         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
         color = MaterialTheme.colorScheme.onPrimaryContainer,
-        textAlign = TextAlign.Start,
+        textAlign = TextAlign.Center,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier.width(width)
@@ -417,6 +438,7 @@ private fun ThreadCell(
         Text(
             text = thread.designation,
             style = style,
+            textAlign = TextAlign.Center,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f, fill = true)
@@ -447,7 +469,7 @@ private fun TableCell(
         text = text,
         style = style,
         color = color,
-        textAlign = TextAlign.Start,
+        textAlign = TextAlign.Center,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier.width(width)
