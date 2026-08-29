@@ -177,7 +177,8 @@ private fun SaeTableHeader() {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             SaeColumnText(text = stringResource(R.string.sae_header), weight = 1f)
             SaeColumnText(text = stringResource(R.string.decimal_header), weight = 1f)
@@ -198,7 +199,8 @@ private fun SaeTableRow(entry: SaeMetricEntry) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         SaeColumnText(text = entry.fractionLabel, weight = 1f, style = textStyle)
         SaeColumnText(
@@ -224,7 +226,7 @@ private fun RowScope.SaeColumnText(
     Text(
         text = text,
         style = style,
-        textAlign = TextAlign.Start,
+        textAlign = TextAlign.Center,
         modifier = modifier.weight(weight, fill = true)
     )
 }
