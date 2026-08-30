@@ -12,9 +12,11 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.toolstack.io.ui.bearings.BearingsScreen
 import com.toolstack.io.ui.home.HomeScreen
 import com.toolstack.io.ui.saemetric.SaeMetricScreen
 import com.toolstack.io.ui.tapsanddrills.TapsAndDrillsScreen
+import com.toolstack.io.ui.wrenchfastener.WrenchFastenerScreen
 import com.toolstack.io.ui.theme.IndustrialUtilityTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -47,8 +49,14 @@ class MainActivity : ComponentActivity() {
                         composable(Screen.SaeMetric.route) {
                             SaeMetricScreen(onBack = { navController.popBackStack() })
                         }
+                        composable(Screen.WrenchFastener.route) {
+                            WrenchFastenerScreen(onBack = { navController.popBackStack() })
+                        }
                         composable(Screen.TapsAndDrills.route) {
                             TapsAndDrillsScreen(onBack = { navController.popBackStack() })
+                        }
+                        composable(Screen.Bearings.route) {
+                            BearingsScreen(onBack = { navController.popBackStack() })
                         }
                     }
                 }
@@ -60,5 +68,7 @@ class MainActivity : ComponentActivity() {
 sealed class Screen(val route: String) {
     data object Home : Screen("home")
     data object SaeMetric : Screen("sae_metric")
+    data object WrenchFastener : Screen("wrench_fastener")
     data object TapsAndDrills : Screen("taps_and_drills")
+    data object Bearings : Screen("bearings")
 }
