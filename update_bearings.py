@@ -13,6 +13,7 @@ Sources used:
 - Hand-verified values for a few variants not covered above (62004-62008,
   63009-63010, 62313-62314).
 """
+import argparse
 import json
 import os
 import re
@@ -28,6 +29,7 @@ except ImportError:
 PROJECT = Path(__file__).resolve().parent
 ASSET = PROJECT / "app" / "src" / "main" / "assets" / "bearings.json"
 OUT = ASSET
+DEFAULT_INPUT_DIR = PROJECT / "input"
 
 # Regex for the first token of a bearing table row.
 DESIGNATION_RE = re.compile(r"^\d{3,5}$|^\d{3}/\d$")
@@ -106,6 +108,20 @@ def load_existing() -> dict:
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="Update the deep-groove ball bearing catalog from manufacturer PDF tables."
+    )
+    parser.add_argument(
+        "--input-dir",
+        type=Path,
+        default=DEFAULT_INPUT_DIR,
+        help="Directory containing timken_page_*.txt, pti_*.txt, and jvb_catalog.pdf (default: %(default)s)",
+    )
+    args = parser.parse_args()
+    input_dir = args.input_dir
+    if not input_dir.is_dir():
+        raise SystemExit(f"error: input directory not found: {input_dir}")
+
     by_desig = load_existing()
     initial_count = len(by_desig)
 
@@ -134,7 +150,7 @@ def main():
 
     def parse_text_file(path: Path, mode: str = "generic"):
         if not path.exists():
-            return
+            raise SystemExit(f"error: required input file not found: {path}")
         with open(path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
@@ -157,39 +173,38 @@ def main():
                     continue
                 add(first, d, D, B, source=str(path.name))
 
-    tmp = Path("C:/Users/ryxan/AppData/Local/Temp")
-
     # Timken catalog pages already extracted to text files.
     for page in range(26, 31):
-        parse_text_file(tmp / f"timken_page_{page}.txt")
+        parse_text_file(input_dir / f"timken_page_{page}.txt")
 
     # PTI 6800/6900 thin-section series (61800/61900).
-    parse_text_file(tmp / "pti_6800_page_1.txt")
-    parse_text_file(tmp / "pti_6800_page_2.txt")
-    parse_text_file(tmp / "pti_6900_page_1.txt")
+    parse_text_file(input_dir / "pti_6800_page_1.txt")
+    parse_text_file(input_dir / "pti_6800_page_2.txt")
+    parse_text_file(input_dir / "pti_6900_page_1.txt")
 
     # JVB catalog pages 19-20 for 62000/62200/62300/63000.
-    jvb_pdf = tmp / "jvb_catalog.pdf"
-    if jvb_pdf.exists():
-        reader = PdfReader(str(jvb_pdf))
-        for page_index in (18, 19):  # 0-indexed for pages 19 and 20
-            text = reader.pages[page_index].extract_text()
-            for line in text.splitlines():
-                line = line.strip()
-                if not line:
-                    continue
-                tokens = line.split()
-                if not tokens:
-                    continue
-                first = tokens[0]
-                if not DESIGNATION_RE.match(first):
-                    continue
-                if not re.match(r"^(620|622|623|630)\d{2}$", first):
-                    continue
-                dims = jvb_mm_dimensions(tokens)
-                if dims:
-                    d, D, B = dims
-                    add(first, d, D, B, source="JVB catalog")
+    jvb_pdf = input_dir / "jvb_catalog.pdf"
+    if not jvb_pdf.exists():
+        raise SystemExit(f"error: required input file not found: {jvb_pdf}")
+    reader = PdfReader(str(jvb_pdf))
+    for page_index in (18, 19):  # 0-indexed for pages 19 and 20
+        text = reader.pages[page_index].extract_text()
+        for line in text.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            tokens = line.split()
+            if not tokens:
+                continue
+            first = tokens[0]
+            if not DESIGNATION_RE.match(first):
+                continue
+            if not re.match(r"^(620|622|623|630)\d{2}$", first):
+                continue
+            dims = jvb_mm_dimensions(tokens)
+            if dims:
+                d, D, B = dims
+                add(first, d, D, B, source="JVB catalog")
 
     # Hand-verified variants.
     for desig, d, D, B in HARDCODED:
