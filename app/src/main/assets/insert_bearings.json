@@ -1,0 +1,170 @@
+[
+  {
+    "designation": "UC201",
+    "type": "Insert ball bearing",
+    "boreMm": 12.0,
+    "odMm": 47.0,
+    "widthMm": 31.0,
+    "series": "UC200"
+  },
+  {
+    "designation": "UC202",
+    "type": "Insert ball bearing",
+    "boreMm": 15.0,
+    "odMm": 47.0,
+    "widthMm": 31.0,
+    "series": "UC200"
+  },
+  {
+    "designation": "UC203",
+    "type": "Insert ball bearing",
+    "boreMm": 17.0,
+    "odMm": 47.0,
+    "widthMm": 31.0,
+    "series": "UC200"
+  },
+  {
+    "designation": "UC204",
+    "type": "Insert ball bearing",
+    "boreMm": 20.0,
+    "odMm": 47.0,
+    "widthMm": 31.0,
+    "series": "UC200"
+  },
+  {
+    "designation": "UC205",
+    "type": "Insert ball bearing",
+    "boreMm": 25.0,
+    "odMm": 52.0,
+    "widthMm": 34.1,
+    "series": "UC200"
+  },
+  {
+    "designation": "UC206",
+    "type": "Insert ball bearing",
+    "boreMm": 30.0,
+    "odMm": 62.0,
+    "widthMm": 38.1,
+    "series": "UC200"
+  },
+  {
+    "designation": "UC207",
+    "type": "Insert ball bearing",
+    "boreMm": 35.0,
+    "odMm": 72.0,
+    "widthMm": 42.9,
+    "series": "UC200"
+  },
+  {
+    "designation": "UC208",
+    "type": "Insert ball bearing",
+    "boreMm": 40.0,
+    "odMm": 80.0,
+    "widthMm": 49.2,
+    "series": "UC200"
+  },
+  {
+    "designation": "UC209",
+    "type": "Insert ball bearing",
+    "boreMm": 45.0,
+    "odMm": 85.0,
+    "widthMm": 49.2,
+    "series": "UC200"
+  },
+  {
+    "designation": "UC210",
+    "type": "Insert ball bearing",
+    "boreMm": 50.0,
+    "odMm": 90.0,
+    "widthMm": 51.6,
+    "series": "UC200"
+  },
+  {
+    "designation": "UC211",
+    "type": "Insert ball bearing",
+    "boreMm": 55.0,
+    "odMm": 100.0,
+    "widthMm": 55.6,
+    "series": "UC200"
+  },
+  {
+    "designation": "UC212",
+    "type": "Insert ball bearing",
+    "boreMm": 60.0,
+    "odMm": 110.0,
+    "widthMm": 65.1,
+    "series": "UC200"
+  },
+  {
+    "designation": "HC204",
+    "type": "Insert ball bearing",
+    "boreMm": 20.0,
+    "odMm": 47.0,
+    "widthMm": 43.7,
+    "series": "HC200"
+  },
+  {
+    "designation": "HC205",
+    "type": "Insert ball bearing",
+    "boreMm": 25.0,
+    "odMm": 52.0,
+    "widthMm": 44.3,
+    "series": "HC200"
+  },
+  {
+    "designation": "HC206",
+    "type": "Insert ball bearing",
+    "boreMm": 30.0,
+    "odMm": 62.0,
+    "widthMm": 48.3,
+    "series": "HC200"
+  },
+  {
+    "designation": "HC207",
+    "type": "Insert ball bearing",
+    "boreMm": 35.0,
+    "odMm": 72.0,
+    "widthMm": 51.1,
+    "series": "HC200"
+  },
+  {
+    "designation": "HC208",
+    "type": "Insert ball bearing",
+    "boreMm": 40.0,
+    "odMm": 80.0,
+    "widthMm": 56.3,
+    "series": "HC200"
+  },
+  {
+    "designation": "HC209",
+    "type": "Insert ball bearing",
+    "boreMm": 45.0,
+    "odMm": 85.0,
+    "widthMm": 56.3,
+    "series": "HC200"
+  },
+  {
+    "designation": "HC210",
+    "type": "Insert ball bearing",
+    "boreMm": 50.0,
+    "odMm": 90.0,
+    "widthMm": 62.7,
+    "series": "HC200"
+  },
+  {
+    "designation": "HC211",
+    "type": "Insert ball bearing",
+    "boreMm": 55.0,
+    "odMm": 100.0,
+    "widthMm": 71.3,
+    "series": "HC200"
+  },
+  {
+    "designation": "HC212",
+    "type": "Insert ball bearing",
+    "boreMm": 60.0,
+    "odMm": 110.0,
+    "widthMm": 77.7,
+    "series": "HC200"
+  }
+]

@@ -161,4 +161,62 @@ class BearingDataTest {
         assertTrue(bearings.any { it.designation == "62000" })
         assertTrue(bearings.any { it.designation == "63000" })
     }
+
+    @Test
+    fun `fromJson parses the insert bearing catalog asset`() {
+        val assetJson = loadAsset("insert_bearings.json")
+
+        val bearings = BearingData.fromJson(assetJson)
+
+        assertTrue(bearings.isNotEmpty())
+        assertTrue(bearings.any { it.designation == "UC204" })
+        assertTrue(bearings.any { it.designation == "HC207" })
+        assertTrue(bearings.any { it.type == "Insert ball bearing" })
+        assertTrue(bearings.any { it.series == "UC200" })
+        assertTrue(bearings.any { it.series == "HC200" })
+    }
+
+    @Test
+    fun `findByDimensions returns insert ball bearing for UC204 dimensions`() {
+        val bearings = BearingData.fromJson(loadAsset("insert_bearings.json"))
+
+        val results = BearingData.findByDimensions(
+            bearings = bearings,
+            boreMm = 20.0,
+            odMm = 47.0,
+            widthMm = 31.0
+        )
+
+        assertEquals(1, results.size)
+        assertEquals("UC204", results.first().designation)
+        assertEquals("Insert ball bearing", results.first().type)
+        assertEquals("UC200", results.first().series)
+    }
+
+    @Test
+    fun `findByDimensions returns insert ball bearing for HC207 dimensions`() {
+        val bearings = BearingData.fromJson(loadAsset("insert_bearings.json"))
+
+        val results = BearingData.findByDimensions(
+            bearings = bearings,
+            boreMm = 35.0,
+            odMm = 72.0,
+            widthMm = 51.1
+        )
+
+        assertEquals(1, results.size)
+        assertEquals("HC207", results.first().designation)
+        assertEquals("Insert ball bearing", results.first().type)
+        assertEquals("HC200", results.first().series)
+    }
+
+    private fun loadAsset(fileName: String): String {
+        val assetFile = java.io.File("src/main/assets/$fileName")
+        return if (assetFile.exists()) {
+            assetFile.readText()
+        } else {
+            javaClass.classLoader?.getResource("assets/$fileName")?.readText()
+                ?: error("Could not load $fileName from test classpath or file path")
+        }
+    }
 }

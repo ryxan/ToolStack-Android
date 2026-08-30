@@ -21,7 +21,8 @@ interface BearingRepository {
 }
 
 /**
- * Loads the bearing catalog from `assets/bearings.json` and exposes search.
+ * Loads the bearing catalog from `assets/bearings.json` and
+ * `assets/insert_bearings.json` and exposes search.
  */
 @Singleton
 class JsonBearingRepository @Inject constructor(
@@ -29,8 +30,14 @@ class JsonBearingRepository @Inject constructor(
 ) : BearingRepository {
 
     private val bearings by lazy {
-        val json = context.assets.open("bearings.json").bufferedReader().use { it.readText() }
-        BearingData.fromJson(json)
+        loadCatalogs("bearings.json", "insert_bearings.json")
+    }
+
+    private fun loadCatalogs(vararg fileNames: String): List<Bearing> {
+        return fileNames.flatMap { fileName ->
+            val json = context.assets.open(fileName).bufferedReader().use { it.readText() }
+            BearingData.fromJson(json)
+        }
     }
 
     override fun findByDimensions(
