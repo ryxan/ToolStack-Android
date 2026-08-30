@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Anchor
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.DonutLarge
 import androidx.compose.material.icons.filled.ElectricalServices
+import androidx.compose.material.icons.filled.Handyman
 import androidx.compose.material.icons.filled.InsertLink
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.ViewModule
@@ -46,6 +47,7 @@ fun HomeScreen(
 ) {
     val modules = listOf(
         Module.SaeMetric,
+        Module.WrenchFastener,
         Module.TapsAndDrills,
         Module.Bearings,
         Module.Components,
@@ -145,8 +147,9 @@ private sealed class Module(
     val isImplemented: Boolean = false
 ) {
     data object SaeMetric : Module("sae_metric", R.string.sae_to_metric, Icons.Filled.Straighten, true)
+    data object WrenchFastener : Module("wrench_fastener", R.string.wrench_fastener, Icons.Filled.Handyman, true)
     data object TapsAndDrills : Module("taps_and_drills", R.string.taps_and_drills, Icons.Filled.Build, true)
-    data object Bearings : Module("bearings", R.string.bearings, Icons.Filled.DonutLarge)
+    data object Bearings : Module("bearings", R.string.bearings, Icons.Filled.DonutLarge, true)
     data object Components : Module("components", R.string.components_selection, Icons.Filled.ViewModule)
     data object Wire : Module("wire", R.string.wire_calculation, Icons.Filled.ElectricalServices)
     data object Ropes : Module("ropes", R.string.ropes, Icons.Filled.Anchor)

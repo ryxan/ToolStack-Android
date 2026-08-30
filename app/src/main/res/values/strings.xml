@@ -4,6 +4,7 @@
     <string name="home_title">ToolStack</string>
     <string name="content_description_back">Back</string>
     <string name="sae_to_metric">SAE to Metric</string>
+    <string name="wrench_fastener">Wrench / Fastener Size</string>
     <string name="taps_and_drills">Taps and Drills</string>
     <string name="bearings">Bearings</string>
     <string name="components_selection">Components Selection</string>
@@ -15,6 +16,11 @@
     <string name="sae_header">SAE</string>
     <string name="decimal_header">Decimal (in)</string>
     <string name="metric_header">Metric (mm)</string>
+    <string name="fastener_header">Fastener</string>
+    <string name="wrench_fastener_sae">SAE</string>
+    <string name="wrench_fastener_metric">Metric</string>
+    <string name="sae_wrench_header">SAE Wrench</string>
+    <string name="metric_wrench_header">Metric Wrench</string>
     <string name="tap_drill_search_hint">Search thread size or drill…</string>
     <string name="tap_drill_spark_plug_only">Spark plug taps only</string>
     <string name="tap_drill_thread_header">Thread</string>
@@ -36,4 +42,20 @@
     <string name="tap_drill_filter">Filter</string>
     <string name="tap_drill_empty">No threads found matching your search.</string>
     <string name="disclaimer">Reference values only. Verify critical measurements against official standards and manufacturer data.</string>
+
+    <!-- Bearings -->
+    <string name="bearings_search_label">Find bearing by dimensions</string>
+    <string name="bearings_bore_label">Bore (ID)</string>
+    <string name="bearings_od_label">Outside diameter</string>
+    <string name="bearings_width_label">Width</string>
+    <string name="bearings_mm_suffix">mm</string>
+    <string name="bearings_search_button">Find bearing</string>
+    <string name="bearings_input_prompt">Enter all three dimensions, then tap Find bearing.</string>
+    <string name="bearings_input_invalid">Enter valid numeric dimensions.</string>
+    <string name="bearings_no_results">No matching bearing found. Try a looser tolerance or check your measurements.</string>
+    <string name="bearings_suffix_note">Basic ISO designation. Add seal/clearance suffixes (e.g. -2RS, -ZZ, -C3) when ordering.</string>
+    <string name="bearings_tolerance_exact">Exact</string>
+    <string name="bearings_tolerance_0_1">±0.1 mm</string>
+    <string name="bearings_tolerance_0_5">±0.5 mm</string>
+    <string name="bearings_tolerance_1_0">±1.0 mm</string>
 </resources>

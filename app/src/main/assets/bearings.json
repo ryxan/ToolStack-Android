@@ -1,0 +1,2250 @@
+[
+  {
+    "designation": "16002",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 15.0,
+    "odMm": 32.0,
+    "widthMm": 8.0,
+    "series": "16000"
+  },
+  {
+    "designation": "16003",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 17.0,
+    "odMm": 35.0,
+    "widthMm": 8.0,
+    "series": "16000"
+  },
+  {
+    "designation": "16004",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 20.0,
+    "odMm": 42.0,
+    "widthMm": 8.0,
+    "series": "16000"
+  },
+  {
+    "designation": "16005",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 25.0,
+    "odMm": 47.0,
+    "widthMm": 8.0,
+    "series": "16000"
+  },
+  {
+    "designation": "16006",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 30.0,
+    "odMm": 55.0,
+    "widthMm": 9.0,
+    "series": "16000"
+  },
+  {
+    "designation": "16007",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 35.0,
+    "odMm": 62.0,
+    "widthMm": 9.0,
+    "series": "16000"
+  },
+  {
+    "designation": "16008",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 40.0,
+    "odMm": 68.0,
+    "widthMm": 9.0,
+    "series": "16000"
+  },
+  {
+    "designation": "16009",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 45.0,
+    "odMm": 75.0,
+    "widthMm": 10.0,
+    "series": "16000"
+  },
+  {
+    "designation": "16010",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 50.0,
+    "odMm": 80.0,
+    "widthMm": 10.0,
+    "series": "16000"
+  },
+  {
+    "designation": "16011",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 55.0,
+    "odMm": 90.0,
+    "widthMm": 11.0,
+    "series": "16000"
+  },
+  {
+    "designation": "16012",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 60.0,
+    "odMm": 95.0,
+    "widthMm": 11.0,
+    "series": "16000"
+  },
+  {
+    "designation": "16013",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 65.0,
+    "odMm": 100.0,
+    "widthMm": 11.0,
+    "series": "16000"
+  },
+  {
+    "designation": "16014",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 70.0,
+    "odMm": 110.0,
+    "widthMm": 13.0,
+    "series": "16000"
+  },
+  {
+    "designation": "16015",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 75.0,
+    "odMm": 115.0,
+    "widthMm": 13.0,
+    "series": "16000"
+  },
+  {
+    "designation": "16016",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 80.0,
+    "odMm": 125.0,
+    "widthMm": 14.0,
+    "series": "16000"
+  },
+  {
+    "designation": "16017",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 85.0,
+    "odMm": 130.0,
+    "widthMm": 14.0,
+    "series": "16000"
+  },
+  {
+    "designation": "16018",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 90.0,
+    "odMm": 140.0,
+    "widthMm": 16.0,
+    "series": "16000"
+  },
+  {
+    "designation": "16019",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 95.0,
+    "odMm": 145.0,
+    "widthMm": 16.0,
+    "series": "16000"
+  },
+  {
+    "designation": "16020",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 100.0,
+    "odMm": 150.0,
+    "widthMm": 16.0,
+    "series": "16000"
+  },
+  {
+    "designation": "16100",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 10.0,
+    "odMm": 28.0,
+    "widthMm": 8.0,
+    "series": "16100"
+  },
+  {
+    "designation": "16101",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 12.0,
+    "odMm": 30.0,
+    "widthMm": 8.0,
+    "series": "16100"
+  },
+  {
+    "designation": "4200",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 10.0,
+    "odMm": 30.0,
+    "widthMm": 14.0,
+    "series": "4200"
+  },
+  {
+    "designation": "4201",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 12.0,
+    "odMm": 32.0,
+    "widthMm": 14.0,
+    "series": "4200"
+  },
+  {
+    "designation": "4202",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 15.0,
+    "odMm": 35.0,
+    "widthMm": 14.0,
+    "series": "4200"
+  },
+  {
+    "designation": "4203",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 17.0,
+    "odMm": 40.0,
+    "widthMm": 16.0,
+    "series": "4200"
+  },
+  {
+    "designation": "4204",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 20.0,
+    "odMm": 47.0,
+    "widthMm": 18.0,
+    "series": "4200"
+  },
+  {
+    "designation": "4205",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 25.0,
+    "odMm": 52.0,
+    "widthMm": 18.0,
+    "series": "4200"
+  },
+  {
+    "designation": "4206",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 30.0,
+    "odMm": 62.0,
+    "widthMm": 20.0,
+    "series": "4200"
+  },
+  {
+    "designation": "4207",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 35.0,
+    "odMm": 72.0,
+    "widthMm": 23.0,
+    "series": "4200"
+  },
+  {
+    "designation": "4208",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 40.0,
+    "odMm": 80.0,
+    "widthMm": 23.0,
+    "series": "4200"
+  },
+  {
+    "designation": "4209",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 45.0,
+    "odMm": 85.0,
+    "widthMm": 23.0,
+    "series": "4200"
+  },
+  {
+    "designation": "4210",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 50.0,
+    "odMm": 90.0,
+    "widthMm": 23.0,
+    "series": "4200"
+  },
+  {
+    "designation": "4211",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 55.0,
+    "odMm": 100.0,
+    "widthMm": 25.0,
+    "series": "4200"
+  },
+  {
+    "designation": "4212",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 60.0,
+    "odMm": 110.0,
+    "widthMm": 28.0,
+    "series": "4200"
+  },
+  {
+    "designation": "4213",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 65.0,
+    "odMm": 120.0,
+    "widthMm": 31.0,
+    "series": "4200"
+  },
+  {
+    "designation": "4214",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 70.0,
+    "odMm": 125.0,
+    "widthMm": 31.0,
+    "series": "4200"
+  },
+  {
+    "designation": "4215",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 75.0,
+    "odMm": 130.0,
+    "widthMm": 31.0,
+    "series": "4200"
+  },
+  {
+    "designation": "4216",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 80.0,
+    "odMm": 140.0,
+    "widthMm": 33.0,
+    "series": "4200"
+  },
+  {
+    "designation": "4217",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 85.0,
+    "odMm": 150.0,
+    "widthMm": 36.0,
+    "series": "4200"
+  },
+  {
+    "designation": "4218",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 90.0,
+    "odMm": 160.0,
+    "widthMm": 40.0,
+    "series": "4200"
+  },
+  {
+    "designation": "4219",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 95.0,
+    "odMm": 170.0,
+    "widthMm": 43.0,
+    "series": "4200"
+  },
+  {
+    "designation": "4220",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 100.0,
+    "odMm": 180.0,
+    "widthMm": 46.0,
+    "series": "4200"
+  },
+  {
+    "designation": "4300",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 10.0,
+    "odMm": 35.0,
+    "widthMm": 17.0,
+    "series": "4300"
+  },
+  {
+    "designation": "4301",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 12.0,
+    "odMm": 37.0,
+    "widthMm": 17.0,
+    "series": "4300"
+  },
+  {
+    "designation": "4302",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 15.0,
+    "odMm": 42.0,
+    "widthMm": 17.0,
+    "series": "4300"
+  },
+  {
+    "designation": "4303",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 17.0,
+    "odMm": 47.0,
+    "widthMm": 19.0,
+    "series": "4300"
+  },
+  {
+    "designation": "4304",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 20.0,
+    "odMm": 52.0,
+    "widthMm": 21.0,
+    "series": "4300"
+  },
+  {
+    "designation": "4305",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 25.0,
+    "odMm": 62.0,
+    "widthMm": 24.0,
+    "series": "4300"
+  },
+  {
+    "designation": "4306",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 30.0,
+    "odMm": 72.0,
+    "widthMm": 27.0,
+    "series": "4300"
+  },
+  {
+    "designation": "4307",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 35.0,
+    "odMm": 80.0,
+    "widthMm": 31.0,
+    "series": "4300"
+  },
+  {
+    "designation": "4308",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 40.0,
+    "odMm": 90.0,
+    "widthMm": 33.0,
+    "series": "4300"
+  },
+  {
+    "designation": "4309",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 45.0,
+    "odMm": 100.0,
+    "widthMm": 36.0,
+    "series": "4300"
+  },
+  {
+    "designation": "4310",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 50.0,
+    "odMm": 110.0,
+    "widthMm": 40.0,
+    "series": "4300"
+  },
+  {
+    "designation": "4311",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 55.0,
+    "odMm": 120.0,
+    "widthMm": 43.0,
+    "series": "4300"
+  },
+  {
+    "designation": "4312",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 60.0,
+    "odMm": 130.0,
+    "widthMm": 46.0,
+    "series": "4300"
+  },
+  {
+    "designation": "4313",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 65.0,
+    "odMm": 140.0,
+    "widthMm": 48.0,
+    "series": "4300"
+  },
+  {
+    "designation": "4314",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 70.0,
+    "odMm": 150.0,
+    "widthMm": 51.0,
+    "series": "4300"
+  },
+  {
+    "designation": "4315",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 75.0,
+    "odMm": 160.0,
+    "widthMm": 55.0,
+    "series": "4300"
+  },
+  {
+    "designation": "4316",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 80.0,
+    "odMm": 170.0,
+    "widthMm": 58.0,
+    "series": "4300"
+  },
+  {
+    "designation": "4317",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 85.0,
+    "odMm": 180.0,
+    "widthMm": 60.0,
+    "series": "4300"
+  },
+  {
+    "designation": "4318",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 90.0,
+    "odMm": 190.0,
+    "widthMm": 64.0,
+    "series": "4300"
+  },
+  {
+    "designation": "4319",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 95.0,
+    "odMm": 200.0,
+    "widthMm": 67.0,
+    "series": "4300"
+  },
+  {
+    "designation": "4320",
+    "type": "Double-row deep groove ball bearing",
+    "boreMm": 100.0,
+    "odMm": 215.0,
+    "widthMm": 73.0,
+    "series": "4300"
+  },
+  {
+    "designation": "603",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 3.0,
+    "odMm": 9.0,
+    "widthMm": 3.0,
+    "series": "600"
+  },
+  {
+    "designation": "604",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 4.0,
+    "odMm": 12.0,
+    "widthMm": 4.0,
+    "series": "600"
+  },
+  {
+    "designation": "605",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 5.0,
+    "odMm": 14.0,
+    "widthMm": 5.0,
+    "series": "600"
+  },
+  {
+    "designation": "606",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 6.0,
+    "odMm": 17.0,
+    "widthMm": 6.0,
+    "series": "600"
+  },
+  {
+    "designation": "607",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 7.0,
+    "odMm": 19.0,
+    "widthMm": 6.0,
+    "series": "600"
+  },
+  {
+    "designation": "608",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 8.0,
+    "odMm": 22.0,
+    "widthMm": 7.0,
+    "series": "600"
+  },
+  {
+    "designation": "609",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 9.0,
+    "odMm": 24.0,
+    "widthMm": 7.0,
+    "series": "600"
+  },
+  {
+    "designation": "6000",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 10.0,
+    "odMm": 26.0,
+    "widthMm": 8.0,
+    "series": "6000"
+  },
+  {
+    "designation": "6001",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 12.0,
+    "odMm": 28.0,
+    "widthMm": 8.0,
+    "series": "6000"
+  },
+  {
+    "designation": "6002",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 15.0,
+    "odMm": 32.0,
+    "widthMm": 9.0,
+    "series": "6000"
+  },
+  {
+    "designation": "6003",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 17.0,
+    "odMm": 35.0,
+    "widthMm": 10.0,
+    "series": "6000"
+  },
+  {
+    "designation": "6004",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 20.0,
+    "odMm": 42.0,
+    "widthMm": 12.0,
+    "series": "6000"
+  },
+  {
+    "designation": "6005",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 25.0,
+    "odMm": 47.0,
+    "widthMm": 12.0,
+    "series": "6000"
+  },
+  {
+    "designation": "6006",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 30.0,
+    "odMm": 55.0,
+    "widthMm": 13.0,
+    "series": "6000"
+  },
+  {
+    "designation": "6007",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 35.0,
+    "odMm": 62.0,
+    "widthMm": 14.0,
+    "series": "6000"
+  },
+  {
+    "designation": "6008",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 40.0,
+    "odMm": 68.0,
+    "widthMm": 15.0,
+    "series": "6000"
+  },
+  {
+    "designation": "6009",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 45.0,
+    "odMm": 75.0,
+    "widthMm": 16.0,
+    "series": "6000"
+  },
+  {
+    "designation": "6010",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 50.0,
+    "odMm": 80.0,
+    "widthMm": 16.0,
+    "series": "6000"
+  },
+  {
+    "designation": "6011",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 55.0,
+    "odMm": 90.0,
+    "widthMm": 18.0,
+    "series": "6000"
+  },
+  {
+    "designation": "6012",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 60.0,
+    "odMm": 95.0,
+    "widthMm": 18.0,
+    "series": "6000"
+  },
+  {
+    "designation": "6013",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 65.0,
+    "odMm": 100.0,
+    "widthMm": 18.0,
+    "series": "6000"
+  },
+  {
+    "designation": "6014",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 70.0,
+    "odMm": 110.0,
+    "widthMm": 20.0,
+    "series": "6000"
+  },
+  {
+    "designation": "6015",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 75.0,
+    "odMm": 115.0,
+    "widthMm": 20.0,
+    "series": "6000"
+  },
+  {
+    "designation": "6016",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 80.0,
+    "odMm": 125.0,
+    "widthMm": 22.0,
+    "series": "6000"
+  },
+  {
+    "designation": "6017",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 85.0,
+    "odMm": 130.0,
+    "widthMm": 22.0,
+    "series": "6000"
+  },
+  {
+    "designation": "6018",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 90.0,
+    "odMm": 140.0,
+    "widthMm": 24.0,
+    "series": "6000"
+  },
+  {
+    "designation": "6019",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 95.0,
+    "odMm": 145.0,
+    "widthMm": 24.0,
+    "series": "6000"
+  },
+  {
+    "designation": "6020",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 100.0,
+    "odMm": 150.0,
+    "widthMm": 24.0,
+    "series": "6000"
+  },
+  {
+    "designation": "61701",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 12.0,
+    "odMm": 18.0,
+    "widthMm": 4.0,
+    "series": "61700"
+  },
+  {
+    "designation": "61702",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 15.0,
+    "odMm": 21.0,
+    "widthMm": 4.0,
+    "series": "61700"
+  },
+  {
+    "designation": "61703",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 17.0,
+    "odMm": 23.0,
+    "widthMm": 4.0,
+    "series": "61700"
+  },
+  {
+    "designation": "61704",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 20.0,
+    "odMm": 27.0,
+    "widthMm": 4.0,
+    "series": "61700"
+  },
+  {
+    "designation": "61705",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 25.0,
+    "odMm": 32.0,
+    "widthMm": 4.0,
+    "series": "61700"
+  },
+  {
+    "designation": "61706",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 30.0,
+    "odMm": 37.0,
+    "widthMm": 4.0,
+    "series": "61700"
+  },
+  {
+    "designation": "61707",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 35.0,
+    "odMm": 44.0,
+    "widthMm": 5.0,
+    "series": "61700"
+  },
+  {
+    "designation": "61708",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 40.0,
+    "odMm": 50.0,
+    "widthMm": 6.0,
+    "series": "61700"
+  },
+  {
+    "designation": "61709",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 45.0,
+    "odMm": 55.0,
+    "widthMm": 6.0,
+    "series": "61700"
+  },
+  {
+    "designation": "61710",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 50.0,
+    "odMm": 62.0,
+    "widthMm": 6.0,
+    "series": "61700"
+  },
+  {
+    "designation": "618/3",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 3.0,
+    "odMm": 7.0,
+    "widthMm": 2.0,
+    "series": "61800"
+  },
+  {
+    "designation": "618/4",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 4.0,
+    "odMm": 9.0,
+    "widthMm": 2.5,
+    "series": "61800"
+  },
+  {
+    "designation": "618/5",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 5.0,
+    "odMm": 11.0,
+    "widthMm": 3.0,
+    "series": "61800"
+  },
+  {
+    "designation": "618/6",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 6.0,
+    "odMm": 13.0,
+    "widthMm": 3.5,
+    "series": "61800"
+  },
+  {
+    "designation": "618/7",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 7.0,
+    "odMm": 14.0,
+    "widthMm": 3.5,
+    "series": "61800"
+  },
+  {
+    "designation": "618/8",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 8.0,
+    "odMm": 16.0,
+    "widthMm": 4.0,
+    "series": "61800"
+  },
+  {
+    "designation": "618/9",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 9.0,
+    "odMm": 17.0,
+    "widthMm": 4.0,
+    "series": "61800"
+  },
+  {
+    "designation": "61800",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 10.0,
+    "odMm": 19.0,
+    "widthMm": 5.0,
+    "series": "61800"
+  },
+  {
+    "designation": "61801",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 12.0,
+    "odMm": 21.0,
+    "widthMm": 5.0,
+    "series": "61800"
+  },
+  {
+    "designation": "61802",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 15.0,
+    "odMm": 24.0,
+    "widthMm": 5.0,
+    "series": "61800"
+  },
+  {
+    "designation": "61803",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 17.0,
+    "odMm": 26.0,
+    "widthMm": 5.0,
+    "series": "61800"
+  },
+  {
+    "designation": "61804",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 20.0,
+    "odMm": 32.0,
+    "widthMm": 7.0,
+    "series": "61800"
+  },
+  {
+    "designation": "61805",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 25.0,
+    "odMm": 37.0,
+    "widthMm": 7.0,
+    "series": "61800"
+  },
+  {
+    "designation": "61806",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 30.0,
+    "odMm": 42.0,
+    "widthMm": 7.0,
+    "series": "61800"
+  },
+  {
+    "designation": "61807",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 35.0,
+    "odMm": 47.0,
+    "widthMm": 7.0,
+    "series": "61800"
+  },
+  {
+    "designation": "61808",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 40.0,
+    "odMm": 52.0,
+    "widthMm": 7.0,
+    "series": "61800"
+  },
+  {
+    "designation": "61809",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 45.0,
+    "odMm": 58.0,
+    "widthMm": 7.0,
+    "series": "61800"
+  },
+  {
+    "designation": "61810",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 50.0,
+    "odMm": 65.0,
+    "widthMm": 7.0,
+    "series": "61800"
+  },
+  {
+    "designation": "61811",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 55.0,
+    "odMm": 72.0,
+    "widthMm": 9.0,
+    "series": "61800"
+  },
+  {
+    "designation": "61812",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 60.0,
+    "odMm": 78.0,
+    "widthMm": 10.0,
+    "series": "61800"
+  },
+  {
+    "designation": "61813",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 65.0,
+    "odMm": 85.0,
+    "widthMm": 10.0,
+    "series": "61800"
+  },
+  {
+    "designation": "61814",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 70.0,
+    "odMm": 90.0,
+    "widthMm": 10.0,
+    "series": "61800"
+  },
+  {
+    "designation": "61815",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 75.0,
+    "odMm": 95.0,
+    "widthMm": 10.0,
+    "series": "61800"
+  },
+  {
+    "designation": "61816",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 80.0,
+    "odMm": 100.0,
+    "widthMm": 10.0,
+    "series": "61800"
+  },
+  {
+    "designation": "61817",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 85.0,
+    "odMm": 110.0,
+    "widthMm": 13.0,
+    "series": "61800"
+  },
+  {
+    "designation": "61818",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 90.0,
+    "odMm": 115.0,
+    "widthMm": 13.0,
+    "series": "61800"
+  },
+  {
+    "designation": "61819",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 95.0,
+    "odMm": 120.0,
+    "widthMm": 13.0,
+    "series": "61800"
+  },
+  {
+    "designation": "61820",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 100.0,
+    "odMm": 125.0,
+    "widthMm": 13.0,
+    "series": "61800"
+  },
+  {
+    "designation": "619/3",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 3.0,
+    "odMm": 8.0,
+    "widthMm": 3.0,
+    "series": "61900"
+  },
+  {
+    "designation": "619/4",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 4.0,
+    "odMm": 11.0,
+    "widthMm": 4.0,
+    "series": "61900"
+  },
+  {
+    "designation": "619/5",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 5.0,
+    "odMm": 13.0,
+    "widthMm": 4.0,
+    "series": "61900"
+  },
+  {
+    "designation": "619/6",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 6.0,
+    "odMm": 15.0,
+    "widthMm": 5.0,
+    "series": "61900"
+  },
+  {
+    "designation": "619/7",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 7.0,
+    "odMm": 17.0,
+    "widthMm": 5.0,
+    "series": "61900"
+  },
+  {
+    "designation": "619/8",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 8.0,
+    "odMm": 19.0,
+    "widthMm": 6.0,
+    "series": "61900"
+  },
+  {
+    "designation": "619/9",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 9.0,
+    "odMm": 20.0,
+    "widthMm": 6.0,
+    "series": "61900"
+  },
+  {
+    "designation": "61900",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 10.0,
+    "odMm": 22.0,
+    "widthMm": 6.0,
+    "series": "61900"
+  },
+  {
+    "designation": "61901",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 12.0,
+    "odMm": 24.0,
+    "widthMm": 6.0,
+    "series": "61900"
+  },
+  {
+    "designation": "61902",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 15.0,
+    "odMm": 28.0,
+    "widthMm": 7.0,
+    "series": "61900"
+  },
+  {
+    "designation": "61903",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 17.0,
+    "odMm": 30.0,
+    "widthMm": 7.0,
+    "series": "61900"
+  },
+  {
+    "designation": "61904",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 20.0,
+    "odMm": 37.0,
+    "widthMm": 9.0,
+    "series": "61900"
+  },
+  {
+    "designation": "61905",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 25.0,
+    "odMm": 42.0,
+    "widthMm": 9.0,
+    "series": "61900"
+  },
+  {
+    "designation": "61906",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 30.0,
+    "odMm": 47.0,
+    "widthMm": 9.0,
+    "series": "61900"
+  },
+  {
+    "designation": "61907",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 35.0,
+    "odMm": 55.0,
+    "widthMm": 10.0,
+    "series": "61900"
+  },
+  {
+    "designation": "61908",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 40.0,
+    "odMm": 62.0,
+    "widthMm": 12.0,
+    "series": "61900"
+  },
+  {
+    "designation": "61909",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 45.0,
+    "odMm": 68.0,
+    "widthMm": 12.0,
+    "series": "61900"
+  },
+  {
+    "designation": "61910",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 50.0,
+    "odMm": 72.0,
+    "widthMm": 12.0,
+    "series": "61900"
+  },
+  {
+    "designation": "61911",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 55.0,
+    "odMm": 80.0,
+    "widthMm": 13.0,
+    "series": "61900"
+  },
+  {
+    "designation": "61912",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 60.0,
+    "odMm": 85.0,
+    "widthMm": 13.0,
+    "series": "61900"
+  },
+  {
+    "designation": "61913",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 65.0,
+    "odMm": 90.0,
+    "widthMm": 13.0,
+    "series": "61900"
+  },
+  {
+    "designation": "61914",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 70.0,
+    "odMm": 100.0,
+    "widthMm": 16.0,
+    "series": "61900"
+  },
+  {
+    "designation": "61915",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 75.0,
+    "odMm": 105.0,
+    "widthMm": 16.0,
+    "series": "61900"
+  },
+  {
+    "designation": "61916",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 80.0,
+    "odMm": 110.0,
+    "widthMm": 16.0,
+    "series": "61900"
+  },
+  {
+    "designation": "61917",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 85.0,
+    "odMm": 120.0,
+    "widthMm": 18.0,
+    "series": "61900"
+  },
+  {
+    "designation": "61918",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 90.0,
+    "odMm": 125.0,
+    "widthMm": 18.0,
+    "series": "61900"
+  },
+  {
+    "designation": "61919",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 95.0,
+    "odMm": 130.0,
+    "widthMm": 18.0,
+    "series": "61900"
+  },
+  {
+    "designation": "61920",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 100.0,
+    "odMm": 140.0,
+    "widthMm": 20.0,
+    "series": "61900"
+  },
+  {
+    "designation": "623",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 3.0,
+    "odMm": 10.0,
+    "widthMm": 4.0,
+    "series": "620"
+  },
+  {
+    "designation": "624",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 4.0,
+    "odMm": 13.0,
+    "widthMm": 5.0,
+    "series": "620"
+  },
+  {
+    "designation": "625",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 5.0,
+    "odMm": 16.0,
+    "widthMm": 5.0,
+    "series": "620"
+  },
+  {
+    "designation": "626",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 6.0,
+    "odMm": 19.0,
+    "widthMm": 6.0,
+    "series": "620"
+  },
+  {
+    "designation": "627",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 7.0,
+    "odMm": 22.0,
+    "widthMm": 7.0,
+    "series": "620"
+  },
+  {
+    "designation": "628",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 8.0,
+    "odMm": 24.0,
+    "widthMm": 8.0,
+    "series": "620"
+  },
+  {
+    "designation": "629",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 9.0,
+    "odMm": 26.0,
+    "widthMm": 8.0,
+    "series": "620"
+  },
+  {
+    "designation": "6200",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 10.0,
+    "odMm": 30.0,
+    "widthMm": 9.0,
+    "series": "6200"
+  },
+  {
+    "designation": "6201",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 12.0,
+    "odMm": 32.0,
+    "widthMm": 10.0,
+    "series": "6200"
+  },
+  {
+    "designation": "6202",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 15.0,
+    "odMm": 35.0,
+    "widthMm": 11.0,
+    "series": "6200"
+  },
+  {
+    "designation": "6203",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 17.0,
+    "odMm": 40.0,
+    "widthMm": 12.0,
+    "series": "6200"
+  },
+  {
+    "designation": "6204",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 20.0,
+    "odMm": 47.0,
+    "widthMm": 14.0,
+    "series": "6200"
+  },
+  {
+    "designation": "6205",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 25.0,
+    "odMm": 52.0,
+    "widthMm": 15.0,
+    "series": "6200"
+  },
+  {
+    "designation": "6206",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 30.0,
+    "odMm": 62.0,
+    "widthMm": 16.0,
+    "series": "6200"
+  },
+  {
+    "designation": "6207",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 35.0,
+    "odMm": 72.0,
+    "widthMm": 17.0,
+    "series": "6200"
+  },
+  {
+    "designation": "6208",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 40.0,
+    "odMm": 80.0,
+    "widthMm": 18.0,
+    "series": "6200"
+  },
+  {
+    "designation": "6209",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 45.0,
+    "odMm": 85.0,
+    "widthMm": 19.0,
+    "series": "6200"
+  },
+  {
+    "designation": "6210",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 50.0,
+    "odMm": 90.0,
+    "widthMm": 20.0,
+    "series": "6200"
+  },
+  {
+    "designation": "6211",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 55.0,
+    "odMm": 100.0,
+    "widthMm": 21.0,
+    "series": "6200"
+  },
+  {
+    "designation": "6212",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 60.0,
+    "odMm": 110.0,
+    "widthMm": 22.0,
+    "series": "6200"
+  },
+  {
+    "designation": "6213",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 65.0,
+    "odMm": 120.0,
+    "widthMm": 23.0,
+    "series": "6200"
+  },
+  {
+    "designation": "6214",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 70.0,
+    "odMm": 125.0,
+    "widthMm": 24.0,
+    "series": "6200"
+  },
+  {
+    "designation": "6215",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 75.0,
+    "odMm": 130.0,
+    "widthMm": 25.0,
+    "series": "6200"
+  },
+  {
+    "designation": "6216",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 80.0,
+    "odMm": 140.0,
+    "widthMm": 26.0,
+    "series": "6200"
+  },
+  {
+    "designation": "6217",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 85.0,
+    "odMm": 150.0,
+    "widthMm": 28.0,
+    "series": "6200"
+  },
+  {
+    "designation": "6218",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 90.0,
+    "odMm": 160.0,
+    "widthMm": 30.0,
+    "series": "6200"
+  },
+  {
+    "designation": "6219",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 95.0,
+    "odMm": 170.0,
+    "widthMm": 32.0,
+    "series": "6200"
+  },
+  {
+    "designation": "6220",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 100.0,
+    "odMm": 180.0,
+    "widthMm": 34.0,
+    "series": "6200"
+  },
+  {
+    "designation": "62000",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 10.0,
+    "odMm": 26.0,
+    "widthMm": 10.0,
+    "series": "62000"
+  },
+  {
+    "designation": "62001",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 12.0,
+    "odMm": 28.0,
+    "widthMm": 10.0,
+    "series": "62000"
+  },
+  {
+    "designation": "62002",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 15.0,
+    "odMm": 32.0,
+    "widthMm": 11.0,
+    "series": "62000"
+  },
+  {
+    "designation": "62003",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 17.0,
+    "odMm": 35.0,
+    "widthMm": 12.0,
+    "series": "62000"
+  },
+  {
+    "designation": "62004",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 20.0,
+    "odMm": 42.0,
+    "widthMm": 13.0,
+    "series": "62000"
+  },
+  {
+    "designation": "62005",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 25.0,
+    "odMm": 47.0,
+    "widthMm": 14.0,
+    "series": "62000"
+  },
+  {
+    "designation": "62006",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 30.0,
+    "odMm": 55.0,
+    "widthMm": 15.0,
+    "series": "62000"
+  },
+  {
+    "designation": "62007",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 35.0,
+    "odMm": 62.0,
+    "widthMm": 16.0,
+    "series": "62000"
+  },
+  {
+    "designation": "62008",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 40.0,
+    "odMm": 68.0,
+    "widthMm": 17.0,
+    "series": "62000"
+  },
+  {
+    "designation": "62200",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 10.0,
+    "odMm": 30.0,
+    "widthMm": 14.0,
+    "series": "62200"
+  },
+  {
+    "designation": "62201",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 12.0,
+    "odMm": 32.0,
+    "widthMm": 14.0,
+    "series": "62200"
+  },
+  {
+    "designation": "62202",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 15.0,
+    "odMm": 35.0,
+    "widthMm": 14.0,
+    "series": "62200"
+  },
+  {
+    "designation": "62203",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 17.0,
+    "odMm": 40.0,
+    "widthMm": 16.0,
+    "series": "62200"
+  },
+  {
+    "designation": "62204",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 20.0,
+    "odMm": 47.0,
+    "widthMm": 18.0,
+    "series": "62200"
+  },
+  {
+    "designation": "62205",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 25.0,
+    "odMm": 52.0,
+    "widthMm": 18.0,
+    "series": "62200"
+  },
+  {
+    "designation": "62206",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 30.0,
+    "odMm": 62.0,
+    "widthMm": 20.0,
+    "series": "62200"
+  },
+  {
+    "designation": "62207",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 35.0,
+    "odMm": 72.0,
+    "widthMm": 23.0,
+    "series": "62200"
+  },
+  {
+    "designation": "62208",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 40.0,
+    "odMm": 80.0,
+    "widthMm": 23.0,
+    "series": "62200"
+  },
+  {
+    "designation": "62209",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 45.0,
+    "odMm": 85.0,
+    "widthMm": 23.0,
+    "series": "62200"
+  },
+  {
+    "designation": "62210",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 50.0,
+    "odMm": 90.0,
+    "widthMm": 23.0,
+    "series": "62200"
+  },
+  {
+    "designation": "62211",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 55.0,
+    "odMm": 100.0,
+    "widthMm": 25.0,
+    "series": "62200"
+  },
+  {
+    "designation": "62212",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 60.0,
+    "odMm": 110.0,
+    "widthMm": 28.0,
+    "series": "62200"
+  },
+  {
+    "designation": "62213",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 65.0,
+    "odMm": 120.0,
+    "widthMm": 31.0,
+    "series": "62200"
+  },
+  {
+    "designation": "62214",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 70.0,
+    "odMm": 125.0,
+    "widthMm": 31.0,
+    "series": "62200"
+  },
+  {
+    "designation": "62300",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 10.0,
+    "odMm": 35.0,
+    "widthMm": 17.0,
+    "series": "62300"
+  },
+  {
+    "designation": "62301",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 12.0,
+    "odMm": 37.0,
+    "widthMm": 17.0,
+    "series": "62300"
+  },
+  {
+    "designation": "62302",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 15.0,
+    "odMm": 42.0,
+    "widthMm": 17.0,
+    "series": "62300"
+  },
+  {
+    "designation": "62303",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 17.0,
+    "odMm": 47.0,
+    "widthMm": 19.0,
+    "series": "62300"
+  },
+  {
+    "designation": "62304",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 20.0,
+    "odMm": 52.0,
+    "widthMm": 21.0,
+    "series": "62300"
+  },
+  {
+    "designation": "62305",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 25.0,
+    "odMm": 62.0,
+    "widthMm": 24.0,
+    "series": "62300"
+  },
+  {
+    "designation": "62306",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 30.0,
+    "odMm": 72.0,
+    "widthMm": 27.0,
+    "series": "62300"
+  },
+  {
+    "designation": "62307",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 35.0,
+    "odMm": 80.0,
+    "widthMm": 31.0,
+    "series": "62300"
+  },
+  {
+    "designation": "62308",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 40.0,
+    "odMm": 90.0,
+    "widthMm": 33.0,
+    "series": "62300"
+  },
+  {
+    "designation": "62309",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 45.0,
+    "odMm": 100.0,
+    "widthMm": 36.0,
+    "series": "62300"
+  },
+  {
+    "designation": "62310",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 50.0,
+    "odMm": 110.0,
+    "widthMm": 40.0,
+    "series": "62300"
+  },
+  {
+    "designation": "62311",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 55.0,
+    "odMm": 120.0,
+    "widthMm": 43.0,
+    "series": "62300"
+  },
+  {
+    "designation": "62312",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 60.0,
+    "odMm": 130.0,
+    "widthMm": 46.0,
+    "series": "62300"
+  },
+  {
+    "designation": "62313",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 65.0,
+    "odMm": 140.0,
+    "widthMm": 48.0,
+    "series": "62300"
+  },
+  {
+    "designation": "62314",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 70.0,
+    "odMm": 150.0,
+    "widthMm": 51.0,
+    "series": "62300"
+  },
+  {
+    "designation": "633",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 3.0,
+    "odMm": 13.0,
+    "widthMm": 5.0,
+    "series": "630"
+  },
+  {
+    "designation": "634",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 4.0,
+    "odMm": 16.0,
+    "widthMm": 5.0,
+    "series": "630"
+  },
+  {
+    "designation": "635",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 5.0,
+    "odMm": 19.0,
+    "widthMm": 6.0,
+    "series": "630"
+  },
+  {
+    "designation": "636",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 6.0,
+    "odMm": 22.0,
+    "widthMm": 7.0,
+    "series": "630"
+  },
+  {
+    "designation": "637",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 7.0,
+    "odMm": 26.0,
+    "widthMm": 9.0,
+    "series": "630"
+  },
+  {
+    "designation": "638",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 8.0,
+    "odMm": 28.0,
+    "widthMm": 9.0,
+    "series": "630"
+  },
+  {
+    "designation": "639",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 9.0,
+    "odMm": 30.0,
+    "widthMm": 10.0,
+    "series": "630"
+  },
+  {
+    "designation": "6300",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 10.0,
+    "odMm": 35.0,
+    "widthMm": 11.0,
+    "series": "6300"
+  },
+  {
+    "designation": "6301",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 12.0,
+    "odMm": 37.0,
+    "widthMm": 12.0,
+    "series": "6300"
+  },
+  {
+    "designation": "6302",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 15.0,
+    "odMm": 42.0,
+    "widthMm": 13.0,
+    "series": "6300"
+  },
+  {
+    "designation": "6303",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 17.0,
+    "odMm": 47.0,
+    "widthMm": 14.0,
+    "series": "6300"
+  },
+  {
+    "designation": "6304",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 20.0,
+    "odMm": 52.0,
+    "widthMm": 15.0,
+    "series": "6300"
+  },
+  {
+    "designation": "6305",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 25.0,
+    "odMm": 62.0,
+    "widthMm": 17.0,
+    "series": "6300"
+  },
+  {
+    "designation": "6306",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 30.0,
+    "odMm": 72.0,
+    "widthMm": 19.0,
+    "series": "6300"
+  },
+  {
+    "designation": "6307",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 35.0,
+    "odMm": 80.0,
+    "widthMm": 21.0,
+    "series": "6300"
+  },
+  {
+    "designation": "6308",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 40.0,
+    "odMm": 90.0,
+    "widthMm": 23.0,
+    "series": "6300"
+  },
+  {
+    "designation": "6309",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 45.0,
+    "odMm": 100.0,
+    "widthMm": 25.0,
+    "series": "6300"
+  },
+  {
+    "designation": "6310",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 50.0,
+    "odMm": 110.0,
+    "widthMm": 27.0,
+    "series": "6300"
+  },
+  {
+    "designation": "6311",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 55.0,
+    "odMm": 120.0,
+    "widthMm": 29.0,
+    "series": "6300"
+  },
+  {
+    "designation": "6312",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 60.0,
+    "odMm": 130.0,
+    "widthMm": 31.0,
+    "series": "6300"
+  },
+  {
+    "designation": "6313",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 65.0,
+    "odMm": 140.0,
+    "widthMm": 33.0,
+    "series": "6300"
+  },
+  {
+    "designation": "6314",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 70.0,
+    "odMm": 150.0,
+    "widthMm": 35.0,
+    "series": "6300"
+  },
+  {
+    "designation": "6315",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 75.0,
+    "odMm": 160.0,
+    "widthMm": 37.0,
+    "series": "6300"
+  },
+  {
+    "designation": "6316",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 80.0,
+    "odMm": 170.0,
+    "widthMm": 39.0,
+    "series": "6300"
+  },
+  {
+    "designation": "6317",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 85.0,
+    "odMm": 180.0,
+    "widthMm": 41.0,
+    "series": "6300"
+  },
+  {
+    "designation": "6318",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 90.0,
+    "odMm": 190.0,
+    "widthMm": 43.0,
+    "series": "6300"
+  },
+  {
+    "designation": "6319",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 95.0,
+    "odMm": 200.0,
+    "widthMm": 45.0,
+    "series": "6300"
+  },
+  {
+    "designation": "6320",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 100.0,
+    "odMm": 215.0,
+    "widthMm": 47.0,
+    "series": "6300"
+  },
+  {
+    "designation": "63000",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 10.0,
+    "odMm": 26.0,
+    "widthMm": 12.0,
+    "series": "63000"
+  },
+  {
+    "designation": "63001",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 12.0,
+    "odMm": 28.0,
+    "widthMm": 12.0,
+    "series": "63000"
+  },
+  {
+    "designation": "63002",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 15.0,
+    "odMm": 32.0,
+    "widthMm": 13.0,
+    "series": "63000"
+  },
+  {
+    "designation": "63003",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 17.0,
+    "odMm": 35.0,
+    "widthMm": 14.0,
+    "series": "63000"
+  },
+  {
+    "designation": "63004",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 20.0,
+    "odMm": 42.0,
+    "widthMm": 16.0,
+    "series": "63000"
+  },
+  {
+    "designation": "63005",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 25.0,
+    "odMm": 47.0,
+    "widthMm": 16.0,
+    "series": "63000"
+  },
+  {
+    "designation": "63006",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 30.0,
+    "odMm": 55.0,
+    "widthMm": 19.0,
+    "series": "63000"
+  },
+  {
+    "designation": "63007",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 35.0,
+    "odMm": 62.0,
+    "widthMm": 20.0,
+    "series": "63000"
+  },
+  {
+    "designation": "63008",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 40.0,
+    "odMm": 68.0,
+    "widthMm": 21.0,
+    "series": "63000"
+  },
+  {
+    "designation": "63009",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 45.0,
+    "odMm": 75.0,
+    "widthMm": 23.0,
+    "series": "63000"
+  },
+  {
+    "designation": "63010",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 50.0,
+    "odMm": 80.0,
+    "widthMm": 23.0,
+    "series": "63000"
+  },
+  {
+    "designation": "6403",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 17.0,
+    "odMm": 62.0,
+    "widthMm": 17.0,
+    "series": "6400"
+  },
+  {
+    "designation": "6404",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 20.0,
+    "odMm": 72.0,
+    "widthMm": 19.0,
+    "series": "6400"
+  },
+  {
+    "designation": "6405",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 25.0,
+    "odMm": 80.0,
+    "widthMm": 21.0,
+    "series": "6400"
+  },
+  {
+    "designation": "6406",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 30.0,
+    "odMm": 90.0,
+    "widthMm": 23.0,
+    "series": "6400"
+  },
+  {
+    "designation": "6407",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 35.0,
+    "odMm": 100.0,
+    "widthMm": 25.0,
+    "series": "6400"
+  },
+  {
+    "designation": "6408",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 40.0,
+    "odMm": 110.0,
+    "widthMm": 27.0,
+    "series": "6400"
+  },
+  {
+    "designation": "6409",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 45.0,
+    "odMm": 120.0,
+    "widthMm": 29.0,
+    "series": "6400"
+  },
+  {
+    "designation": "6410",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 50.0,
+    "odMm": 130.0,
+    "widthMm": 31.0,
+    "series": "6400"
+  },
+  {
+    "designation": "6411",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 55.0,
+    "odMm": 140.0,
+    "widthMm": 33.0,
+    "series": "6400"
+  },
+  {
+    "designation": "6412",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 60.0,
+    "odMm": 150.0,
+    "widthMm": 35.0,
+    "series": "6400"
+  },
+  {
+    "designation": "6413",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 65.0,
+    "odMm": 160.0,
+    "widthMm": 37.0,
+    "series": "6400"
+  },
+  {
+    "designation": "6414",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 70.0,
+    "odMm": 180.0,
+    "widthMm": 42.0,
+    "series": "6400"
+  },
+  {
+    "designation": "6415",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 75.0,
+    "odMm": 190.0,
+    "widthMm": 45.0,
+    "series": "6400"
+  },
+  {
+    "designation": "6416",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 80.0,
+    "odMm": 200.0,
+    "widthMm": 48.0,
+    "series": "6400"
+  },
+  {
+    "designation": "6417",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 85.0,
+    "odMm": 210.0,
+    "widthMm": 52.0,
+    "series": "6400"
+  },
+  {
+    "designation": "6418",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 90.0,
+    "odMm": 225.0,
+    "widthMm": 54.0,
+    "series": "6400"
+  },
+  {
+    "designation": "6419",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 95.0,
+    "odMm": 240.0,
+    "widthMm": 55.0,
+    "series": "6400"
+  },
+  {
+    "designation": "6420",
+    "type": "Single-row deep groove ball bearing",
+    "boreMm": 100.0,
+    "odMm": 250.0,
+    "widthMm": 58.0,
+    "series": "6400"
+  }
+]
