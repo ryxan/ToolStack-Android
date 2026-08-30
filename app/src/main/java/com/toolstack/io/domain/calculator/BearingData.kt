@@ -23,6 +23,13 @@ object BearingData {
     }
 
     /**
+     * Returns true when all three dimensions are finite and greater than zero.
+     */
+    fun areValidDimensions(boreMm: Double, odMm: Double, widthMm: Double): Boolean {
+        return listOf(boreMm, odMm, widthMm).all { it > 0 && it.isFinite() }
+    }
+
+    /**
      * Finds bearings whose dimensions match the requested values within the
      * given tolerance. Results are sorted by how closely they match.
      */
@@ -33,6 +40,9 @@ object BearingData {
         widthMm: Double,
         toleranceMm: Double = 0.0
     ): List<Bearing> {
+        if (!areValidDimensions(boreMm, odMm, widthMm)) {
+            return emptyList()
+        }
         return bearings.filter { bearing ->
             matches(bearing, boreMm, odMm, widthMm, toleranceMm)
         }.sortedBy { bearing ->

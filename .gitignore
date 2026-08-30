@@ -30,3 +30,7 @@ app/release/
 
 # All Gradle build output directories
 build/
+
+# Python cache artifacts from catalog generator tests
+__pycache__/
+*.pyc

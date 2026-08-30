@@ -1,6 +1,7 @@
 package com.toolstack.io.domain.calculator
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -57,6 +58,63 @@ class BearingDataTest {
 
         assertTrue(results.isNotEmpty())
         assertEquals("6205", results.first().designation)
+    }
+
+    @Test
+    fun `findByDimensions rejects negative dimensions`() {
+        val results = BearingData.findByDimensions(
+            bearings = testBearings,
+            boreMm = -25.0,
+            odMm = 52.0,
+            widthMm = 15.0
+        )
+
+        assertTrue(results.isEmpty())
+    }
+
+    @Test
+    fun `findByDimensions rejects zero dimensions`() {
+        val results = BearingData.findByDimensions(
+            bearings = testBearings,
+            boreMm = 0.0,
+            odMm = 52.0,
+            widthMm = 15.0
+        )
+
+        assertTrue(results.isEmpty())
+    }
+
+    @Test
+    fun `findByDimensions rejects NaN dimensions`() {
+        val results = BearingData.findByDimensions(
+            bearings = testBearings,
+            boreMm = Double.NaN,
+            odMm = 52.0,
+            widthMm = 15.0
+        )
+
+        assertTrue(results.isEmpty())
+    }
+
+    @Test
+    fun `findByDimensions rejects infinite dimensions`() {
+        val results = BearingData.findByDimensions(
+            bearings = testBearings,
+            boreMm = Double.POSITIVE_INFINITY,
+            odMm = 52.0,
+            widthMm = 15.0
+        )
+
+        assertTrue(results.isEmpty())
+    }
+
+    @Test
+    fun `areValidDimensions returns false for non positive and non finite values`() {
+        assertTrue(BearingData.areValidDimensions(1.0, 2.0, 3.0))
+        assertFalse(BearingData.areValidDimensions(-1.0, 2.0, 3.0))
+        assertFalse(BearingData.areValidDimensions(0.0, 2.0, 3.0))
+        assertFalse(BearingData.areValidDimensions(1.0, Double.NaN, 3.0))
+        assertFalse(BearingData.areValidDimensions(1.0, 2.0, Double.NEGATIVE_INFINITY))
     }
 
     @Test

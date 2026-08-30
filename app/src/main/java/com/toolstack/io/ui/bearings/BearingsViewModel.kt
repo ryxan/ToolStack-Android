@@ -2,6 +2,7 @@ package com.toolstack.io.ui.bearings
 
 import androidx.lifecycle.ViewModel
 import com.toolstack.io.data.repository.BearingRepository
+import com.toolstack.io.domain.calculator.BearingData
 import com.toolstack.io.domain.model.Bearing
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,7 +44,9 @@ class BearingsViewModel @Inject constructor(
         val od = state.odText.toDoubleOrNull()
         val width = state.widthText.toDoubleOrNull()
 
-        if (bore == null || od == null || width == null) {
+        if (bore == null || od == null || width == null ||
+            !BearingData.areValidDimensions(bore, od, width)
+        ) {
             _uiState.update {
                 it.copy(
                     results = emptyList(),

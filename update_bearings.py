@@ -99,12 +99,86 @@ def compute_series(designation: str) -> str:
     return designation[:-1] + "0"
 
 
-def load_existing() -> dict:
-    if ASSET.exists():
-        with open(ASSET, encoding="utf-8") as f:
+def _source_rank(source: str) -> int:
+    """Precedence of input sources. Higher numbers override lower ones."""
+    if source == "hardcoded":
+        return 3
+    if source == "JVB catalog":
+        return 2
+    if source and source != "existing":
+        # Other parsed files (Timken/PTI text pages)
+        return 1
+    return 0
+
+
+def add_record(
+    by_desig: dict,
+    sources: dict,
+    desig: str,
+    d: float,
+    D: float,
+    B: float,
+    source: str = "",
+):
+    """Add or update a bearing record, honouring source precedence.
+
+    Parsed and hardcoded sources override the existing catalog so source
+    corrections are applied. Conflicting sources of the same precedence cause
+    the generator to fail rather than silently picking a value.
+    """
+    if not (d > 0 and D > 0 and B > 0):
+        return
+    if d > 100:
+        # The user requested coverage up to 100 mm bore
+        return
+
+    existing = by_desig.get(desig)
+    if existing is not None:
+        if (
+            existing["boreMm"] == d
+            and existing["odMm"] == D
+            and existing["widthMm"] == B
+        ):
+            return
+
+        existing_source = sources.get(desig, "")
+        new_rank = _source_rank(source)
+        old_rank = _source_rank(existing_source)
+
+        if new_rank < old_rank:
+            return
+        if new_rank == old_rank:
+            raise SystemExit(
+                f"error: conflicting dimensions for {desig} "
+                f"(existing {existing['boreMm']} x {existing['odMm']} x {existing['widthMm']} "
+                f"from {existing_source}; new {d} x {D} x {B} from {source})"
+            )
+        print(f"  updating {desig:8s} {d:5.1f} x {D:5.1f} x {B:5.1f}  ({source})")
+    else:
+        print(f"  added {desig:8s} {d:5.1f} x {D:5.1f} x {B:5.1f}  ({source})")
+
+    if desig.startswith("42") or desig.startswith("43"):
+        btype = "Double-row deep groove ball bearing"
+    else:
+        btype = "Single-row deep groove ball bearing"
+    by_desig[desig] = {
+        "designation": desig,
+        "type": btype,
+        "boreMm": float(d),
+        "odMm": float(D),
+        "widthMm": float(B),
+        "series": compute_series(desig),
+    }
+    sources[desig] = source
+
+
+def load_existing(asset: Path = ASSET) -> tuple[dict, dict]:
+    if asset.exists():
+        with open(asset, encoding="utf-8") as f:
             data = json.load(f)
-        return {b["designation"]: b for b in data}
-    return {}
+        by_desig = {b["designation"]: b for b in data}
+        return by_desig, {desig: "existing" for desig in by_desig}
+    return {}, {}
 
 
 def main():
@@ -122,31 +196,11 @@ def main():
     if not input_dir.is_dir():
         raise SystemExit(f"error: input directory not found: {input_dir}")
 
-    by_desig = load_existing()
+    by_desig, sources = load_existing()
     initial_count = len(by_desig)
 
     def add(desig: str, d: float, D: float, B: float, source: str = ""):
-        if d <= 0 or D <= 0 or B <= 0:
-            return
-        if d > 100:
-            # The user requested coverage up to 100 mm bore
-            return
-        if desig in by_desig:
-            return
-        if desig.startswith("42") or desig.startswith("43"):
-            btype = "Double-row deep groove ball bearing"
-        else:
-            btype = "Single-row deep groove ball bearing"
-        by_desig[desig] = {
-            "designation": desig,
-            "type": btype,
-            "boreMm": float(d),
-            "odMm": float(D),
-            "widthMm": float(B),
-            "series": compute_series(desig),
-        }
-        if source:
-            print(f"  added {desig:8s} {d:5.1f} x {D:5.1f} x {B:5.1f}  ({source})")
+        add_record(by_desig, sources, desig, d, D, B, source)
 
     def parse_text_file(path: Path, mode: str = "generic"):
         if not path.exists():
