@@ -12,14 +12,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Anchor
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Construction
-import androidx.compose.material.icons.filled.DonutLarge
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.ElectricalServices
 import androidx.compose.material.icons.filled.Handyman
 import androidx.compose.material.icons.filled.InsertLink
@@ -60,6 +61,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.toolstack.io.R
 import com.toolstack.io.data.billing.BillingProduct
+import com.toolstack.io.ui.components.draggedItem
+import com.toolstack.io.ui.components.rememberDragDropState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,26 +74,16 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
-    // Load Play Store product prices as soon as the screen is active so the
-    // upgrade dialog can display real prices rather than a loading indicator.
     LaunchedEffect(Unit) {
         viewModel.loadProducts()
     }
 
-    val allModules = listOf(
-        Module.SaeMetric,
-        Module.WrenchFastener,
-        Module.TapsAndDrills,
-        Module.ConduitBends,
-        Module.UnitConverter,
-        Module.RatioMix,
-        Module.Components,
-        Module.Wire,
-        Module.Ropes,
-        Module.Chains
-    ).filter { it.isImplemented }
+    var pendingPremiumModule by remember { mutableStateOf<HomeModule?>(null) }
 
-    var pendingPremiumModule by remember { mutableStateOf<Module?>(null) }
+    val listState = rememberLazyListState()
+    val dragDropState = rememberDragDropState(listState) { from, to ->
+        viewModel.moveModule(from, to)
+    }
 
     Scaffold(
         topBar = {
@@ -107,6 +100,7 @@ fun HomeScreen(
         modifier = modifier.fillMaxSize()
     ) { padding ->
         LazyColumn(
+            state = listState,
             contentPadding = PaddingValues(
                 top = padding.calculateTopPadding() + 16.dp,
                 bottom = padding.calculateBottomPadding() + 16.dp,
@@ -116,11 +110,12 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            items(allModules, key = { it.route }) { module ->
+            itemsIndexed(uiState.modules, key = { _, module -> module.route }) { index, module ->
                 ModuleCard(
                     module = module,
-                    // Once the user has Pro, gated modules open directly.
                     isPremiumUnlocked = uiState.isPremium,
+                    isDragging = dragDropState.draggingItemIndex == index,
+                    modifier = Modifier.draggedItem(dragDropState, index, module.route),
                     onClick = {
                         if (module.isPremium && !uiState.isPremium) {
                             pendingPremiumModule = module
@@ -133,7 +128,7 @@ fun HomeScreen(
         }
     }
 
-    // Purchase error snackbar-style dialog
+    // Purchase error dialog
     uiState.purchaseError?.let { error ->
         AlertDialog(
             onDismissRequest = { viewModel.clearPurchaseError() },
@@ -219,22 +214,27 @@ private fun PremiumGateDialog(
 
 @Composable
 private fun ModuleCard(
-    module: Module,
+    module: HomeModule,
     isPremiumUnlocked: Boolean,
+    isDragging: Boolean,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    // Show the lock indicator only when the module requires Pro AND the user
-    // has not yet unlocked it.
     val showLock = module.isPremium && !isPremiumUnlocked
 
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = if (isDragging)
+                MaterialTheme.colorScheme.surfaceVariant
+            else
+                MaterialTheme.colorScheme.surface
         ),
         shape = MaterialTheme.shapes.medium,
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (isDragging) 6.dp else 2.dp
+        )
     ) {
         ListItem(
             headlineContent = {
@@ -244,7 +244,7 @@ private fun ModuleCard(
                 )
             },
             leadingContent = {
-                ModuleIcon(icon = module.icon, showProBadge = showLock)
+                ModuleIcon(icon = module.icon.imageVector, showProBadge = showLock)
             },
             trailingContent = {
                 if (showLock) {
@@ -252,6 +252,12 @@ private fun ModuleCard(
                         imageVector = Icons.Filled.Lock,
                         contentDescription = stringResource(R.string.content_description_premium_lock),
                         tint = MaterialTheme.colorScheme.primary
+                    )
+                } else if (isDragging) {
+                    Icon(
+                        imageVector = Icons.Filled.DragHandle,
+                        contentDescription = stringResource(R.string.content_description_drag_handle),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 } else {
                     Icon(
@@ -303,22 +309,13 @@ private fun ModuleIcon(icon: ImageVector, showProBadge: Boolean) {
     }
 }
 
-private sealed class Module(
-    val route: String,
-    val titleRes: Int,
-    val icon: ImageVector,
-    val isImplemented: Boolean = false,
-    val isPremium: Boolean = false
-) {
-    data object SaeMetric : Module("sae_metric", R.string.sae_to_metric, Icons.Filled.Straighten, isImplemented = true)
-    data object WrenchFastener : Module("wrench_fastener", R.string.wrench_fastener, Icons.Filled.Handyman, isImplemented = true)
-    data object TapsAndDrills : Module("taps_and_drills", R.string.taps_and_drills, Icons.Filled.Build, isImplemented = true)
-    data object Bearings : Module("bearings", R.string.bearings, Icons.Filled.DonutLarge, isImplemented = false)
-    data object ConduitBends : Module("conduit_bends", R.string.conduit_bends, Icons.Filled.Construction, isImplemented = true)
-    data object UnitConverter : Module("unit_converter", R.string.unit_converter, Icons.Filled.SwapHoriz, isImplemented = true)
-    data object RatioMix : Module("ratio_mix", R.string.ratio_mix_title, Icons.Filled.WaterDrop, isImplemented = true)
-    data object Components : Module("components", R.string.components_selection, Icons.Filled.ViewModule)
-    data object Wire : Module("wire", R.string.wire_calculation, Icons.Filled.ElectricalServices)
-    data object Ropes : Module("ropes", R.string.ropes, Icons.Filled.Anchor)
-    data object Chains : Module("chains", R.string.chains, Icons.Filled.InsertLink)
-}
+/** Resolves each [HomeModuleIcon] enum value to its Compose [ImageVector]. */
+private val HomeModuleIcon.imageVector: ImageVector
+    get() = when (this) {
+        HomeModuleIcon.SaeMetric      -> Icons.Filled.Straighten
+        HomeModuleIcon.WrenchFastener -> Icons.Filled.Handyman
+        HomeModuleIcon.TapsAndDrills  -> Icons.Filled.Build
+        HomeModuleIcon.ConduitBends   -> Icons.Filled.Construction
+        HomeModuleIcon.UnitConverter  -> Icons.Filled.SwapHoriz
+        HomeModuleIcon.RatioMix       -> Icons.Filled.WaterDrop
+    }
