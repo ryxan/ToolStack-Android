@@ -37,7 +37,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.toolstack.io.R
 import com.toolstack.io.domain.model.UnitCategory
-import com.toolstack.io.ui.components.dragContainer
 import com.toolstack.io.ui.components.draggedItem
 import com.toolstack.io.ui.components.rememberDragDropState
 
@@ -93,9 +92,7 @@ fun UnitConverterScreen(
                 end = 16.dp
             ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier
-                .fillMaxSize()
-                .dragContainer(dragDropState)
+            modifier = Modifier.fillMaxSize()
         ) {
             itemsIndexed(uiState.categories, key = { _, category -> category.name }) { index, category ->
                 CategoryCard(

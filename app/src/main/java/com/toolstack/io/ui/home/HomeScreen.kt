@@ -61,7 +61,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.toolstack.io.R
 import com.toolstack.io.data.billing.BillingProduct
-import com.toolstack.io.ui.components.dragContainer
 import com.toolstack.io.ui.components.draggedItem
 import com.toolstack.io.ui.components.rememberDragDropState
 
@@ -109,9 +108,7 @@ fun HomeScreen(
                 end = 16.dp
             ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier
-                .fillMaxSize()
-                .dragContainer(dragDropState)
+            modifier = Modifier.fillMaxSize()
         ) {
             itemsIndexed(uiState.modules, key = { _, module -> module.route }) { index, module ->
                 ModuleCard(
