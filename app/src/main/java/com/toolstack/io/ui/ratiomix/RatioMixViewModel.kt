@@ -50,7 +50,16 @@ class RatioMixViewModel @Inject constructor() : ViewModel() {
         _uiState.update { state ->
             if (state.parts.size <= MIN_PARTS) return@update state
             val parts = state.parts.toMutableList().also { it.removeAt(index) }
-            state.copy(parts = parts).recalculate()
+            // Keep knownPartIndex pointing at the same logical part after removal:
+            //   - removed part was before known → shift index down by 1
+            //   - removed part WAS the known → clamp to last valid index
+            //   - removed part was after known → no change needed
+            val newKnown = when {
+                index < state.knownPartIndex  -> state.knownPartIndex - 1
+                index == state.knownPartIndex -> (state.knownPartIndex - 1).coerceAtLeast(0)
+                else                          -> state.knownPartIndex
+            }
+            state.copy(parts = parts, knownPartIndex = newKnown).recalculate()
         }
     }
 
@@ -124,12 +133,15 @@ data class RatioMixUiState(
 ) {
     fun recalculate(): RatioMixUiState {
         val ratios = parts.map { it.ratioText.trim().toDoubleOrNull() }
-        if (ratios.any { it == null || it <= 0.0 }) {
+        if (ratios.any { it == null || !it.isFinite() || it <= 0.0 }) {
             return copy(results = emptyList(), totalResultText = "", ratioSummary = "", hasError = true)
         }
 
         val ratioValues = ratios.map { it!! }
         val ratioSum = ratioValues.sum()
+        if (!ratioSum.isFinite() || ratioSum <= 0.0) {
+            return copy(results = emptyList(), totalResultText = "", ratioSummary = "", hasError = true)
+        }
 
         // Build simplified ratio string e.g. "3 : 1" or "2 : 1 : 0.5"
         val summary = ratioValues.joinToString(" : ") { formatRatio(it) }
@@ -137,12 +149,13 @@ data class RatioMixUiState(
         return when (mode) {
             Mode.TOTAL_TO_PARTS -> {
                 val totalLitres = totalVolumeText.trim().toDoubleOrNull()
-                if (totalLitres == null || totalLitres <= 0.0) {
+                if (totalLitres == null || !totalLitres.isFinite() || totalLitres <= 0.0) {
                     copy(results = emptyList(), totalResultText = "", ratioSummary = summary, hasError = false)
                 } else {
                     val totalInLitres = totalLitres * selectedUnit.toLitres
                     val results = parts.mapIndexed { i, part ->
                         val vol = totalInLitres * (ratioValues[i] / ratioSum)
+                        if (!vol.isFinite()) return copy(results = emptyList(), totalResultText = "", ratioSummary = summary, hasError = true)
                         val display = formatVolume(vol / selectedUnit.toLitres)
                         RatioResult(label = part.label, volumeText = "$display ${selectedUnit.symbol}")
                     }
@@ -152,14 +165,18 @@ data class RatioMixUiState(
             Mode.PART_TO_TOTAL -> {
                 val knownVolume = totalVolumeText.trim().toDoubleOrNull()
                 val idx = knownPartIndex.coerceIn(parts.indices)
-                if (knownVolume == null || knownVolume <= 0.0) {
+                if (knownVolume == null || !knownVolume.isFinite() || knownVolume <= 0.0) {
                     copy(results = emptyList(), totalResultText = "", ratioSummary = summary, hasError = false)
                 } else {
                     val knownInLitres = knownVolume * selectedUnit.toLitres
                     val litresPerRatioPart = knownInLitres / ratioValues[idx]
                     val totalLitres = litresPerRatioPart * ratioSum
+                    if (!litresPerRatioPart.isFinite() || !totalLitres.isFinite()) {
+                        return copy(results = emptyList(), totalResultText = "", ratioSummary = summary, hasError = true)
+                    }
                     val results = parts.mapIndexed { i, part ->
                         val vol = litresPerRatioPart * ratioValues[i]
+                        if (!vol.isFinite()) return copy(results = emptyList(), totalResultText = "", ratioSummary = summary, hasError = true)
                         val display = formatVolume(vol / selectedUnit.toLitres)
                         RatioResult(label = part.label, volumeText = "$display ${selectedUnit.symbol}")
                     }

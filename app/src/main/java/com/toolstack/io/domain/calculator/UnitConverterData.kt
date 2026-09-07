@@ -262,9 +262,9 @@ object UnitConverterData {
 
     /** Base unit: kg/ha */
     private val agrRate = UnitCategory(
-        name        = "Agriculture — Rate",
+        name        = "Agriculture — Mass Rate",
         icon        = Icons.Filled.Agriculture,
-        description = "kg/ha · lb/ac · t/ha · bu/ac · L/ha",
+        description = "kg/ha · lb/ac · t/ha · bu/ac · oz/ac",
         units = listOf(
             linear("kg/ha",                    "kg/ha",  1.0),
             linear("g/ha",                     "g/ha",   0.001),
@@ -272,9 +272,22 @@ object UnitConverterData {
             linear("lb/acre",                  "lb/ac",  1.12085116),
             linear("oz/acre",                  "oz/ac",  0.07005320),
             linear("ton/acre (US)",             "tn/ac",  2241.70231),
-            linear("bushel/acre (wheat 60 lb)", "bu/ac",  67.251),
-            linear("L/ha",                     "L/ha",   1.0),
-            linear("gal/acre (US)",             "gal/ac", 9.35396)
+            linear("bushel/acre (wheat 60 lb)", "bu/ac",  67.251)
+        )
+    )
+
+    /** Base unit: L/ha — volume-per-area application rates (incompatible dimension with kg/ha). */
+    private val agrLiquidRate = UnitCategory(
+        name        = "Agriculture — Liquid Rate",
+        icon        = Icons.Filled.Agriculture,
+        description = "L/ha · mL/ha · gal/ac · fl oz/ac",
+        units = listOf(
+            linear("L/ha",           "L/ha",      1.0),
+            linear("mL/ha",          "mL/ha",     0.001),
+            linear("m³/ha",          "m³/ha",     1000.0),
+            linear("gal/acre (US)",  "gal/ac",    9.35396),
+            linear("fl oz/acre (US)", "fl oz/ac", 0.07300),
+            linear("Imp gal/acre",   "Igal/ac",   11.2333)
         )
     )
 
@@ -284,10 +297,10 @@ object UnitConverterData {
         icon        = Icons.Filled.LocalGasStation,
         description = "L/100km · mpg (US) · mpg (Imp) · km/L",
         units = listOf(
-            UnitEntry("L/100km",        "L/100km",   toBase = { v -> v },                                          fromBase = { v -> v }),
-            UnitEntry("mpg (US)",       "mpg",       toBase = { v -> if (v == 0.0) Double.MAX_VALUE else 235.214583 / v }, fromBase = { v -> if (v == 0.0) Double.MAX_VALUE else 235.214583 / v }),
-            UnitEntry("mpg (Imperial)", "mpg (Imp)", toBase = { v -> if (v == 0.0) Double.MAX_VALUE else 282.480936 / v }, fromBase = { v -> if (v == 0.0) Double.MAX_VALUE else 282.480936 / v }),
-            UnitEntry("km/L",           "km/L",      toBase = { v -> if (v == 0.0) Double.MAX_VALUE else 100.0 / v },     fromBase = { v -> if (v == 0.0) Double.MAX_VALUE else 100.0 / v })
+            UnitEntry("L/100km",        "L/100km",   toBase = { v -> v },                                        fromBase = { v -> v }),
+            UnitEntry("mpg (US)",       "mpg",       toBase = { v -> if (v == 0.0) Double.NaN else 235.214583 / v }, fromBase = { v -> if (v == 0.0) Double.NaN else 235.214583 / v }),
+            UnitEntry("mpg (Imperial)", "mpg (Imp)", toBase = { v -> if (v == 0.0) Double.NaN else 282.480936 / v }, fromBase = { v -> if (v == 0.0) Double.NaN else 282.480936 / v }),
+            UnitEntry("km/L",           "km/L",      toBase = { v -> if (v == 0.0) Double.NaN else 100.0 / v },     fromBase = { v -> if (v == 0.0) Double.NaN else 100.0 / v })
         )
     )
 
@@ -357,6 +370,7 @@ object UnitConverterData {
         energy,
         torque,
         agrRate,
+        agrLiquidRate,
         fuelEconomy,
         concentration,
         time,

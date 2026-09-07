@@ -104,8 +104,15 @@ data class UnitConverterUiState(
         if (value == 0.0) return "0"
         val abs = kotlin.math.abs(value)
         return when {
-            abs >= 1e10 || abs < 1e-4 -> String.format(Locale.US, "%.6e", value)
-                .trimEnd('0').trimEnd('.')
+            abs >= 1e10 || abs < 1e-4 -> {
+                // Scientific notation: trim trailing zeros from the mantissa only.
+                // Applying trimEnd to the whole string would corrupt the exponent
+                // (e.g. "1.000000e+10" → "1.000000e+1", a billion times too small).
+                val raw = String.format(Locale.US, "%.6e", value)
+                val eIdx = raw.indexOf('e')
+                val mantissa = raw.substring(0, eIdx).trimEnd('0').trimEnd('.')
+                mantissa + raw.substring(eIdx)
+            }
             abs >= 1 -> String.format(Locale.US, "%.6f", value).trimEnd('0').trimEnd('.')
             else     -> String.format(Locale.US, "%.8f", value).trimEnd('0').trimEnd('.')
         }
