@@ -3,6 +3,7 @@
     <string name="app_name">ToolStack</string>
     <string name="home_title">ToolStack</string>
     <string name="content_description_back">Back</string>
+    <string name="content_description_drag_handle">Drag to reorder</string>
     <string name="sae_to_metric">SAE to Metric</string>
     <string name="wrench_fastener">Wrench / Fastener Size</string>
     <string name="taps_and_drills">Taps and Drills</string>
