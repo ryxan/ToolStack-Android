@@ -35,12 +35,12 @@ val hasReleaseSigning = !releaseStoreFile.isNullOrBlank() &&
 
 android {
     namespace = "com.toolstack.io"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.toolstack.io"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersionName
 
@@ -104,6 +104,7 @@ dependencies {
     implementation(libs.lifecycle.runtime.ktx)
     implementation(libs.lifecycle.viewmodel.ktx)
     implementation(libs.lifecycle.viewmodel.compose)
+    implementation(libs.lifecycle.process)
     implementation(libs.activity.compose)
     implementation(libs.navigation.compose)
 
@@ -114,6 +115,16 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.datastore.preferences)
+
+    // Google Play Billing
+    implementation(libs.billing.ktx)
+
+    // Networking (purchase verification backend)
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.gson)
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging.interceptor)
+    implementation(libs.gson)
 
     val composeBom = platform(libs.compose.bom)
     implementation(composeBom)

@@ -13,9 +13,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.toolstack.io.ui.bearings.BearingsScreen
+import com.toolstack.io.ui.conduitbends.ConduitBendsScreen
 import com.toolstack.io.ui.home.HomeScreen
 import com.toolstack.io.ui.saemetric.SaeMetricScreen
 import com.toolstack.io.ui.tapsanddrills.TapsAndDrillsScreen
+import com.toolstack.io.ui.ratiomix.RatioMixScreen
+import com.toolstack.io.ui.unitconverter.UnitConverterDetailScreen
+import com.toolstack.io.ui.unitconverter.UnitConverterScreen
+import com.toolstack.io.ui.unitconverter.UnitConverterViewModel
 import com.toolstack.io.ui.wrenchfastener.WrenchFastenerScreen
 import com.toolstack.io.ui.theme.IndustrialUtilityTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -58,6 +63,37 @@ class MainActivity : ComponentActivity() {
                         composable(Screen.Bearings.route) {
                             BearingsScreen(onBack = { navController.popBackStack() })
                         }
+                        composable(Screen.ConduitBends.route) {
+                            ConduitBendsScreen(onBack = { navController.popBackStack() })
+                        }
+                        composable(Screen.UnitConverter.route) { navBackStackEntry ->
+                            UnitConverterScreen(
+                                onBack = { navController.popBackStack() },
+                                onCategorySelected = { categoryIndex ->
+                                    // Guard against double-taps and taps during the back
+                                    // transition — only navigate when this entry is RESUMED.
+                                    if (navBackStackEntry.lifecycle.currentState
+                                        == androidx.lifecycle.Lifecycle.State.RESUMED
+                                    ) {
+                                        navController.navigate(
+                                            Screen.UnitConverterDetail.routeWithArg(categoryIndex)
+                                        )
+                                    }
+                                }
+                            )
+                        }
+                        composable(Screen.UnitConverterDetail.route) { backStackEntry ->
+                            val categoryIndex = backStackEntry.arguments
+                                ?.getString(UnitConverterViewModel.ARG_CATEGORY_INDEX)
+                                ?.toIntOrNull() ?: 0
+                            UnitConverterDetailScreen(
+                                categoryIndex = categoryIndex,
+                                onBack = { navController.popBackStack() }
+                            )
+                        }
+                        composable(Screen.RatioMix.route) {
+                            RatioMixScreen(onBack = { navController.popBackStack() })
+                        }
                     }
                 }
             }
@@ -71,4 +107,10 @@ sealed class Screen(val route: String) {
     data object WrenchFastener : Screen("wrench_fastener")
     data object TapsAndDrills : Screen("taps_and_drills")
     data object Bearings : Screen("bearings")
+    data object ConduitBends : Screen("conduit_bends")
+    data object UnitConverter : Screen("unit_converter")
+    data object UnitConverterDetail : Screen("unit_converter_detail/{${UnitConverterViewModel.ARG_CATEGORY_INDEX}}") {
+        fun routeWithArg(categoryIndex: Int) = "unit_converter_detail/$categoryIndex"
+    }
+    data object RatioMix : Screen("ratio_mix")
 }

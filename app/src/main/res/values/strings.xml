@@ -43,6 +43,46 @@
     <string name="tap_drill_empty">No threads found matching your search.</string>
     <string name="disclaimer">Reference values only. Verify critical measurements against official standards and manufacturer data.</string>
 
+    <!-- Conduit Bends -->
+    <string name="conduit_bends">Conduit Bends</string>
+    <string name="conduit_bends_stub">Conduit bend calculations coming soon.</string>
+
+    <!-- Unit Converter -->
+    <string name="unit_converter">Unit Converter</string>
+    <string name="unit_converter_from">From</string>
+    <string name="unit_converter_to">To</string>
+    <string name="unit_converter_swap">Swap units</string>
+    <string name="unit_converter_input_hint">Enter value…</string>
+
+    <!-- Ratio Mix Calculator -->
+    <string name="ratio_mix_title">Ratio Mix Calculator</string>
+    <string name="ratio_mix_mode_total">Total → Parts</string>
+    <string name="ratio_mix_mode_part">Part → Total</string>
+    <string name="ratio_mix_ratio_label">Ratio parts</string>
+    <string name="ratio_mix_part_label">Name</string>
+    <string name="ratio_mix_ratio_value">Ratio</string>
+    <string name="ratio_mix_add_part">Add part</string>
+    <string name="ratio_mix_remove_part">Remove part</string>
+    <string name="ratio_mix_total_volume">Total volume</string>
+    <string name="ratio_mix_known_volume">Volume of %1$s</string>
+    <string name="ratio_mix_known_part_prefix">Known part: %1$s</string>
+    <string name="ratio_mix_part_fallback">Part %1$d</string>
+    <string name="ratio_mix_results_title">Results</string>
+    <string name="ratio_mix_ratio_summary">Ratio: %1$s</string>
+    <string name="ratio_mix_total_label">Total</string>
+
+    <!-- Premium gate -->
+    <string name="premium_required_title">Premium Feature</string>
+    <string name="premium_required_body">This is a premium feature. Upgrade to unlock full access.</string>
+    <string name="premium_badge">PRO</string>
+    <string name="premium_upgrade">Upgrade</string>
+    <string name="premium_dismiss">Not now</string>
+    <string name="content_description_premium_lock">Premium feature</string>
+    <string name="premium_product_subscription">Subscribe — %1$s / month</string>
+    <string name="premium_product_lifetime">Buy once — %1$s lifetime</string>
+    <string name="purchase_error_title">Purchase Failed</string>
+    <string name="purchase_error_dismiss">OK</string>
+
     <!-- Bearings -->
     <string name="bearings_search_label">Find bearing by dimensions</string>
     <string name="bearings_bore_label">Bore (ID)</string>
