@@ -115,7 +115,7 @@ fun HomeScreen(
                     module = module,
                     isPremiumUnlocked = uiState.isPremium,
                     isDragging = dragDropState.draggingItemIndex == index,
-                    modifier = Modifier.draggedItem(dragDropState, index),
+                    modifier = Modifier.draggedItem(dragDropState, index, module.route),
                     onClick = {
                         if (module.isPremium && !uiState.isPremium) {
                             pendingPremiumModule = module

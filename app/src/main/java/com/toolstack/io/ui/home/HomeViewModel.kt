@@ -29,6 +29,13 @@ class HomeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
+    /**
+     * Set to true by [moveModule] the moment the user performs their first reorder.
+     * The async preference load in [init] checks this flag before applying the saved
+     * order, so a reorder that races with the initial read is never overwritten.
+     */
+    @Volatile private var userHasMutated = false
+
     init {
         billingRepository.purchaseState
             .onEach { state ->
@@ -43,9 +50,12 @@ class HomeViewModel @Inject constructor(
             .launchIn(viewModelScope)
 
         // Load the persisted module order once, then apply it to the default list.
+        // Skip the update if the user already reordered before the read completed.
         viewModelScope.launch {
             val savedOrder = preferencesRepository.homeModuleOrder.first()
-            _uiState.update { it.copy(modules = applyOrder(DEFAULT_MODULES, savedOrder)) }
+            if (!userHasMutated) {
+                _uiState.update { it.copy(modules = applyOrder(DEFAULT_MODULES, savedOrder)) }
+            }
         }
     }
 
@@ -64,6 +74,7 @@ class HomeViewModel @Inject constructor(
      * order. Called on every live drag step so the list animates in real time.
      */
     fun moveModule(from: Int, to: Int) {
+        userHasMutated = true
         val current = _uiState.value.modules.toMutableList()
         current.add(to, current.removeAt(from))
         _uiState.update { it.copy(modules = current) }

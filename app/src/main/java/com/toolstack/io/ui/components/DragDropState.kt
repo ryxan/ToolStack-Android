@@ -2,6 +2,7 @@ package com.toolstack.io.ui.components
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.LazyListItemInfo
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -11,12 +12,18 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * State object driving long-press drag-to-reorder on a LazyColumn.
@@ -31,7 +38,7 @@ import androidx.compose.ui.zIndex
  *
  * LazyColumn(state = listState) {
  *     itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
- *         Card(modifier = Modifier.draggedItem(dragState, index)) { … }
+ *         Card(modifier = Modifier.draggedItem(dragState, index, item.id)) { … }
  *     }
  * }
  * ```
@@ -42,6 +49,7 @@ import androidx.compose.ui.zIndex
  */
 class DragDropState(
     val lazyListState: LazyListState,
+    private val scope: CoroutineScope,
     private val onMove: (from: Int, to: Int) -> Unit
 ) {
     /** Index of the item currently being dragged; null when idle. */
@@ -56,6 +64,9 @@ class DragDropState(
 
     /** True while a drag gesture is in progress. */
     val isDragging: Boolean get() = draggingItemIndex != null
+
+    /** Running scroll job used for edge-triggered auto-scroll; cancelled on drag end. */
+    private var scrollJob: Job? = null
 
     /**
      * Translation (px) to apply to the dragged item's graphicsLayer so it
@@ -79,6 +90,8 @@ class DragDropState(
     }
 
     internal fun onDragEnd() {
+        scrollJob?.cancel()
+        scrollJob = null
         draggingItemIndex = null
         draggingItemDraggedDelta = 0f
     }
@@ -95,13 +108,48 @@ class DragDropState(
         val visualBottom = visualTop + currentItem.size
         val visualMid    = (visualTop + visualBottom) / 2f
 
+        // Reorder if the dragged item's centre crosses a neighbour's bounds.
         val target = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { item ->
             visualMid.toInt() in item.offset..(item.offset + item.size) &&
                 item.index != draggingIndex
-        } ?: return
+        }
+        if (target != null) {
+            onMove(draggingIndex, target.index)
+            draggingItemIndex = target.index
+        }
 
-        onMove(draggingIndex, target.index)
-        draggingItemIndex = target.index
+        // Edge-scroll: kick off / keep alive a coroutine that scrolls the list
+        // when the pointer is within the top or bottom threshold zone.
+        val viewportHeight = lazyListState.layoutInfo.viewportSize.height.toFloat()
+        val edgeThreshold  = viewportHeight * EDGE_THRESHOLD_FRACTION
+        val scrollSpeed    = when {
+            visualTop    < edgeThreshold                    -> -SCROLL_PX_PER_TICK * (1f - visualTop / edgeThreshold)
+            visualBottom > viewportHeight - edgeThreshold  ->  SCROLL_PX_PER_TICK * (1f - (viewportHeight - visualBottom) / edgeThreshold)
+            else                                           ->  0f
+        }
+
+        if (scrollSpeed != 0f) {
+            if (scrollJob == null || scrollJob?.isActive == false) {
+                scrollJob = scope.launch {
+                    while (true) {
+                        lazyListState.scrollBy(scrollSpeed)
+                        delay(SCROLL_TICK_MS)
+                    }
+                }
+            }
+        } else {
+            scrollJob?.cancel()
+            scrollJob = null
+        }
+    }
+
+    companion object {
+        /** Fraction of the viewport height that acts as an edge-scroll trigger zone. */
+        private const val EDGE_THRESHOLD_FRACTION = 0.15f
+        /** Pixels scrolled per tick while in the edge zone (scales with proximity). */
+        private const val SCROLL_PX_PER_TICK = 16f
+        /** Milliseconds between scroll ticks. */
+        private const val SCROLL_TICK_MS = 16L
     }
 }
 
@@ -109,8 +157,11 @@ class DragDropState(
 fun rememberDragDropState(
     lazyListState: LazyListState = rememberLazyListState(),
     onMove: (from: Int, to: Int) -> Unit
-): DragDropState = remember(lazyListState) {
-    DragDropState(lazyListState, onMove)
+): DragDropState {
+    val scope = rememberCoroutineScope()
+    return remember(lazyListState) {
+        DragDropState(lazyListState, scope, onMove)
+    }
 }
 
 /**
@@ -120,6 +171,10 @@ fun rememberDragDropState(
  * gesture competes at the item level, where it wins over the card's click handler
  * (long-press has higher priority than a tap once the threshold is exceeded).
  *
+ * [itemKey] must be the same stable key used as the lazy-list item key. It is the
+ * sole identity for the [pointerInput] coroutine so the gesture is never cancelled
+ * when the item moves to a different [index] during a live reorder.
+ *
  * Visual effects while dragging:
  * - Item floats above peers via [zIndex]
  * - Item translates vertically to follow the finger
@@ -128,7 +183,8 @@ fun rememberDragDropState(
 @Composable
 fun Modifier.draggedItem(
     dragDropState: DragDropState,
-    index: Int
+    index: Int,
+    itemKey: Any
 ): Modifier {
     val isDraggingThis = dragDropState.draggingItemIndex == index
 
@@ -137,19 +193,25 @@ fun Modifier.draggedItem(
         label = "drag_elevation"
     )
 
+    // Keep a reference to the latest index without changing the pointerInput key.
+    // rememberUpdatedState ensures the lambda inside the gesture always sees the
+    // current index even after the item has been moved to a new position.
+    val currentIndex by rememberUpdatedState(index)
+
     return this
         .zIndex(if (isDraggingThis) 1f else 0f)
         .graphicsLayer {
             translationY = if (isDraggingThis) dragDropState.draggingItemOffset else 0f
             shadowElevation = elevation.toPx()
         }
-        .pointerInput(dragDropState, index) {
+        // Key on the stable item identity only — never on the mutable index.
+        .pointerInput(dragDropState, itemKey) {
             detectDragGesturesAfterLongPress(
                 onDragStart = {
                     // Resolve this item's current offset from the LazyList layout info.
                     val itemOffset = dragDropState.lazyListState.layoutInfo.visibleItemsInfo
-                        .firstOrNull { it.index == index }?.offset ?: 0
-                    dragDropState.onDragStart(index, itemOffset)
+                        .firstOrNull { it.index == currentIndex }?.offset ?: 0
+                    dragDropState.onDragStart(currentIndex, itemOffset)
                 },
                 onDrag = { change, dragAmount ->
                     change.consume()

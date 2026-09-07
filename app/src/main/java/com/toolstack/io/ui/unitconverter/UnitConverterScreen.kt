@@ -98,7 +98,7 @@ fun UnitConverterScreen(
                 CategoryCard(
                     category = category,
                     isDragging = dragDropState.draggingItemIndex == index,
-                    modifier = Modifier.draggedItem(dragDropState, index),
+                    modifier = Modifier.draggedItem(dragDropState, index, category.name),
                     // Navigate by stable original index, not display-order index.
                     onClick = { onCategorySelected(viewModel.originalIndexOf(category)) }
                 )

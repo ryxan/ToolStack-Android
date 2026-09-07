@@ -22,10 +22,21 @@ class UnitConverterListViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(UnitConverterListUiState())
     val uiState: StateFlow<UnitConverterListUiState> = _uiState.asStateFlow()
 
+    /**
+     * Set to true by [moveCategory] the moment the user performs their first reorder.
+     * The async preference load in [init] checks this flag before applying the saved
+     * order, so a reorder that races with the initial read is never overwritten.
+     */
+    @Volatile private var userHasMutated = false
+
     init {
+        // Load the persisted category order once, then apply it to the default list.
+        // Skip the update if the user already reordered before the read completed.
         viewModelScope.launch {
             val savedOrder = preferencesRepository.converterCategoryOrder.first()
-            _uiState.update { it.copy(categories = applyOrder(DEFAULT_CATEGORIES, savedOrder)) }
+            if (!userHasMutated) {
+                _uiState.update { it.copy(categories = applyOrder(DEFAULT_CATEGORIES, savedOrder)) }
+            }
         }
     }
 
@@ -34,6 +45,7 @@ class UnitConverterListViewModel @Inject constructor(
      * Called on every live drag step so the list animates in real time.
      */
     fun moveCategory(from: Int, to: Int) {
+        userHasMutated = true
         val current = _uiState.value.categories.toMutableList()
         current.add(to, current.removeAt(from))
         _uiState.update { it.copy(categories = current) }
