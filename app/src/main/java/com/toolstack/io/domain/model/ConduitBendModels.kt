@@ -61,7 +61,7 @@ enum class OffsetAngle(
     val multiplier: Double,
     val shrinkPerInch: Double
 ) {
-    DEG_10(10, 5.76,  0.19),
+    DEG_10(10, 5.76,  0.0625),
     DEG_22(22, 2.6,   0.1875),
     DEG_30(30, 2.0,   0.25),
     DEG_45(45, 1.414, 0.375),

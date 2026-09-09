@@ -1,5 +1,6 @@
 package com.toolstack.io.ui.conduitbends
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -101,6 +102,13 @@ fun ConduitBendsScreen(
         BendStep.SELECTION -> onBack
         BendStep.INPUT     -> viewModel::onBackFromInput
         BendStep.RESULT    -> viewModel::onBackFromResult
+    }
+
+    // Handle system/gesture Back so it follows the same wizard transitions
+    // as the toolbar button. Only enabled when inside the wizard (INPUT or
+    // RESULT) — on SELECTION the default navigation Back is correct.
+    BackHandler(enabled = uiState.step != BendStep.SELECTION) {
+        handleBack()
     }
 
     Scaffold(

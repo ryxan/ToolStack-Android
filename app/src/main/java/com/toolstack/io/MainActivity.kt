@@ -45,14 +45,13 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         // Extract a deep-link route from the launch intent (e.g. from a home
-        // screen shortcut: toolstack://screen/sae_metric).  Only read on first
-        // create — configuration changes reuse savedInstanceState so we don't
-        // re-navigate on rotation.
-        val deepLinkRoute: String? = if (savedInstanceState == null) {
-            ShortcutUtil.extractRoute(intent?.data)
-        } else {
-            null
-        }
+        // screen shortcut: toolstack://screen/sae_metric).
+        // Read unconditionally so that warm relaunches via onNewIntent+recreate()
+        // also navigate — savedInstanceState is non-null during recreate, so
+        // guarding on it would silently drop shortcut routes after the first launch.
+        // Double-navigation on configuration change is prevented by pendingDeepLink
+        // being consumed (set to null) after the first navigate call below.
+        val deepLinkRoute: String? = ShortcutUtil.extractRoute(intent?.data)
 
         setContent {
             IndustrialUtilityTheme {
