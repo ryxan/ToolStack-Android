@@ -16,6 +16,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.automirrored.filled.AddToHomeScreen
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -57,6 +58,7 @@ import com.toolstack.io.R
 @Composable
 fun RatioMixScreen(
     onBack: () -> Unit,
+    onAddShortcut: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: RatioMixViewModel = hiltViewModel()
 ) {
@@ -79,6 +81,16 @@ fun RatioMixScreen(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.content_description_back)
                         )
+                    }
+                },
+                actions = {
+                    if (onAddShortcut != null) {
+                        IconButton(onClick = onAddShortcut) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.AddToHomeScreen,
+                                contentDescription = stringResource(R.string.content_description_add_shortcut)
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
