@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.AddToHomeScreen
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -45,6 +46,7 @@ import com.toolstack.io.ui.components.rememberDragDropState
 fun UnitConverterScreen(
     onBack: () -> Unit,
     onCategorySelected: (Int) -> Unit,
+    onAddShortcut: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: UnitConverterListViewModel = hiltViewModel()
 ) {
@@ -71,6 +73,16 @@ fun UnitConverterScreen(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.content_description_back)
                         )
+                    }
+                },
+                actions = {
+                    if (onAddShortcut != null) {
+                        IconButton(onClick = onAddShortcut) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.AddToHomeScreen,
+                                contentDescription = stringResource(R.string.content_description_add_shortcut)
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

@@ -47,6 +47,84 @@
     <!-- Conduit Bends -->
     <string name="conduit_bends">Conduit Bends</string>
     <string name="conduit_bends_stub">Conduit bend calculations coming soon.</string>
+    <string name="conduit_bend_results">Bend Results</string>
+    <string name="conduit_bend_coming_soon">Coming soon</string>
+
+    <!-- Input screen -->
+    <string name="conduit_bend_conduit_size">Conduit Size (EMT)</string>
+    <string name="conduit_bend_offset_angle">Offset Angle</string>
+    <string name="conduit_bend_input_corner_distance">Distance to Corner</string>
+    <string name="conduit_bend_input_stub_length">Desired Stub Length</string>
+    <string name="conduit_bend_input_obstruction_height">Obstruction Height</string>
+    <string name="conduit_bend_input_back_distance">Back-to-Back Distance</string>
+    <string name="conduit_bend_input_placeholder">e.g. 12 or 12.5</string>
+    <string name="conduit_bend_inches_suffix">in</string>
+    <string name="conduit_bend_calculate">Calculate</string>
+    <string name="conduit_bend_takoff_reference_title">90° Take-Off Reference (EMT)</string>
+
+    <!-- Result screen tabs -->
+    <string name="conduit_bend_tab_quick">Quick</string>
+    <string name="conduit_bend_tab_detailed">Detailed</string>
+    <string name="conduit_bend_key_values">Key Values</string>
+
+    <!-- Result row labels -->
+    <string name="conduit_bend_result_takeoff">Take-off</string>
+    <string name="conduit_bend_result_mark_at">Mark at (from pipe end)</string>
+    <string name="conduit_bend_result_arrow_placement">Placement</string>
+    <string name="conduit_bend_result_arrow_on_mark">Arrow on mark, away from stub</string>
+    <string name="conduit_bend_result_corner_arrow_tip">Arrow tip on mark, heel to long run</string>
+
+    <!-- Quick result hints (shown under each row value) -->
+    <string name="conduit_bend_hint_mark_corner">Measure this from the pipe end and make your mark here.</string>
+    <string name="conduit_bend_hint_mark_stub">Measure this from the pipe end — this is where the bend starts.</string>
+    <string name="conduit_bend_hint_arrow_corner">Put the bender arrow on your mark. The long run goes toward the heel.</string>
+    <string name="conduit_bend_hint_arrow_stub">Put the bender arrow on your mark with the hook toward the short end.</string>
+    <string name="conduit_bend_hint_bend_to_90">Pull the handle until the bender reads 90°.</string>
+
+    <!-- Take-off explainer (collapsible card on Quick result) -->
+    <string name="conduit_bend_takeoff_explainer_title">What\'s a take-off? (tap to learn)</string>
+    <string name="conduit_bend_takeoff_explainer_body">When conduit bends, the arc uses up some pipe length. That amount is called the take-off — %1$s for %2$s EMT. It\'s already been subtracted from your mark location above, so you don\'t need to do any math.</string>
+    <string name="conduit_bend_result_bend_to">Bend to</string>
+    <string name="conduit_bend_result_bend_angle">Bend angle</string>
+    <string name="conduit_bend_result_multiplier">Multiplier</string>
+    <string name="conduit_bend_result_bend_spacing">Bend spacing (centre-to-centre)</string>
+    <string name="conduit_bend_result_shrinkage">Shrinkage (shorten pipe by)</string>
+    <string name="conduit_bend_result_mark_1">Mark 1</string>
+    <string name="conduit_bend_result_mark_2">Mark 2</string>
+    <string name="conduit_bend_result_reference_end">Reference end of pipe</string>
+    <string name="conduit_bend_result_center_bend">Centre bend</string>
+    <string name="conduit_bend_result_outer_bends">Outer bends (×2)</string>
+    <string name="conduit_bend_result_outer_spread">Outer mark offset (each side)</string>
+    <string name="conduit_bend_result_all_bends">All bends</string>
+    <string name="conduit_bend_result_first_mark">First mark</string>
+    <string name="conduit_bend_result_second_mark">Second mark</string>
+
+    <!-- Detailed step titles -->
+    <string name="conduit_bend_step_measure_title">Measure and cut your conduit</string>
+    <string name="conduit_bend_step_mark_title">Mark the pipe</string>
+    <string name="conduit_bend_step_place_bender_title">Place the bender</string>
+    <string name="conduit_bend_step_bend_title">Make the bend</string>
+    <string name="conduit_bend_step_verify_title">Verify the stub length</string>
+    <string name="conduit_bend_step_first_bend_title">Make the first bend</string>
+    <string name="conduit_bend_step_second_bend_title">Make the second bend</string>
+    <string name="conduit_bend_step_shrinkage_title">Account for shrinkage</string>
+
+    <!-- Detailed step body text -->
+    <string name="conduit_bend_step_corner_measure">Measure %1$s from the end of the pipe to where you want the outside of the corner. That\'s your mark. (Take-off for %3$s EMT is %2$s.)</string>
+    <string name="conduit_bend_step_corner_mark">Make a clear mark at %1$s from the end of the pipe.</string>
+    <string name="conduit_bend_step_corner_place">Place the bender arrow tip directly on your mark. The bender heel faces the long run (the pipe going back toward where it came from).</string>
+    <string name="conduit_bend_step_corner_bend">Bend to 90°. Keep the pipe flat on the floor — this is a horizontal corner, so there\'s no need to lift it.</string>
+    <string name="conduit_bend_step_corner_verify">Hold the pipe up against the wall. The corner should land right where you measured. Both legs should sit flat and parallel to their respective walls.</string>
+    <string name="conduit_bend_step_90_measure">Subtract the take-off (%2$s for %3$s EMT) from your desired stub height. Your mark goes at %1$s from the end of the pipe.</string>
+    <string name="conduit_bend_step_90_mark">Measure %1$s from the end of the pipe and make a clear pencil mark all the way around the conduit.</string>
+    <string name="conduit_bend_step_90_place">Place the bender arrow (▶) directly on your mark with the hook toward the short end. The conduit should lay flat on the floor or work surface.</string>
+    <string name="conduit_bend_step_90_bend">Step firmly on the bender foot and pull the handle up until the bender reads 90° or the conduit lines up with the 90° hash mark on the bender.</string>
+    <string name="conduit_bend_step_90_verify">Lay the bent conduit against a wall. Measure from the floor to the top of the stub — it should match your original target. If it\'s short, a slight back-bend is needed; if it\'s long, you over-bent.</string>
+    <string name="conduit_bend_step_offset_measure">You need a %1$d° offset. Measure the exact height of the obstruction (from pipe centreline to pipe centreline).</string>
+    <string name="conduit_bend_step_offset_mark">From your reference starting point, make Mark 1. Then measure %1$s further along the pipe and make Mark 2. These are your two bend centres.</string>
+    <string name="conduit_bend_step_offset_first_bend">Place the bender arrow on Mark 1. Bend to %1$d°. The pipe should rise over the obstacle.</string>
+    <string name="conduit_bend_step_offset_second_bend">Rotate the pipe 180° (keeping it in the same plane). Place the arrow on Mark 2. Bend to %1$d°. The pipe should now run parallel to where it started.</string>
+    <string name="conduit_bend_step_offset_shrinkage">Your total run is now %1$s shorter than a straight piece would be. Account for this when cutting or planning your total length.</string>
 
     <!-- Unit Converter -->
     <string name="unit_converter">Unit Converter</string>
@@ -83,6 +161,23 @@
     <string name="premium_product_lifetime">Buy once — %1$s lifetime</string>
     <string name="purchase_error_title">Purchase Failed</string>
     <string name="purchase_error_dismiss">OK</string>
+
+    <!-- Home screen shortcuts -->
+    <string name="shortcut_add_to_home">Add to Home Screen</string>
+    <string name="shortcut_not_supported">Your launcher doesn\'t support home screen shortcuts</string>
+    <string name="content_description_add_shortcut">Add shortcut to home screen</string>
+
+    <!-- Shortcut labels (shown under the icon on the launcher; keep short) -->
+    <string name="shortcut_label_sae_metric">SAE / Metric</string>
+    <string name="shortcut_label_wrench_fastener">Wrench Size</string>
+    <string name="shortcut_label_taps_and_drills">Taps &amp; Drills</string>
+    <string name="shortcut_label_bearings">Bearings</string>
+    <string name="shortcut_label_conduit_bends">Conduit Bends</string>
+    <string name="shortcut_label_unit_converter">Unit Converter</string>
+    <string name="shortcut_label_ratio_mix">Ratio Mix</string>
+
+    <!-- Paywall copy shown when a non-premium user taps Add to Home Screen -->
+    <string name="shortcut_premium_required_body">Home screen shortcuts are a Pro feature. Upgrade to pin any tool directly to your launcher.</string>
 
     <!-- Bearings -->
     <string name="bearings_search_label">Find bearing by dimensions</string>

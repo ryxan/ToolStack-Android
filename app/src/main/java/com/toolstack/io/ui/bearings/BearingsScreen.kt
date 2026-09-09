@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.AddToHomeScreen
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,6 +47,7 @@ import com.toolstack.io.domain.model.Bearing
 @Composable
 fun BearingsScreen(
     onBack: () -> Unit,
+    onAddShortcut: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: BearingsViewModel = hiltViewModel()
 ) {
@@ -70,6 +72,17 @@ fun BearingsScreen(
                             contentDescription = stringResource(R.string.content_description_back),
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
+                    }
+                },
+                actions = {
+                    if (onAddShortcut != null) {
+                        IconButton(onClick = onAddShortcut) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.AddToHomeScreen,
+                                contentDescription = stringResource(R.string.content_description_add_shortcut),
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
