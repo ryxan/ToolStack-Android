@@ -759,13 +759,14 @@ private fun DetailedResultContent(
 
 @Composable
 private fun Corner90DetailedSteps(result: BendResult.Corner90, uiState: ConduitBendsUiState) {
-    val markStr = ConduitBendCalculator.formatInches(result.markLocationInches)
-    val takeOff = ConduitBendCalculator.formatInches(result.takeOffInches)
-    val size    = uiState.conduitSize.label
+    val markStr     = ConduitBendCalculator.formatInches(result.markLocationInches)
+    val takeOff     = ConduitBendCalculator.formatInches(result.takeOffInches)
+    val size        = uiState.conduitSize.label
+    val cornerStr   = ConduitBendCalculator.formatInches(result.distanceToCornerInches)
 
     StepCard(stepNumber = 1, title = stringResource(R.string.conduit_bend_step_measure_title)) {
         Text(
-            text  = stringResource(R.string.conduit_bend_step_corner_measure, markStr, takeOff, size),
+            text  = stringResource(R.string.conduit_bend_step_corner_measure, markStr, takeOff, size, cornerStr),
             style = MaterialTheme.typography.bodyMedium
         )
     }

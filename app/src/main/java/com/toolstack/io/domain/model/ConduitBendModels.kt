@@ -119,11 +119,13 @@ sealed class BendInput {
 sealed class BendResult {
     /**
      * Standard 90° corner.
-     * @param takeOffInches      The bender's take-off for this conduit size.
-     * @param markLocationInches Where to place the bender arrow, measured from the
-     *                           reference end of the pipe (distanceToCorner − takeOff).
+     * @param distanceToCornerInches The original user-entered distance from pipe end to outside corner.
+     * @param takeOffInches          The bender's take-off for this conduit size.
+     * @param markLocationInches     Where to place the bender arrow, measured from the
+     *                               reference end of the pipe (distanceToCorner − takeOff).
      */
     data class Corner90(
+        val distanceToCornerInches: Double,
         val takeOffInches: Double,
         val markLocationInches: Double
     ) : BendResult()

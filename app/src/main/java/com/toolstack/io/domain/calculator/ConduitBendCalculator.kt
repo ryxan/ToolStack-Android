@@ -58,8 +58,9 @@ object ConduitBendCalculator {
                 "take-off (${takeOff}\") for ${input.conduitSize.label} conduit."
         }
         return BendResult.Corner90(
-            takeOffInches        = takeOff,
-            markLocationInches   = mark
+            distanceToCornerInches = input.distanceToCornerInches,
+            takeOffInches          = takeOff,
+            markLocationInches     = mark
         )
     }
 
@@ -210,12 +211,15 @@ object ConduitBendCalculator {
     fun formatInches(value: Double): String {
         val whole       = value.toInt()
         val remainder   = value - whole
-        val sixteenths  = (remainder * 16).toInt()  // truncate to nearest 1/16
+        val sixteenths  = Math.round(remainder * 16).toInt()  // round to nearest 1/16
+        // If rounding pushed us to a full inch, carry over (e.g. 5.9999 → 6")
+        val adjustedWhole     = whole + sixteenths / 16
+        val adjustedSixteenths = sixteenths % 16
         return when {
-            sixteenths == 0  -> if (whole == 0) "0\"" else "$whole\""
-            else             -> {
-                val (num, den) = reduceFraction(sixteenths, 16)
-                if (whole == 0) "$num/$den\"" else "$whole $num/$den\""
+            adjustedSixteenths == 0 -> if (adjustedWhole == 0) "0\"" else "$adjustedWhole\""
+            else                    -> {
+                val (num, den) = reduceFraction(adjustedSixteenths, 16)
+                if (adjustedWhole == 0) "$num/$den\"" else "$adjustedWhole $num/$den\""
             }
         }
     }
