@@ -130,7 +130,6 @@
     <string name="unit_converter">Unit Converter</string>
     <string name="unit_converter_from">From</string>
     <string name="unit_converter_to">To</string>
-    <string name="unit_converter_swap">Swap units</string>
     <string name="unit_converter_input_hint">Enter value…</string>
 
     <!-- Ratio Mix Calculator -->
@@ -149,6 +148,17 @@
     <string name="ratio_mix_results_title">Results</string>
     <string name="ratio_mix_ratio_summary">Ratio: %1$s</string>
     <string name="ratio_mix_total_label">Total</string>
+    <string name="ratio_mix_save_preset">Save preset</string>
+    <string name="ratio_mix_saved_presets">Saved presets</string>
+    <string name="ratio_mix_preset_name_hint">Preset name</string>
+    <string name="ratio_mix_save_dialog_title">Name this preset</string>
+    <string name="ratio_mix_save_dialog_body">Give this combination of parts a name so you can reload it later.</string>
+    <string name="ratio_mix_save_confirm">Save</string>
+    <string name="ratio_mix_load_action">Load</string>
+    <string name="ratio_mix_load_preset">Load %1$s</string>
+    <string name="ratio_mix_delete_preset">Delete %1$s</string>
+    <string name="ratio_mix_no_saved_presets">No saved presets yet. Set up a mix above and tap Save preset.</string>
+    <string name="ratio_mix_preset_part_summary">%1$d parts: %2$s</string>
 
     <!-- Premium gate -->
     <string name="premium_required_title">Premium Feature</string>
