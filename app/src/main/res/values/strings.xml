@@ -100,26 +100,26 @@
     <string name="conduit_bend_result_second_mark">Second mark</string>
 
     <!-- Detailed step titles -->
-    <string name="conduit_bend_step_measure_title">Measure and cut your conduit</string>
+    <string name="conduit_bend_step_measure_title">Find your mark location</string>
     <string name="conduit_bend_step_mark_title">Mark the pipe</string>
     <string name="conduit_bend_step_place_bender_title">Place the bender</string>
     <string name="conduit_bend_step_bend_title">Make the bend</string>
-    <string name="conduit_bend_step_verify_title">Verify the stub length</string>
+    <string name="conduit_bend_step_verify_title">Verify the result</string>
     <string name="conduit_bend_step_first_bend_title">Make the first bend</string>
     <string name="conduit_bend_step_second_bend_title">Make the second bend</string>
     <string name="conduit_bend_step_shrinkage_title">Account for shrinkage</string>
 
     <!-- Detailed step body text -->
-    <string name="conduit_bend_step_corner_measure">Measure %1$s from the end of the pipe to where you want the outside of the corner. That\'s your mark. (Take-off for %3$s EMT is %2$s.)</string>
+    <string name="conduit_bend_step_corner_measure">Your corner lands at %4$s from the pipe end. The take-off for %3$s EMT is %2$s, so mark the pipe at %1$s from the end.</string>
     <string name="conduit_bend_step_corner_mark">Make a clear mark at %1$s from the end of the pipe.</string>
     <string name="conduit_bend_step_corner_place">Place the bender arrow tip directly on your mark. The bender heel faces the long run (the pipe going back toward where it came from).</string>
-    <string name="conduit_bend_step_corner_bend">Bend to 90°. Keep the pipe flat on the floor — this is a horizontal corner, so there\'s no need to lift it.</string>
+    <string name="conduit_bend_step_corner_bend">Bend to 90°. Keep the pipe in the same plane throughout the pull — don\'t let it twist or roll to the side.</string>
     <string name="conduit_bend_step_corner_verify">Hold the pipe up against the wall. The corner should land right where you measured. Both legs should sit flat and parallel to their respective walls.</string>
     <string name="conduit_bend_step_90_measure">Subtract the take-off (%2$s for %3$s EMT) from your desired stub height. Your mark goes at %1$s from the end of the pipe.</string>
     <string name="conduit_bend_step_90_mark">Measure %1$s from the end of the pipe and make a clear pencil mark all the way around the conduit.</string>
-    <string name="conduit_bend_step_90_place">Place the bender arrow (▶) directly on your mark with the hook toward the short end. The conduit should lay flat on the floor or work surface.</string>
+    <string name="conduit_bend_step_90_place">Align the bender arrow (▶) with your mark. The hook should point toward the free end being bent up — the short stub. The conduit should lay flat on the floor or work surface.</string>
     <string name="conduit_bend_step_90_bend">Step firmly on the bender foot and pull the handle up until the bender reads 90° or the conduit lines up with the 90° hash mark on the bender.</string>
-    <string name="conduit_bend_step_90_verify">Lay the bent conduit against a wall. Measure from the floor to the top of the stub — it should match your original target. If it\'s short, a slight back-bend is needed; if it\'s long, you over-bent.</string>
+    <string name="conduit_bend_step_90_verify">Lay the bent conduit against a wall. Measure from the floor to the top of the stub — it should match your original target. Confirm the angle is 90° with a level or angle finder. If it\'s under-bent, apply a bit more pressure and recheck. If it\'s over-bent, open the bend slightly and recheck. If the angle is already 90° but the stub length is off, recheck your mark, your measurement, and the bender\'s take-off value rather than adjusting the angle.</string>
     <string name="conduit_bend_step_offset_measure">You need a %1$d° offset. Measure the exact height of the obstruction (from pipe centreline to pipe centreline).</string>
     <string name="conduit_bend_step_offset_mark">From your reference starting point, make Mark 1. Then measure %1$s further along the pipe and make Mark 2. These are your two bend centres.</string>
     <string name="conduit_bend_step_offset_first_bend">Place the bender arrow on Mark 1. Bend to %1$d°. The pipe should rise over the obstacle.</string>
