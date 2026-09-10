@@ -12,11 +12,11 @@ import com.toolstack.io.domain.model.OffsetAngle
  * this object is cheap to unit test directly.
  *
  * Formula sources:
- *  - 90° Stub-Up: mark = stubLength − takeOff (bender-specific constant per conduit size)
+ *  - 90° Stub-Up: mark = stubHeight − takeUp (bender-specific constant per conduit size)
  *  - Offset: spacing = H × (1/sin θ); shrinkage = H × shrinkConstant
  *  - 3-Point Saddle: outer spread = H × 2.5 from centre; shrinkage = H × 3/16
  *  - 4-Point Saddle: equal spacing = H × 2.0 between marks; shrinkage = H × 1/4
- *  - Back-to-Back: first mark = backDistance − takeOff; second = first + backDistance
+ *  - Back-to-Back: first mark = backDistance − takeUp; second = first + backDistance
  */
 object ConduitBendCalculator {
 
@@ -44,7 +44,7 @@ object ConduitBendCalculator {
      * The user measures from the end of the pipe to the outside corner point
      * (where they want the bend to land on the wall). The bender arrow goes at:
      *
-     *   markLocation = distanceToCorner − takeOff
+     *   markLocation = distanceToCorner − takeUp
      *
      * Place the bender arrow on the mark, heel of the bender toward the long
      * run, and bend to 90°.
@@ -69,11 +69,11 @@ object ConduitBendCalculator {
     // ──────────────────────────────────────────────────────────────────────────
 
     /**
-     * The bender "takes off" a fixed amount from the stub measurement because
-     * the pipe travels through an arc. The take-off constant varies by conduit
+     * The bender "takes up" a fixed amount from the stub measurement because
+     * the pipe travels through an arc. The take-up constant varies by conduit
      * size and is stamped on most hand benders.
      *
-     * markLocation = stubLength − takeOff
+     * markLocation = stubHeight − takeUp
      *
      * Place the bender arrow at markLocation from the end of the pipe.
      * Bend until the bender reads 90° (or the stub stop pin engages).
@@ -178,7 +178,7 @@ object ConduitBendCalculator {
      * [backDistanceInches] is the desired centre-to-centre distance between
      * the two 90° stubs (measured on the finished install).
      *
-     *   firstMark  = backDistance − takeOff
+     *   firstMark  = backDistance − takeUp
      *   secondMark = firstMark + backDistance
      *
      * Make the first bend at firstMark, then measure backDistance along the
