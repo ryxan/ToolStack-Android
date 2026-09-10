@@ -107,11 +107,22 @@ data class UnitConverterUiState(
 
     private fun formatResult(value: Double): String {
         if (value.isInfinite() || value.isNaN()) return "—"
+        // Fuel-economy units use Double.MAX_VALUE as a sentinel for zero-input
+        // (reciprocal of zero). Treat it as invalid rather than displaying a
+        // huge finite number.
+        if (value == Double.MAX_VALUE || value == -Double.MAX_VALUE) return "—"
         if (value == 0.0) return "0"
         val abs = kotlin.math.abs(value)
         return when {
-            abs >= 1e10 || abs < 1e-4 -> String.format(Locale.US, "%.6e", value)
-                .trimEnd('0').trimEnd('.')
+            abs >= 1e10 || abs < 1e-4 -> {
+                // Trim trailing zeros only from the mantissa, not the exponent.
+                // e.g. "1.000000e+10" → "1e+10", not "1.e+1"
+                val raw = String.format(Locale.US, "%.6e", value)
+                val eIdx = raw.indexOf('e')
+                val mantissa = raw.substring(0, eIdx).trimEnd('0').trimEnd('.')
+                val exponent = raw.substring(eIdx)
+                "$mantissa$exponent"
+            }
             abs >= 1 -> String.format(Locale.US, "%.6f", value).trimEnd('0').trimEnd('.')
             else     -> String.format(Locale.US, "%.8f", value).trimEnd('0').trimEnd('.')
         }

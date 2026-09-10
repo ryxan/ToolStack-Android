@@ -1,5 +1,6 @@
 package com.toolstack.io.data.repository
 
+import android.util.Base64
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -76,12 +77,12 @@ class UserPreferencesRepository @Inject constructor(
      * Persisted ratio-mix presets. Each preset is a named list of (label, ratioText) pairs
      * defined by the user. Stored as newline-separated records; each record has the format:
      *
-     *   presetName\tLabel1\uFFFEratioText1\tLabel2\uFFFEratioText2...
+     *   B64(presetName)\tB64(Label1)\uFFFEB64(ratioText1)\tB64(Label2)\uFFFEB64(ratioText2)...
      *
+     * Every field is Base64-encoded (URL-safe, no padding) so that tabs, newlines, and any
+     * other characters in user-entered text cannot collide with the structural delimiters.
      * '\t' separates the preset name from the parts, and parts from each other.
-     * '\uFFFE' separates a part's label from its ratio value. The separator U+FFFE
-     * (non-character) is unlikely to appear in user-entered text and avoids collisions
-     * with common punctuation.
+     * '\uFFFE' separates a part's Base64-label from its Base64-ratio value.
      *
      * An empty/missing value means no presets have been saved.
      */
@@ -129,12 +130,21 @@ class UserPreferencesRepository @Inject constructor(
         /** Separator between a part's label and its ratio value. U+FFFE is a non-character. */
         private const val PART_SEP = "\uFFFE"
 
+        /** Encode a single field value to URL-safe Base64 (no padding). */
+        private fun b64enc(s: String): String =
+            Base64.encodeToString(s.toByteArray(Charsets.UTF_8), Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
+
+        /** Decode a single URL-safe Base64 field, returning null on malformed input. */
+        private fun b64dec(s: String): String? = try {
+            String(Base64.decode(s, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING), Charsets.UTF_8)
+        } catch (_: IllegalArgumentException) { null }
+
         private fun encodeRatioMixPresets(presets: List<RatioMixPreset>): String =
             presets.joinToString("\n") { preset ->
                 val partsEncoded = preset.parts.joinToString("\t") { (label, ratio) ->
-                    "${label.replace(PART_SEP, "")}$PART_SEP${ratio.replace(PART_SEP, "")}"
+                    "${b64enc(label)}$PART_SEP${b64enc(ratio)}"
                 }
-                "${preset.name.replace("\n", " ").replace("\t", " ")}\t$partsEncoded"
+                "${b64enc(preset.name)}\t$partsEncoded"
             }
 
         private fun decodeRatioMixPresets(encoded: String): List<RatioMixPreset> =
@@ -143,14 +153,15 @@ class UserPreferencesRepository @Inject constructor(
                 .mapNotNull { record ->
                     val tokens = record.split("\t")
                     if (tokens.size < 2) return@mapNotNull null
-                    val name = tokens[0]
+                    val name = b64dec(tokens[0]) ?: return@mapNotNull null
                     val parts = tokens.drop(1).mapNotNull { partToken ->
                         val idx = partToken.indexOf(PART_SEP)
                         if (idx < 0) null
-                        else RatioMixPresetPart(
-                            label = partToken.substring(0, idx),
-                            ratioText = partToken.substring(idx + PART_SEP.length)
-                        )
+                        else {
+                            val label = b64dec(partToken.substring(0, idx)) ?: return@mapNotNull null
+                            val ratio = b64dec(partToken.substring(idx + PART_SEP.length)) ?: return@mapNotNull null
+                            RatioMixPresetPart(label = label, ratioText = ratio)
+                        }
                     }
                     if (parts.isEmpty()) null
                     else RatioMixPreset(name = name, parts = parts)

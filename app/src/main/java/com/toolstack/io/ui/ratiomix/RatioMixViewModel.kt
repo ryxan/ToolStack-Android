@@ -140,7 +140,12 @@ class RatioMixViewModel @Inject constructor(
                     RatioPart(label = defaultLabel(parts.size + i), ratioText = "1")
                 }
             }
-        _uiState.update { it.copy(parts = newParts).recalculate() }
+        _uiState.update { state ->
+            // Preserve the selected known-part index when it falls within the new
+            // parts list; otherwise clamp to the last available part.
+            val clampedIndex = state.knownPartIndex.coerceAtMost(newParts.lastIndex)
+            state.copy(parts = newParts, knownPartIndex = clampedIndex).recalculate()
+        }
     }
 
     /** Permanently removes the named preset from DataStore. */
