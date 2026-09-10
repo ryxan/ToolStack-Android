@@ -623,14 +623,14 @@ private fun ResultsCard(
 
             HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f))
 
-            results.forEach { result ->
+            results.forEachIndexed { index, result ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = result.label.ifBlank { stringResource(R.string.ratio_mix_part_fallback, results.indexOf(result) + 1) },
+                        text = result.label.ifBlank { stringResource(R.string.ratio_mix_part_fallback, index + 1) },
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
