@@ -21,11 +21,12 @@ import java.util.Locale
 class UnitConverterViewModel(category: UnitCategory) : ViewModel() {
     private val _uiState = MutableStateFlow(
         UnitConverterUiState(
-            category   = category,
-            fromUnit   = category.units.first(),
-            toUnit     = category.units.getOrElse(1) { category.units.first() },
-            inputText  = "",
-            resultText = ""
+            category      = category,
+            fromUnit      = category.units.first(),
+            toUnit        = category.units.getOrElse(1) { category.units.first() },
+            fromText      = "",
+            toText        = "",
+            activeField   = ActiveField.FROM
         )
     )
     val uiState: StateFlow<UnitConverterUiState> = _uiState.asStateFlow()
@@ -40,23 +41,16 @@ class UnitConverterViewModel(category: UnitCategory) : ViewModel() {
         _uiState.update { it.copy(toUnit = unit).recalculate() }
     }
 
-    // ── swap ──────────────────────────────────────────────────────────────────
-
-    fun onSwap() {
-        _uiState.update { state ->
-            state.copy(
-                fromUnit   = state.toUnit,
-                toUnit     = state.fromUnit,
-                inputText  = state.resultText,
-                resultText = state.inputText
-            )
-        }
-    }
-
     // ── input ─────────────────────────────────────────────────────────────────
 
-    fun onInputChanged(text: String) {
-        _uiState.update { it.copy(inputText = text).recalculate() }
+    /** User typed in the "from" field — derive the "to" value. */
+    fun onFromTextChanged(text: String) {
+        _uiState.update { it.copy(fromText = text, activeField = ActiveField.FROM).recalculate() }
+    }
+
+    /** User typed in the "to" field — derive the "from" value. */
+    fun onToTextChanged(text: String) {
+        _uiState.update { it.copy(toText = text, activeField = ActiveField.TO).recalculate() }
     }
 
     // ── factory ───────────────────────────────────────────────────────────────
@@ -74,33 +68,45 @@ class UnitConverterViewModel(category: UnitCategory) : ViewModel() {
     }
 }
 
+// ── Domain types ──────────────────────────────────────────────────────────────
+
+enum class ActiveField { FROM, TO }
+
 // ── UiState ───────────────────────────────────────────────────────────────────
 
 data class UnitConverterUiState(
     val category: UnitCategory,
     val fromUnit: UnitEntry,
     val toUnit: UnitEntry,
-    val inputText: String,
-    val resultText: String
+    /** Raw text in the top (from) field. */
+    val fromText: String,
+    /** Raw text in the bottom (to) field. */
+    val toText: String,
+    /** Which field the user last typed into — drives calculation direction. */
+    val activeField: ActiveField
 ) {
     fun recalculate(): UnitConverterUiState {
-        val raw = inputText.trim()
-        if (raw.isEmpty()) return copy(resultText = "")
-
-        val input = raw.toDoubleOrNull()
-            ?: return copy(resultText = "—")
-
-        val base   = fromUnit.toBase(input)
-        val output = toUnit.fromBase(base)
-
-        val formatted = when {
-            output.isInfinite() || output.isNaN() -> "—"
-            else                                  -> formatResult(output)
+        return when (activeField) {
+            ActiveField.FROM -> {
+                val raw = fromText.trim()
+                if (raw.isEmpty()) return copy(toText = "")
+                val input = raw.toDoubleOrNull() ?: return copy(toText = "—")
+                val result = toUnit.fromBase(fromUnit.toBase(input))
+                copy(toText = formatResult(result))
+            }
+            ActiveField.TO -> {
+                val raw = toText.trim()
+                if (raw.isEmpty()) return copy(fromText = "")
+                val input = raw.toDoubleOrNull() ?: return copy(fromText = "—")
+                // Reverse: treat "to" as the input unit, derive "from" value
+                val result = fromUnit.fromBase(toUnit.toBase(input))
+                copy(fromText = formatResult(result))
+            }
         }
-        return copy(resultText = formatted)
     }
 
     private fun formatResult(value: Double): String {
+        if (value.isInfinite() || value.isNaN()) return "—"
         if (value == 0.0) return "0"
         val abs = kotlin.math.abs(value)
         return when {

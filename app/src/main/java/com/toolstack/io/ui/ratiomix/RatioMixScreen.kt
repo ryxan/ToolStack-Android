@@ -7,17 +7,20 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.automirrored.filled.AddToHomeScreen
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -31,9 +34,11 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -44,6 +49,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -53,6 +60,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.toolstack.io.R
+import com.toolstack.io.data.repository.RatioMixPreset
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,6 +71,16 @@ fun RatioMixScreen(
     viewModel: RatioMixViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // Save-preset dialog — rendered outside the LazyColumn so it floats above everything.
+    if (uiState.showSaveDialog) {
+        SavePresetDialog(
+            name = uiState.saveDialogName,
+            onNameChanged = viewModel::onSaveDialogNameChanged,
+            onConfirm = viewModel::onSaveDialogConfirmed,
+            onDismiss = viewModel::onSaveDialogDismissed
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -145,19 +163,29 @@ fun RatioMixScreen(
                 )
             }
 
-            // Add part button
-            if (uiState.parts.size < RatioMixViewModel.MAX_PARTS) {
-                item {
-                    Button(
-                        onClick = viewModel::onAddPart,
-                        modifier = Modifier.fillMaxWidth()
+            // ── add part / save preset buttons ────────────────────────────────
+            item {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (uiState.parts.size < RatioMixViewModel.MAX_PARTS) {
+                        Button(
+                            onClick = viewModel::onAddPart,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(imageVector = Icons.Filled.Add, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = stringResource(R.string.ratio_mix_add_part))
+                        }
+                    }
+                    OutlinedButton(
+                        onClick = viewModel::onSavePresetClicked,
+                        modifier = Modifier.weight(1f)
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.Add,
-                            contentDescription = null
-                        )
+                        Icon(imageVector = Icons.Filled.Bookmark, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = stringResource(R.string.ratio_mix_add_part))
+                        Text(text = stringResource(R.string.ratio_mix_save_preset))
                     }
                 }
             }
@@ -187,6 +215,15 @@ fun RatioMixScreen(
                 }
             }
 
+            // ── saved presets ─────────────────────────────────────────────────
+            item {
+                SavedPresetsSection(
+                    presets = uiState.savedPresets,
+                    onLoad = viewModel::onLoadPreset,
+                    onDelete = viewModel::onDeletePreset
+                )
+            }
+
             // ── disclaimer ────────────────────────────────────────────────────
             item {
                 Text(
@@ -194,6 +231,148 @@ fun RatioMixScreen(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+    }
+}
+
+// ── Save-preset dialog ────────────────────────────────────────────────────────
+
+@Composable
+private fun SavePresetDialog(
+    name: String,
+    onNameChanged: (String) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val focusRequester = remember { FocusRequester() }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = stringResource(R.string.ratio_mix_save_dialog_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = stringResource(R.string.ratio_mix_save_dialog_body),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = onNameChanged,
+                    singleLine = true,
+                    label = { Text(text = stringResource(R.string.ratio_mix_preset_name_hint)) },
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Words,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(onDone = { if (name.isNotBlank()) onConfirm() }),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(focusRequester)
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                enabled = name.isNotBlank()
+            ) {
+                Text(text = stringResource(R.string.ratio_mix_save_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(android.R.string.cancel))
+            }
+        }
+    )
+}
+
+// ── Saved presets section ─────────────────────────────────────────────────────
+
+@Composable
+private fun SavedPresetsSection(
+    presets: List<RatioMixPreset>,
+    onLoad: (RatioMixPreset) -> Unit,
+    onDelete: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = stringResource(R.string.ratio_mix_saved_presets),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        if (presets.isEmpty()) {
+            Text(
+                text = stringResource(R.string.ratio_mix_no_saved_presets),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            presets.forEach { preset ->
+                PresetRow(
+                    preset = preset,
+                    onLoad = { onLoad(preset) },
+                    onDelete = { onDelete(preset.name) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PresetRow(
+    preset: RatioMixPreset,
+    onLoad: () -> Unit,
+    onDelete: () -> Unit
+) {
+    // Compact summary of the parts, e.g. "Water · Fertilizer · Part C"
+    val partsSummary = preset.parts.joinToString(" · ") { it.label.ifBlank { "?" } }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = preset.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = partsSummary,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            // Load button
+            TextButton(onClick = onLoad) {
+                Text(text = stringResource(R.string.ratio_mix_load_action))
+            }
+
+            // Delete button
+            IconButton(onClick = onDelete) {
+                Icon(
+                    imageVector = Icons.Filled.Delete,
+                    contentDescription = stringResource(R.string.ratio_mix_delete_preset, preset.name),
+                    tint = MaterialTheme.colorScheme.error
                 )
             }
         }

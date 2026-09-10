@@ -1,7 +1,6 @@
 package com.toolstack.io.ui.unitconverter
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,14 +8,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
@@ -40,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -58,16 +56,12 @@ fun UnitConverterDetailScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Look up by stable list index — avoids any URL-encoding round-trip issues
-    // that arise when using the display name as a nav argument.
     val category = remember(categoryIndex) {
         UnitConverterData.categories.getOrElse(categoryIndex) {
             UnitConverterData.categories.first()
         }
     }
 
-    // Factory-created ViewModel keyed on the index so each category gets its
-    // own instance — no Hilt back-stack reuse possible.
     val viewModel: UnitConverterViewModel = viewModel(
         key = "converter_$categoryIndex",
         factory = UnitConverterViewModel.factory(category)
@@ -127,46 +121,42 @@ fun UnitConverterDetailScreen(
                 ) {
                     UnitInputRow(
                         label = stringResource(R.string.unit_converter_from),
-                        value = uiState.inputText,
+                        value = uiState.fromText,
                         unit = uiState.fromUnit,
                         units = uiState.category.units,
-                        onValueChange = viewModel::onInputChanged,
+                        onValueChange = viewModel::onFromTextChanged,
                         onUnitSelected = viewModel::onFromUnitSelected,
-                        isInput = true
-                    )
-
-                    Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        IconButton(onClick = viewModel::onSwap) {
-                            Icon(
-                                imageVector = Icons.Filled.SwapVert,
-                                contentDescription = stringResource(R.string.unit_converter_swap),
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(28.dp)
-                            )
+                        onFocused = {
+                            // Clear the computed value when the user taps into this field
+                            // so they start with a blank slate rather than editing a result.
+                            if (uiState.activeField == ActiveField.TO) {
+                                viewModel.onFromTextChanged("")
+                            }
                         }
-                    }
+                    )
 
                     UnitInputRow(
                         label = stringResource(R.string.unit_converter_to),
-                        value = uiState.resultText,
+                        value = uiState.toText,
                         unit = uiState.toUnit,
                         units = uiState.category.units,
-                        onValueChange = { /* read-only */ },
+                        onValueChange = viewModel::onToTextChanged,
                         onUnitSelected = viewModel::onToUnitSelected,
-                        isInput = false
+                        onFocused = {
+                            if (uiState.activeField == ActiveField.FROM) {
+                                viewModel.onToTextChanged("")
+                            }
+                        }
                     )
                 }
             }
 
-            if (uiState.inputText.isNotEmpty() &&
-                uiState.resultText.isNotEmpty() &&
-                uiState.resultText != "—"
+            // Summary line — always shows from → to direction for readability.
+            if (uiState.fromText.isNotEmpty() && uiState.toText.isNotEmpty() &&
+                uiState.toText != "—" && uiState.fromText != "—"
             ) {
                 Text(
-                    text = "${uiState.inputText} ${uiState.fromUnit.symbol}  =  ${uiState.resultText} ${uiState.toUnit.symbol}",
+                    text = "${uiState.fromText} ${uiState.fromUnit.symbol}  =  ${uiState.toText} ${uiState.toUnit.symbol}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -203,7 +193,7 @@ private fun UnitInputRow(
     units: List<UnitEntry>,
     onValueChange: (String) -> Unit,
     onUnitSelected: (UnitEntry) -> Unit,
-    isInput: Boolean
+    onFocused: () -> Unit
 ) {
     var dropdownExpanded by remember { mutableStateOf(false) }
 
@@ -222,26 +212,21 @@ private fun UnitInputRow(
             OutlinedTextField(
                 value = value,
                 onValueChange = onValueChange,
-                readOnly = !isInput,
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyLarge,
                 placeholder = {
-                    if (isInput) {
-                        Text(
-                            text = stringResource(R.string.unit_converter_input_hint),
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                    }
-                },
-                keyboardOptions = if (isInput) {
-                    KeyboardOptions(
-                        keyboardType = KeyboardType.Decimal,
-                        imeAction = ImeAction.Done
+                    Text(
+                        text = stringResource(R.string.unit_converter_input_hint),
+                        style = MaterialTheme.typography.bodyLarge
                     )
-                } else {
-                    KeyboardOptions.Default
                 },
-                modifier = Modifier.weight(1f)
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Decimal,
+                    imeAction = ImeAction.Done
+                ),
+                modifier = Modifier
+                    .weight(1f)
+                    .onFocusChanged { focusState -> if (focusState.isFocused) onFocused() }
             )
 
             Spacer(modifier = Modifier.width(0.dp))

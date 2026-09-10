@@ -1,19 +1,35 @@
 package com.toolstack.io.ui.ratiomix
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.toolstack.io.data.repository.RatioMixPreset
+import com.toolstack.io.data.repository.RatioMixPresetPart
+import com.toolstack.io.data.repository.UserPreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel
-class RatioMixViewModel @Inject constructor() : ViewModel() {
+class RatioMixViewModel @Inject constructor(
+    private val preferencesRepository: UserPreferencesRepository
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RatioMixUiState())
     val uiState: StateFlow<RatioMixUiState> = _uiState.asStateFlow()
+
+    init {
+        // Reactively wire saved presets from DataStore into UI state.
+        preferencesRepository.ratioMixPresets
+            .onEach { presets -> _uiState.update { it.copy(savedPresets = presets) } }
+            .launchIn(viewModelScope)
+    }
 
     // ── part label edits ──────────────────────────────────────────────────────
 
@@ -75,6 +91,65 @@ class RatioMixViewModel @Inject constructor() : ViewModel() {
         _uiState.update { it.copy(knownPartIndex = index).recalculate() }
     }
 
+    // ── preset save/load/delete ───────────────────────────────────────────────
+
+    /** Show or hide the "name your preset" dialog. */
+    fun onSavePresetClicked() {
+        _uiState.update { it.copy(showSaveDialog = true, saveDialogName = "") }
+    }
+
+    fun onSaveDialogNameChanged(name: String) {
+        _uiState.update { it.copy(saveDialogName = name) }
+    }
+
+    fun onSaveDialogDismissed() {
+        _uiState.update { it.copy(showSaveDialog = false, saveDialogName = "") }
+    }
+
+    /**
+     * Persists the current parts list under the given name.
+     * If a preset with that name already exists it is overwritten.
+     */
+    fun onSaveDialogConfirmed() {
+        val state = _uiState.value
+        val name = state.saveDialogName.trim()
+        if (name.isBlank()) return
+        _uiState.update { it.copy(showSaveDialog = false, saveDialogName = "") }
+        viewModelScope.launch {
+            val preset = RatioMixPreset(
+                name = name,
+                parts = state.parts.map { RatioMixPresetPart(it.label, it.ratioText) }
+            )
+            preferencesRepository.saveRatioMixPreset(preset)
+        }
+    }
+
+    /**
+     * Replaces the current parts list with those from the chosen preset.
+     * Volume input and mode are intentionally left unchanged — the user
+     * may want to reuse the same volume with a different mix.
+     */
+    fun onLoadPreset(preset: RatioMixPreset) {
+        val newParts = preset.parts
+            .take(MAX_PARTS)
+            .map { RatioPart(label = it.label, ratioText = it.ratioText) }
+            .let { parts ->
+                // Ensure we always have at least MIN_PARTS
+                if (parts.size >= MIN_PARTS) parts
+                else parts + List(MIN_PARTS - parts.size) { i ->
+                    RatioPart(label = defaultLabel(parts.size + i), ratioText = "1")
+                }
+            }
+        _uiState.update { it.copy(parts = newParts).recalculate() }
+    }
+
+    /** Permanently removes the named preset from DataStore. */
+    fun onDeletePreset(presetName: String) {
+        viewModelScope.launch {
+            preferencesRepository.deleteRatioMixPreset(presetName)
+        }
+    }
+
     companion object {
         const val MAX_PARTS = 6
         const val MIN_PARTS = 2
@@ -116,6 +191,11 @@ data class RatioMixUiState(
     val selectedUnit: VolumeUnit = VolumeUnit.LITRES,
     val mode: Mode = Mode.TOTAL_TO_PARTS,
     val knownPartIndex: Int = 0,
+    // Saved presets (from DataStore)
+    val savedPresets: List<RatioMixPreset> = emptyList(),
+    // Save-dialog state
+    val showSaveDialog: Boolean = false,
+    val saveDialogName: String = "",
     // Computed
     val results: List<RatioResult> = emptyList(),
     val totalResultText: String = "",
