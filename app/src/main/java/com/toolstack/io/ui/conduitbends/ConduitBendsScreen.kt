@@ -211,7 +211,7 @@ private fun SelectionStep(
         verticalArrangement   = Arrangement.spacedBy(12.dp),
         modifier           = modifier.fillMaxSize()
     ) {
-        items(BendType.entries, key = { it.name }) { bend ->
+        items(BendType.entries.filter { it.isVisible }, key = { it.name }) { bend ->
             BendTypeCard(
                 bend     = bend,
                 onClick  = { if (bend.isImplemented) onBendSelected(bend) }

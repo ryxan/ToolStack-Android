@@ -4,20 +4,21 @@ package com.toolstack.io.domain.model
  * All bend types the Conduit Bends tool supports.
  * [isImplemented] gates whether the selection card is tappable or shown as "coming soon".
  */
-enum class BendType(val displayName: String, val subtitle: String, val isImplemented: Boolean) {
+enum class BendType(val displayName: String, val subtitle: String, val isImplemented: Boolean, val isVisible: Boolean = true) {
     CORNER_90(
         displayName   = "90° Corner",
         subtitle      = "Standard 90° bend around a corner",
-        isImplemented = true
+        isImplemented = true,
+        isVisible     = false   // same math as STUB_UP_90; hidden to avoid duplication
     ),
     STUB_UP_90(
-        displayName    = "90° Stub-Up",
+        displayName    = "90° Bend (Stub-Up)",
         subtitle       = "Single 90° bend rising from the floor",
         isImplemented  = true
     ),
     OFFSET(
-        displayName    = "Offset",
-        subtitle       = "Two bends to clear an obstruction",
+        displayName    = "True Offset",
+        subtitle       = "Two equal bends to clear an obstruction",
         isImplemented  = true
     ),
     SADDLE_3_POINT(
@@ -38,9 +39,9 @@ enum class BendType(val displayName: String, val subtitle: String, val isImpleme
 }
 
 /**
- * EMT conduit sizes with their bender take-off constants.
- * Take-off values are for standard hand benders (Klein, Ideal, Greenlee).
- * These represent how much the bend "eats" from your measured stub length.
+ * EMT conduit sizes with their bender take-up constants.
+ * Take-up values are for standard hand benders (Klein, Ideal, Greenlee).
+ * These represent how much conduit the bend arc "uses up" from your measured stub height.
  */
 enum class ConduitSize(val label: String, val takeOff90Inches: Double) {
     HALF("½\"",   5.0),
@@ -120,9 +121,9 @@ sealed class BendResult {
     /**
      * Standard 90° corner.
      * @param distanceToCornerInches The original user-entered distance from pipe end to outside corner.
-     * @param takeOffInches          The bender's take-off for this conduit size.
+     * @param takeOffInches          The bender's take-up for this conduit size.
      * @param markLocationInches     Where to place the bender arrow, measured from the
-     *                               reference end of the pipe (distanceToCorner − takeOff).
+     *                               reference end of the pipe (distanceToCorner − takeUp).
      */
     data class Corner90(
         val distanceToCornerInches: Double,
@@ -131,7 +132,7 @@ sealed class BendResult {
     ) : BendResult()
 
     /**
-     * @param takeOffInches     How much to subtract from stub length for the take-off.
+     * @param takeOffInches     The take-up amount subtracted from stub height.
      * @param markLocationInches Distance from the end of the pipe to place the bender arrow.
      */
     data class StubUp90(
