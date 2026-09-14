@@ -63,7 +63,8 @@ class UnitConverterViewModel @Inject constructor(
     )
     val uiState: StateFlow<UnitConverterUiState> = _uiState.asStateFlow()
 
-    @Volatile private var userHasSelectedUnit = false
+    @Volatile private var fromUnitSelected = false
+    @Volatile private var toUnitSelected = false
 
     init {
         // Record this category as the last-used category
@@ -75,11 +76,23 @@ class UnitConverterViewModel @Inject constructor(
         viewModelScope.launch {
             val savedMap = preferencesRepository.converterUnits.first()
             val savedUnits = savedMap[category.name]
-            if (!userHasSelectedUnit && savedUnits != null) {
+            if (savedUnits != null) {
                 val (fromLabel, toLabel) = savedUnits
-                val from = category.units.find { it.label == fromLabel } ?: category.units.first()
-                val to = category.units.find { it.label == toLabel } ?: category.units.getOrElse(1) { category.units.first() }
-                _uiState.update { it.copy(fromUnit = from, toUnit = to).recalculate() }
+                val from = if (!fromUnitSelected) {
+                    category.units.find { it.label == fromLabel } ?: category.units.first()
+                } else null
+                val to = if (!toUnitSelected) {
+                    category.units.find { it.label == toLabel }
+                        ?: category.units.getOrElse(1) { category.units.first() }
+                } else null
+                if (from != null || to != null) {
+                    _uiState.update { current ->
+                        current.copy(
+                            fromUnit = from ?: current.fromUnit,
+                            toUnit = to ?: current.toUnit
+                        ).recalculate()
+                    }
+                }
             }
         }
     }
@@ -87,7 +100,7 @@ class UnitConverterViewModel @Inject constructor(
     // ── unit selection ────────────────────────────────────────────────────────
 
     fun onFromUnitSelected(unit: UnitEntry) {
-        userHasSelectedUnit = true
+        fromUnitSelected = true
         _uiState.update { it.copy(fromUnit = unit).recalculate() }
         viewModelScope.launch {
             preferencesRepository.saveConverterUnits(
@@ -99,7 +112,7 @@ class UnitConverterViewModel @Inject constructor(
     }
 
     fun onToUnitSelected(unit: UnitEntry) {
-        userHasSelectedUnit = true
+        toUnitSelected = true
         _uiState.update { it.copy(toUnit = unit).recalculate() }
         viewModelScope.launch {
             preferencesRepository.saveConverterUnits(

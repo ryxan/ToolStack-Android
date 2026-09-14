@@ -4,11 +4,14 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import java.util.Base64
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import java.io.IOException
+import java.util.Base64
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -120,13 +123,21 @@ class UserPreferencesRepository @Inject constructor(
      * Last unit-converter category accessed by the user (e.g. "Weight / Mass").
      * Null if the user has not used the converter yet.
      */
-    val lastConverterCategory: Flow<String?> = dataStore.data.map { preferences ->
-        preferences[KEY_LAST_CONVERTER_CATEGORY]
-    }
+    val lastConverterCategory: Flow<String?> = dataStore.data
+        .catch { e ->
+            if (e is IOException) emit(emptyPreferences()) else throw e
+        }
+        .map { preferences ->
+            preferences[KEY_LAST_CONVERTER_CATEGORY]
+        }
 
     suspend fun saveLastConverterCategory(categoryName: String) {
-        dataStore.edit { preferences ->
-            preferences[KEY_LAST_CONVERTER_CATEGORY] = categoryName
+        try {
+            dataStore.edit { preferences ->
+                preferences[KEY_LAST_CONVERTER_CATEGORY] = categoryName
+            }
+        } catch (e: IOException) {
+            // Log error, could use Timber if available
         }
     }
 
@@ -134,20 +145,28 @@ class UserPreferencesRepository @Inject constructor(
      * Persisted unit selections for each converter category.
      * Maps category name -> Pair(fromUnitLabel, toUnitLabel).
      */
-    val converterUnits: Flow<Map<String, Pair<String, String>>> = dataStore.data.map { preferences ->
-        preferences[KEY_CONVERTER_UNITS]
-            ?.let { decodeConverterUnits(it) }
-            ?: emptyMap()
-    }
+    val converterUnits: Flow<Map<String, Pair<String, String>>> = dataStore.data
+        .catch { e ->
+            if (e is IOException) emit(emptyPreferences()) else throw e
+        }
+        .map { preferences ->
+            preferences[KEY_CONVERTER_UNITS]
+                ?.let { decodeConverterUnits(it) }
+                ?: emptyMap()
+        }
 
     suspend fun saveConverterUnits(categoryName: String, fromUnit: String, toUnit: String) {
-        dataStore.edit { preferences ->
-            val current = preferences[KEY_CONVERTER_UNITS]
-                ?.let { decodeConverterUnits(it) }
-                ?.toMutableMap()
-                ?: mutableMapOf()
-            current[categoryName] = Pair(fromUnit, toUnit)
-            preferences[KEY_CONVERTER_UNITS] = encodeConverterUnits(current)
+        try {
+            dataStore.edit { preferences ->
+                val current = preferences[KEY_CONVERTER_UNITS]
+                    ?.let { decodeConverterUnits(it) }
+                    ?.toMutableMap()
+                    ?: mutableMapOf()
+                current[categoryName] = Pair(fromUnit, toUnit)
+                preferences[KEY_CONVERTER_UNITS] = encodeConverterUnits(current)
+            }
+        } catch (e: IOException) {
+            // Log error if needed
         }
     }
 
