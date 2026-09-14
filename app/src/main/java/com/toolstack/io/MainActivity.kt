@@ -16,9 +16,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.toolstack.io.data.repository.UserPreferencesRepository
+import com.toolstack.io.domain.calculator.UnitConverterData
 import com.toolstack.io.ui.bearings.BearingsScreen
 import com.toolstack.io.ui.conduitbends.ConduitBendsScreen
 import com.toolstack.io.ui.home.HomeScreen
@@ -36,11 +39,20 @@ import com.toolstack.io.ui.wrenchfastener.WrenchFastenerScreen
 import com.toolstack.io.ui.theme.IndustrialUtilityTheme
 import com.toolstack.io.util.ShortcutUtil
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var preferencesRepository: UserPreferencesRepository
+
+    private var isAppReady = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen()
+        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
@@ -53,6 +65,11 @@ class MainActivity : ComponentActivity() {
         // being consumed (set to null) after the first navigate call below.
         val deepLinkRoute: String? = ShortcutUtil.extractRoute(intent?.data)
 
+        // If launching directly to a shortcut, hold the splash screen until initial
+        // navigation completes so the user doesn't see an intermediate screen flash.
+        isAppReady = deepLinkRoute == null
+        splashScreen.setKeepOnScreenCondition { !isAppReady }
+
         setContent {
             IndustrialUtilityTheme {
                 Surface(
@@ -61,6 +78,13 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val navController = rememberNavController()
                     val context = LocalContext.current
+
+                    val lastCategoryName by preferencesRepository.lastConverterCategory.collectAsState(initial = null)
+                    val lastCategoryIndex = remember(lastCategoryName) {
+                        lastCategoryName?.let { name ->
+                            UnitConverterData.categories.indexOfFirst { it.name == name }.takeIf { it >= 0 }
+                        }
+                    }
 
                     // Single ShortcutViewModel instance for all tool screens.
                     // hiltViewModel() here is scoped to the activity's
@@ -95,6 +119,29 @@ class MainActivity : ComponentActivity() {
                     // we don't navigate again on recomposition.
                     val pendingDeepLink = remember { mutableStateOf(deepLinkRoute) }
 
+                    // Helper to open the Unit Converter directly into the last-used category
+                    // in a single smooth transition (no intermediate category screen flash).
+                    fun navigateToConverter() {
+                        val targetIndex = lastCategoryIndex
+                        if (targetIndex != null) {
+                            navController.navigate(Screen.UnitConverterDetail.routeWithArg(targetIndex))
+                            isAppReady = true
+                        } else {
+                            lifecycleScope.launch {
+                                val lastCategory = preferencesRepository.lastConverterCategory.first()
+                                val index = lastCategory?.let { name ->
+                                    UnitConverterData.categories.indexOfFirst { it.name == name }.takeIf { it >= 0 }
+                                }
+                                if (index != null) {
+                                    navController.navigate(Screen.UnitConverterDetail.routeWithArg(index))
+                                } else {
+                                    navController.navigate(Screen.UnitConverter.route)
+                                }
+                                isAppReady = true
+                            }
+                        }
+                    }
+
                     NavHost(
                         navController = navController,
                         startDestination = Screen.Home.route
@@ -105,14 +152,21 @@ class MainActivity : ComponentActivity() {
                             // than before NavHost so the graph is already built.
                             pendingDeepLink.value?.let { route ->
                                 pendingDeepLink.value = null
-                                if (navController.graph.findNode(route) != null) {
+                                if (route == Screen.UnitConverter.route) {
+                                    navigateToConverter()
+                                } else if (navController.graph.findNode(route) != null) {
                                     navController.navigate(route)
+                                    isAppReady = true
+                                } else {
+                                    isAppReady = true
                                 }
                             }
 
                             HomeScreen(
                                 onNavigate = { route ->
-                                    if (navController.graph.findNode(route) != null) {
+                                    if (route == Screen.UnitConverter.route) {
+                                        navigateToConverter()
+                                    } else if (navController.graph.findNode(route) != null) {
                                         navController.navigate(route)
                                     }
                                 }
@@ -171,7 +225,15 @@ class MainActivity : ComponentActivity() {
                                 ?.toIntOrNull() ?: 0
                             UnitConverterDetailScreen(
                                 categoryIndex = categoryIndex,
-                                onBack = { navController.popBackStack() }
+                                onBack = {
+                                    if (navController.previousBackStackEntry?.destination?.route == Screen.UnitConverter.route) {
+                                        navController.popBackStack()
+                                    } else {
+                                        navController.navigate(Screen.UnitConverter.route) {
+                                            popUpTo(Screen.Home.route)
+                                        }
+                                    }
+                                }
                             )
                         }
                         composable(Screen.RatioMix.route) {

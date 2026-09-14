@@ -44,7 +44,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.toolstack.io.R
 import com.toolstack.io.domain.calculator.UnitConverterData
 import com.toolstack.io.domain.model.UnitEntry
@@ -54,19 +54,9 @@ import com.toolstack.io.domain.model.UnitEntry
 fun UnitConverterDetailScreen(
     categoryIndex: Int,
     onBack: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: UnitConverterViewModel = hiltViewModel()
 ) {
-    val category = remember(categoryIndex) {
-        UnitConverterData.categories.getOrElse(categoryIndex) {
-            UnitConverterData.categories.first()
-        }
-    }
-
-    val viewModel: UnitConverterViewModel = viewModel(
-        key = "converter_$categoryIndex",
-        factory = UnitConverterViewModel.factory(category)
-    )
-
     val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(

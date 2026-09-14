@@ -1,12 +1,12 @@
 package com.toolstack.io.data.repository
 
-import android.util.Base64
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import java.util.Base64
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -116,6 +116,41 @@ class UserPreferencesRepository @Inject constructor(
         }
     }
 
+    /**
+     * Last unit-converter category accessed by the user (e.g. "Weight / Mass").
+     * Null if the user has not used the converter yet.
+     */
+    val lastConverterCategory: Flow<String?> = dataStore.data.map { preferences ->
+        preferences[KEY_LAST_CONVERTER_CATEGORY]
+    }
+
+    suspend fun saveLastConverterCategory(categoryName: String) {
+        dataStore.edit { preferences ->
+            preferences[KEY_LAST_CONVERTER_CATEGORY] = categoryName
+        }
+    }
+
+    /**
+     * Persisted unit selections for each converter category.
+     * Maps category name -> Pair(fromUnitLabel, toUnitLabel).
+     */
+    val converterUnits: Flow<Map<String, Pair<String, String>>> = dataStore.data.map { preferences ->
+        preferences[KEY_CONVERTER_UNITS]
+            ?.let { decodeConverterUnits(it) }
+            ?: emptyMap()
+    }
+
+    suspend fun saveConverterUnits(categoryName: String, fromUnit: String, toUnit: String) {
+        dataStore.edit { preferences ->
+            val current = preferences[KEY_CONVERTER_UNITS]
+                ?.let { decodeConverterUnits(it) }
+                ?.toMutableMap()
+                ?: mutableMapOf()
+            current[categoryName] = Pair(fromUnit, toUnit)
+            preferences[KEY_CONVERTER_UNITS] = encodeConverterUnits(current)
+        }
+    }
+
     companion object {
         private val KEY_SAE_METRIC_MAX_INCHES = intPreferencesKey("sae_metric_max_inches")
         private const val DEFAULT_MAX_INCHES = 1
@@ -126,17 +161,19 @@ class UserPreferencesRepository @Inject constructor(
         private val KEY_HOME_MODULE_ORDER = stringPreferencesKey("home_module_order")
         private val KEY_CONVERTER_CATEGORY_ORDER = stringPreferencesKey("converter_category_order")
         private val KEY_RATIO_MIX_PRESETS = stringPreferencesKey("ratio_mix_presets")
+        private val KEY_LAST_CONVERTER_CATEGORY = stringPreferencesKey("last_converter_category")
+        private val KEY_CONVERTER_UNITS = stringPreferencesKey("converter_units")
 
         /** Separator between a part's label and its ratio value. U+FFFE is a non-character. */
         private const val PART_SEP = "\uFFFE"
 
         /** Encode a single field value to URL-safe Base64 (no padding). */
         private fun b64enc(s: String): String =
-            Base64.encodeToString(s.toByteArray(Charsets.UTF_8), Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
+            Base64.getUrlEncoder().withoutPadding().encodeToString(s.toByteArray(Charsets.UTF_8))
 
         /** Decode a single URL-safe Base64 field, returning null on malformed input. */
         private fun b64dec(s: String): String? = try {
-            String(Base64.decode(s, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING), Charsets.UTF_8)
+            String(Base64.getUrlDecoder().decode(s), Charsets.UTF_8)
         } catch (_: IllegalArgumentException) { null }
 
         private fun encodeRatioMixPresets(presets: List<RatioMixPreset>): String =
@@ -166,6 +203,24 @@ class UserPreferencesRepository @Inject constructor(
                     if (parts.isEmpty()) null
                     else RatioMixPreset(name = name, parts = parts)
                 }
+
+        private fun encodeConverterUnits(unitsMap: Map<String, Pair<String, String>>): String =
+            unitsMap.entries.joinToString("\n") { (category, units) ->
+                "${b64enc(category)}\t${b64enc(units.first)}\t${b64enc(units.second)}"
+            }
+
+        private fun decodeConverterUnits(encoded: String): Map<String, Pair<String, String>> =
+            encoded.split("\n")
+                .filter { it.isNotBlank() }
+                .mapNotNull { record ->
+                    val tokens = record.split("\t")
+                    if (tokens.size < 3) return@mapNotNull null
+                    val category = b64dec(tokens[0]) ?: return@mapNotNull null
+                    val fromUnit = b64dec(tokens[1]) ?: return@mapNotNull null
+                    val toUnit = b64dec(tokens[2]) ?: return@mapNotNull null
+                    category to Pair(fromUnit, toUnit)
+                }
+                .toMap()
     }
 }
 
