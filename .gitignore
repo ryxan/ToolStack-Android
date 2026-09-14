@@ -34,3 +34,6 @@ build/
 # Python cache artifacts from catalog generator tests
 __pycache__/
 *.pyc
+
+# Local tooling / agent artifacts
+.kiro/

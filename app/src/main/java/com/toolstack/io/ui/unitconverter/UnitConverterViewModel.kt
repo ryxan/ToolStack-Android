@@ -1,24 +1,56 @@
 package com.toolstack.io.ui.unitconverter
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import com.toolstack.io.data.repository.UserPreferencesRepository
+import com.toolstack.io.domain.calculator.UnitConverterData
 import com.toolstack.io.domain.model.UnitCategory
 import com.toolstack.io.domain.model.UnitEntry
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import java.util.Locale
+import javax.inject.Inject
 
 /**
  * ViewModel for a single converter category.
  *
- * Deliberately NOT a @HiltViewModel — Hilt scopes ViewModels to NavBackStackEntry,
- * which means navigating back and tapping a different category reuses the same
- * ViewModel instance. Passing [category] via a factory sidesteps that entirely:
- * each composable invocation gets a fresh instance scoped to the call site.
+ * Scoped to [NavBackStackEntry] via Hilt or instantiated via [factory] for testing.
+ * Restores and persists the user's selected From and To units per category.
  */
-class UnitConverterViewModel(category: UnitCategory) : ViewModel() {
+@HiltViewModel
+class UnitConverterViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
+    private val preferencesRepository: UserPreferencesRepository
+) : ViewModel() {
+
+    private val categoryIndex: Int =
+        savedStateHandle.get<String>(ARG_CATEGORY_INDEX)?.toIntOrNull()
+            ?: savedStateHandle.get<Int>(ARG_CATEGORY_INDEX)
+            ?: 0
+
+    val category: UnitCategory =
+        UnitConverterData.categories.getOrElse(categoryIndex) {
+            UnitConverterData.categories.first()
+        }
+
+    /** Secondary constructor for direct instantiation in tests. */
+    constructor(
+        category: UnitCategory,
+        preferencesRepository: UserPreferencesRepository
+    ) : this(
+        savedStateHandle = SavedStateHandle(
+            mapOf(ARG_CATEGORY_INDEX to UnitConverterData.categories.indexOf(category).toString())
+        ),
+        preferencesRepository = preferencesRepository
+    )
+
     private val _uiState = MutableStateFlow(
         UnitConverterUiState(
             category      = category,
@@ -31,14 +63,64 @@ class UnitConverterViewModel(category: UnitCategory) : ViewModel() {
     )
     val uiState: StateFlow<UnitConverterUiState> = _uiState.asStateFlow()
 
+    @Volatile private var fromUnitSelected = false
+    @Volatile private var toUnitSelected = false
+
+    init {
+        // Record this category as the last-used category
+        viewModelScope.launch {
+            preferencesRepository.saveLastConverterCategory(category.name)
+        }
+
+        // Restore persisted units for this category if user hasn't already made a selection
+        viewModelScope.launch {
+            val savedMap = preferencesRepository.converterUnits.first()
+            val savedUnits = savedMap[category.name]
+            if (savedUnits != null) {
+                val (fromLabel, toLabel) = savedUnits
+                val from = if (!fromUnitSelected) {
+                    category.units.find { it.label == fromLabel } ?: category.units.first()
+                } else null
+                val to = if (!toUnitSelected) {
+                    category.units.find { it.label == toLabel }
+                        ?: category.units.getOrElse(1) { category.units.first() }
+                } else null
+                if (from != null || to != null) {
+                    _uiState.update { current ->
+                        current.copy(
+                            fromUnit = from ?: current.fromUnit,
+                            toUnit = to ?: current.toUnit
+                        ).recalculate()
+                    }
+                }
+            }
+        }
+    }
+
     // ── unit selection ────────────────────────────────────────────────────────
 
     fun onFromUnitSelected(unit: UnitEntry) {
+        fromUnitSelected = true
         _uiState.update { it.copy(fromUnit = unit).recalculate() }
+        viewModelScope.launch {
+            preferencesRepository.saveConverterUnits(
+                categoryName = category.name,
+                fromUnit = unit.label,
+                toUnit = _uiState.value.toUnit.label
+            )
+        }
     }
 
     fun onToUnitSelected(unit: UnitEntry) {
+        toUnitSelected = true
         _uiState.update { it.copy(toUnit = unit).recalculate() }
+        viewModelScope.launch {
+            preferencesRepository.saveConverterUnits(
+                categoryName = category.name,
+                fromUnit = _uiState.value.fromUnit.label,
+                toUnit = unit.label
+            )
+        }
     }
 
     // ── input ─────────────────────────────────────────────────────────────────
@@ -59,11 +141,14 @@ class UnitConverterViewModel(category: UnitCategory) : ViewModel() {
         /** Nav argument key — used in the route definition in MainActivity. */
         const val ARG_CATEGORY_INDEX = "categoryIndex"
 
-        fun factory(category: UnitCategory): ViewModelProvider.Factory =
+        fun factory(
+            category: UnitCategory,
+            preferencesRepository: UserPreferencesRepository
+        ): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    UnitConverterViewModel(category) as T
+                    UnitConverterViewModel(category, preferencesRepository) as T
             }
     }
 }

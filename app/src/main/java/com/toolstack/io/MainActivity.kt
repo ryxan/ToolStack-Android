@@ -8,17 +8,22 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.toolstack.io.data.repository.UserPreferencesRepository
+import com.toolstack.io.domain.calculator.UnitConverterData
 import com.toolstack.io.ui.bearings.BearingsScreen
 import com.toolstack.io.ui.conduitbends.ConduitBendsScreen
 import com.toolstack.io.ui.home.HomeScreen
@@ -36,11 +41,20 @@ import com.toolstack.io.ui.wrenchfastener.WrenchFastenerScreen
 import com.toolstack.io.ui.theme.IndustrialUtilityTheme
 import com.toolstack.io.util.ShortcutUtil
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var preferencesRepository: UserPreferencesRepository
+
+    private var isAppReady = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen()
+        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
@@ -52,6 +66,11 @@ class MainActivity : ComponentActivity() {
         // Double-navigation on configuration change is prevented by pendingDeepLink
         // being consumed (set to null) after the first navigate call below.
         val deepLinkRoute: String? = ShortcutUtil.extractRoute(intent?.data)
+
+        // If launching directly to a shortcut, hold the splash screen until initial
+        // navigation completes so the user doesn't see an intermediate screen flash.
+        isAppReady = deepLinkRoute == null
+        splashScreen.setKeepOnScreenCondition { !isAppReady }
 
         setContent {
             IndustrialUtilityTheme {
@@ -95,6 +114,18 @@ class MainActivity : ComponentActivity() {
                     // we don't navigate again on recomposition.
                     val pendingDeepLink = remember { mutableStateOf(deepLinkRoute) }
 
+                    // Dismiss the splash screen if the app is restored directly onto a
+                    // non-Home destination (e.g. activity recreated after a shortcut
+                    // deep-link). Without this, isAppReady stays false and the splash
+                    // screen is held forever because the Home composable never runs.
+                    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+                    LaunchedEffect(currentBackStackEntry?.destination?.route) {
+                        val route = currentBackStackEntry?.destination?.route
+                        if (!route.isNullOrEmpty() && route != Screen.Home.route) {
+                            isAppReady = true
+                        }
+                    }
+
                     NavHost(
                         navController = navController,
                         startDestination = Screen.Home.route
@@ -108,6 +139,7 @@ class MainActivity : ComponentActivity() {
                                 if (navController.graph.findNode(route) != null) {
                                     navController.navigate(route)
                                 }
+                                isAppReady = true
                             }
 
                             HomeScreen(
