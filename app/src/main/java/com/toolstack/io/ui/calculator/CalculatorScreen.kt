@@ -2,6 +2,7 @@ package com.toolstack.io.ui.calculator
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.AddToHomeScreen
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -108,7 +111,7 @@ fun CalculatorScreen(
         containerColor = com.toolstack.io.ui.theme.CalcBackground,
         modifier = modifier.fillMaxSize()
     ) { padding ->
-        Column(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(
@@ -116,29 +119,57 @@ fun CalculatorScreen(
                     bottom = padding.calculateBottomPadding() + 8.dp,
                     start = 16.dp,
                     end = 16.dp
-                ),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                )
         ) {
-            // ── Display ───────────────────────────────────────────────────────
-            DisplayPanel(
-                expression = calcState.expression,
-                display = calcState.display,
-                modifier = Modifier.fillMaxWidth()
-            )
+            // Calculate available space and constrain keypad width based on height
+            val availableHeight = maxHeight
+            val availableWidth = maxWidth
+            
+            // Keypad needs 5 rows + 4 gaps (32dp spacing) + some margin
+            val keypadMinHeight = 280.dp
+            val isLandscape = availableWidth > availableHeight
+            val needsScroll = isLandscape && availableHeight < keypadMinHeight
+            
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(
+                        if (needsScroll) {
+                            Modifier.verticalScroll(rememberScrollState())
+                        } else {
+                            Modifier
+                        }
+                    ),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // ── Display ───────────────────────────────────────────────────────
+                DisplayPanel(
+                    expression = calcState.expression,
+                    display = calcState.display,
+                    modifier = Modifier.fillMaxWidth()
+                )
 
-            Spacer(modifier = Modifier.weight(1f))
+                if (!needsScroll) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
 
-            // ── Keypad ────────────────────────────────────────────────────────
-            Keypad(
-                onDigit    = viewModel::onDigit,
-                onOperator = viewModel::onOperator,
-                onEquals   = viewModel::onEquals,
-                onClear    = viewModel::onClear,
-                onBackspace = viewModel::onBackspace,
-                onPercent  = viewModel::onPercent,
-                onSignFlip = viewModel::onSignFlip,
-                modifier = Modifier.fillMaxWidth()
-            )
+                // ── Keypad ────────────────────────────────────────────────────────
+                Keypad(
+                    onDigit    = viewModel::onDigit,
+                    onOperator = viewModel::onOperator,
+                    onEquals   = viewModel::onEquals,
+                    onClear    = viewModel::onClear,
+                    onBackspace = viewModel::onBackspace,
+                    onPercent  = viewModel::onPercent,
+                    onSignFlip = viewModel::onSignFlip,
+                    modifier = if (needsScroll) {
+                        // Constrain width in landscape to maintain square keys
+                        Modifier.width(availableHeight * 0.8f)
+                    } else {
+                        Modifier.fillMaxWidth()
+                    }
+                )
+            }
         }
     }
 }

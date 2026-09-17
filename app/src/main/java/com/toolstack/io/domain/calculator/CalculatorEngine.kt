@@ -88,7 +88,14 @@ object CalculatorEngine {
             newDisplay = newInternal.pendingInput
         }
 
-        return state.copy(display = newDisplay, expression = internal.expressionLine(newInternal)) to newInternal
+        // Preserve the expression line when typing digits (don't rebuild it)
+        val newExpression = if (internal.pendingOperator != null && internal.leftOperand != null) {
+            "${formatNumber(internal.leftOperand)} ${internal.pendingOperator}"
+        } else {
+            ""
+        }
+        
+        return state.copy(display = newDisplay, expression = newExpression) to newInternal
     }
 
     /**
@@ -165,12 +172,29 @@ object CalculatorEngine {
     }
 
     /**
-     * Converts the current display value to its percentage (÷ 100).
+     * Applies percentage in context of the current operation.
+     *
+     * Implements Windows Calculator / pocket calculator behavior:
+     * - With an operator queued: replaces the current number with (leftOperand × current ÷ 100)
+     *   Examples: `72 + 5%` → `72 + 3.6`, `50 × 50%` → `50 × 25`
+     * - Without an operator: simply divides by 100
+     *   Example: `50%` → `0.5`
      */
     fun onPercent(state: CalculatorState, internal: InternalState): Pair<CalculatorState, InternalState> {
         if (state.mode == CalculatorMode.CONSTRUCTION) return onPercentConstruction(state, internal)
-        val value = (state.display.toDoubleOrNull() ?: 0.0) / 100.0
-        val str = formatNumber(value)
+        
+        val currentValue = state.display.toDoubleOrNull() ?: 0.0
+        
+        // If there's a pending operator and left operand, compute percentage of left operand
+        val percentValue = if (internal.leftOperand != null && internal.pendingOperator != null) {
+            // Context-aware: B% means (A × B ÷ 100)
+            internal.leftOperand * currentValue / 100.0
+        } else {
+            // Simple: just divide by 100
+            currentValue / 100.0
+        }
+        
+        val str = formatNumber(percentValue)
         return state.copy(display = str) to internal.copy(pendingInput = str, justEvaluated = false)
     }
 
@@ -196,9 +220,18 @@ object CalculatorEngine {
         return if (value == kotlin.math.floor(value) && !value.isInfinite() && kotlin.math.abs(value) < 1e10) {
             String.format(java.util.Locale.US, "%.0f", value)
         } else {
-            // Up to 10 significant digits, strip trailing zeros.
+            // Up to 10 significant digits
             val raw = String.format(java.util.Locale.US, "%.10g", value)
-            raw.trimEnd('0').trimEnd('.')
+            // Preserve scientific notation (e.g., "1.000000000e+10")
+            // Only trim zeros from the mantissa (before 'e'), not the exponent
+            if (raw.contains('e', ignoreCase = true)) {
+                val parts = raw.split('e', 'E', limit = 2)
+                val mantissa = parts[0].trimEnd('0').trimEnd('.')
+                val exponent = parts[1]
+                "$mantissa${if (raw.contains('e')) 'e' else 'E'}$exponent"
+            } else {
+                raw.trimEnd('0').trimEnd('.')
+            }
         }
     }
 
@@ -240,13 +273,6 @@ object CalculatorEngine {
     private fun onSignFlipConstruction(state: CalculatorState, internal: InternalState) =
         onSignFlip(state.copy(mode = CalculatorMode.BASIC), internal)
             .let { (s, i) -> s.copy(mode = CalculatorMode.CONSTRUCTION) to i }
-
-    // Private helper for building expression display line.
-    private fun InternalState.expressionLine(updated: InternalState): String {
-        val op = pendingOperator ?: return ""
-        val left = leftOperand ?: return ""
-        return "${formatNumber(left)} $op"
-    }
 }
 
 /**

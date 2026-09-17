@@ -218,7 +218,11 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 onNavigateToCalculator = {
-                                    navController.navigate(Screen.Calculator.route)
+                                    if (navBackStackEntry.lifecycle.currentState
+                                        == androidx.lifecycle.Lifecycle.State.RESUMED
+                                    ) {
+                                        navController.navigate(Screen.Calculator.route)
+                                    }
                                 },
                                 onAddShortcut = addShortcutFor(Screen.UnitConverter.route)
                             )
@@ -238,11 +242,15 @@ class MainActivity : ComponentActivity() {
                                 onAddShortcut = addShortcutFor(Screen.RatioMix.route)
                             )
                         }
-                        composable(Screen.Calculator.route) {
+                        composable(Screen.Calculator.route) { navBackStackEntry ->
                             CalculatorScreen(
                                 onBack = { navController.popBackStack() },
                                 onNavigateToUnitConverter = {
-                                    navController.navigate(Screen.UnitConverter.route)
+                                    if (navBackStackEntry.lifecycle.currentState
+                                        == androidx.lifecycle.Lifecycle.State.RESUMED
+                                    ) {
+                                        navController.navigate(Screen.UnitConverter.route)
+                                    }
                                 },
                                 onAddShortcut = addShortcutFor(Screen.Calculator.route)
                             )
