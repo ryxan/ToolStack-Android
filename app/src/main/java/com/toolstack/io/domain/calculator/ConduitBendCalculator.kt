@@ -228,6 +228,19 @@ object ConduitBendCalculator {
     fun formatDecimal(value: Double): String =
         String.format(java.util.Locale.US, "%.3f\"", value)
 
+    /**
+     * Converts an inch value to millimetres and returns a rounded string, e.g. "325 mm".
+     * Rounds to the nearest mm for values ≥ 10 mm, and to 1 decimal for smaller values.
+     */
+    fun formatMillimeters(valueInches: Double): String {
+        val mm = valueInches * 25.4
+        return if (mm >= 10.0) {
+            "${Math.round(mm)} mm"
+        } else {
+            String.format(java.util.Locale.US, "%.1f mm", mm)
+        }
+    }
+
     private fun reduceFraction(num: Int, den: Int): Pair<Int, Int> {
         val g = gcd(num, den)
         return Pair(num / g, den / g)

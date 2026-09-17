@@ -15,6 +15,7 @@ code waiting on external setup.
 | `app/src/main/java/com/toolstack/io/data/api/BillingVerificationApi.kt` | Retrofit interface `POST verify-purchase` + `VerifyPurchaseRequest` / `VerifyPurchaseResponse` DTOs |
 | `app/src/main/java/com/toolstack/io/di/BillingNetworkModule.kt` | `@BillingRetrofit` qualifier, OkHttp + Retrofit + `BillingVerificationApi` Hilt providers |
 | `app/src/main/java/com/toolstack/io/ui/home/HomeViewModel.kt` | `@HiltViewModel`, observes `purchaseState` → `isPremium`, `startPurchaseFlow(activity, product)` |
+| `app/src/main/java/com/toolstack/io/ui/shortcuts/ShortcutPaywallDialog.kt` | Paywall dialog shown when a shortcut deep-link targets a locked feature. Separate from the inline upgrade dialog in `HomeScreen`. |
 
 ### Files modified
 
@@ -86,9 +87,10 @@ it re-queries Play for all active purchases. Adding a "Restore Purchases" button
 
 ### 5. Decide on Pro feature set
 
-Right now only `ConduitBends` is flagged `isPremium = true`. Additional modules
-flagged as Pro just need `isPremium = true` added to their `Module` entry in
-`HomeScreen.kt` — the gate logic is already generic.
+No modules are currently flagged `isPremium = true` — all `HomeModule` entries in
+`HomeViewModel.DEFAULT_MODULES` use the default `isPremium = false`. The gate logic
+is already generic: set `isPremium = true` on any `HomeModule` entry and the lock
+badge + upgrade dialog appear automatically in `HomeScreen`.
 
 ---
 
