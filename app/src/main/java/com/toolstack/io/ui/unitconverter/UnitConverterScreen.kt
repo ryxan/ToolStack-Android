@@ -34,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.toolstack.io.R
 import com.toolstack.io.domain.model.UnitCategory
@@ -141,14 +142,14 @@ private fun CategoryCard(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
+                .padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             Icon(
                 imageVector = category.icon,
                 contentDescription = null,
-                modifier = Modifier.size(48.dp),
+                modifier = Modifier.size(40.dp),
                 tint = MaterialTheme.colorScheme.primary
             )
             Text(
@@ -157,7 +158,8 @@ private fun CategoryCard(
                 textAlign = TextAlign.Center,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 8.dp)
+                modifier = Modifier.padding(top = 6.dp),
+                lineHeight = 16.sp
             )
         }
     }
