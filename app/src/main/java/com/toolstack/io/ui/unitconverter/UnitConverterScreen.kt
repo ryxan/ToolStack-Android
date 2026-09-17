@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.AddToHomeScreen
+import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -46,6 +47,7 @@ import com.toolstack.io.ui.components.rememberDragDropState
 fun UnitConverterScreen(
     onBack: () -> Unit,
     onCategorySelected: (Int) -> Unit,
+    onNavigateToCalculator: (() -> Unit)? = null,
     onAddShortcut: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: UnitConverterListViewModel = hiltViewModel()
@@ -76,6 +78,14 @@ fun UnitConverterScreen(
                     }
                 },
                 actions = {
+                    if (onNavigateToCalculator != null) {
+                        IconButton(onClick = onNavigateToCalculator) {
+                            Icon(
+                                imageVector = Icons.Filled.Calculate,
+                                contentDescription = stringResource(R.string.unit_converter_switch_to_calculator)
+                            )
+                        }
+                    }
                     if (onAddShortcut != null) {
                         IconButton(onClick = onAddShortcut) {
                             Icon(

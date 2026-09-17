@@ -135,6 +135,22 @@ class UnitConverterViewModel @Inject constructor(
         _uiState.update { it.copy(toText = text, activeField = ActiveField.TO).recalculate() }
     }
 
+    /** Deletes the last character from the active field. */
+    fun onBackspace() {
+        _uiState.update { state ->
+            when (state.activeField) {
+                ActiveField.FROM -> {
+                    val trimmed = state.fromText.dropLast(1)
+                    state.copy(fromText = trimmed).recalculate()
+                }
+                ActiveField.TO -> {
+                    val trimmed = state.toText.dropLast(1)
+                    state.copy(toText = trimmed).recalculate()
+                }
+            }
+        }
+    }
+
     // ── factory ───────────────────────────────────────────────────────────────
 
     companion object {

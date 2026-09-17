@@ -113,7 +113,8 @@ class HomeViewModel @Inject constructor(
             HomeModule("taps_and_drills", R.string.taps_and_drills,       HomeModuleIcon.TapsAndDrills),
             HomeModule("conduit_bends",   R.string.conduit_bends,         HomeModuleIcon.ConduitBends),
             HomeModule("unit_converter",  R.string.unit_converter,        HomeModuleIcon.UnitConverter),
-            HomeModule("ratio_mix",       R.string.ratio_mix_title,       HomeModuleIcon.RatioMix)
+            HomeModule("ratio_mix",       R.string.ratio_mix_title,       HomeModuleIcon.RatioMix),
+            HomeModule("calculator",      R.string.calculator_title,      HomeModuleIcon.Calculator)
         )
 
         /**
@@ -162,7 +163,8 @@ enum class HomeModuleIcon {
     TapsAndDrills,
     ConduitBends,
     UnitConverter,
-    RatioMix
+    RatioMix,
+    Calculator
 }
 
 /** Maps [PurchaseState] to a simple boolean for the UI gate. */
