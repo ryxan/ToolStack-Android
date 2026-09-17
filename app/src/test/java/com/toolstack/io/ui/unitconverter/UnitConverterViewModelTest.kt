@@ -29,7 +29,7 @@ class UnitConverterViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    private val weightCategory = UnitConverterData.categories.first { it.name == "Weight / Mass" }
+    private val weightCategory = UnitConverterData.categories.first { it.name == "Mass" }
     private val ounceUnit = weightCategory.units.first { it.label == "Ounce" }
     private val poundUnit = weightCategory.units.first { it.label == "Pound" }
 
@@ -83,7 +83,7 @@ class UnitConverterViewModelTest {
             UnitConverterViewModel(weightCategory, repository)
             advanceUntilIdle()
 
-            assertEquals("Weight / Mass", repository.lastConverterCategory.first())
+            assertEquals("Mass", repository.lastConverterCategory.first())
         }
 
     @Test
