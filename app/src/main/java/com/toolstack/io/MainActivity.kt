@@ -16,14 +16,11 @@ import androidx.compose.runtime.remember
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.toolstack.io.data.repository.UserPreferencesRepository
-import com.toolstack.io.domain.calculator.UnitConverterData
 import com.toolstack.io.ui.bearings.BearingsScreen
 import com.toolstack.io.ui.conduitbends.ConduitBendsScreen
 import com.toolstack.io.ui.home.HomeScreen
@@ -41,6 +38,9 @@ import com.toolstack.io.ui.wrenchfastener.WrenchFastenerScreen
 import com.toolstack.io.ui.theme.IndustrialUtilityTheme
 import com.toolstack.io.util.ShortcutUtil
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -53,6 +53,15 @@ class MainActivity : ComponentActivity() {
 
     private var isAppReady = false
 
+    /**
+     * Emits shortcut route strings arriving via [onNewIntent] while the
+     * activity is already running. Capacity of 1 ensures a rapid double-tap
+     * does not queue two navigations; the collector in [setContent] processes
+     * one emission and any duplicate is dropped.
+     */
+    private val _shortcutRoute = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    private val shortcutRoute: SharedFlow<String> = _shortcutRoute.asSharedFlow()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
@@ -60,9 +69,7 @@ class MainActivity : ComponentActivity() {
 
         // Extract a deep-link route from the launch intent (e.g. from a home
         // screen shortcut: toolstack://screen/sae_metric).
-        // Read unconditionally so that warm relaunches via onNewIntent+recreate()
-        // also navigate — savedInstanceState is non-null during recreate, so
-        // guarding on it would silently drop shortcut routes after the first launch.
+        // Read unconditionally so that cold launches always pick up the route.
         // Double-navigation on configuration change is prevented by pendingDeepLink
         // being consumed (set to null) after the first navigate call below.
         val deepLinkRoute: String? = ShortcutUtil.extractRoute(intent?.data)
@@ -123,6 +130,21 @@ class MainActivity : ComponentActivity() {
                         val route = currentBackStackEntry?.destination?.route
                         if (!route.isNullOrEmpty() && route != Screen.Home.route) {
                             isAppReady = true
+                        }
+                    }
+
+                    // Warm-launch handler: consume shortcut routes emitted by onNewIntent
+                    // and navigate without restarting the Activity. popUpTo(Home) resets
+                    // the back stack to Home → Tool, matching the cold-launch shape and
+                    // preventing a stale destination from sitting below the new screen.
+                    LaunchedEffect(Unit) {
+                        shortcutRoute.collect { route ->
+                            if (navController.graph.findNode(route) != null) {
+                                navController.navigate(route) {
+                                    popUpTo(Screen.Home.route) { saveState = false }
+                                    launchSingleTop = true
+                                }
+                            }
                         }
                     }
 
@@ -220,21 +242,15 @@ class MainActivity : ComponentActivity() {
 
     /**
      * Called when a shortcut intent arrives while the activity is already
-     * running (singleTop / CLEAR_TOP re-delivery).  The NavController is not
-     * directly accessible here so we delegate by restarting via recreate() —
-     * savedInstanceState will be null on the resulting onCreate, which means
-     * the deep-link extraction path will run again.
-     *
-     * A more elegant solution would expose the NavController via a
-     * SharedFlow, but this keeps the plumbing minimal while the feature is new.
+     * running (singleTop / CLEAR_TOP re-delivery). Emits the route into
+     * [shortcutRoute] so the NavController collector inside [setContent] can
+     * navigate directly — no Activity restart needed.
      */
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        // Only recreate if this is actually a shortcut deep-link, not a
-        // generic re-launch (e.g. tapping the launcher icon normally).
-        if (ShortcutUtil.extractRoute(intent.data) != null) {
-            recreate()
+        ShortcutUtil.extractRoute(intent.data)?.let { route ->
+            _shortcutRoute.tryEmit(route)
         }
     }
 }
