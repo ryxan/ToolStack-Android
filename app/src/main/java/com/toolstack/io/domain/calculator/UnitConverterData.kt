@@ -65,7 +65,7 @@ object UnitConverterData {
 
     /** Base unit: kilogram */
     private val weight = UnitCategory(
-        name        = "Weight / Mass",
+        name        = "Mass",
         icon        = Icons.Filled.Scale,
         description = "lb · kg · oz · g · t · st",
         units = listOf(
@@ -299,7 +299,7 @@ object UnitConverterData {
 
     /** Base unit: L/100km (fuel economy — reciprocal conversions) */
     private val fuelEconomy = UnitCategory(
-        name        = "Fuel Economy",
+        name        = "Fuel",
         icon        = Icons.Filled.LocalGasStation,
         description = "mpg (US) · L/100km · mpg (Imp) · km/L",
         units = listOf(
@@ -347,7 +347,7 @@ object UnitConverterData {
 
     /** Base unit: bit */
     private val dataSize = UnitCategory(
-        name        = "Data Size",
+        name        = "Data",
         icon        = Icons.Filled.DataObject,
         description = "bit · B · KB · MB · GB · TB · KiB · GiB",
         units = listOf(

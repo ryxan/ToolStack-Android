@@ -29,7 +29,7 @@ class UnitConverterViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    private val weightCategory = UnitConverterData.categories.first { it.name == "Weight / Mass" }
+    private val weightCategory = UnitConverterData.categories.first { it.name == "Mass" }
     private val ounceUnit = weightCategory.units.first { it.label == "Ounce" }
     private val poundUnit = weightCategory.units.first { it.label == "Pound" }
 
@@ -60,6 +60,70 @@ class UnitConverterViewModelTest {
         }
 
     @Test
+    fun `legacy category name Weight slash Mass migrates to Mass`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            val dataStore = FakeDataStore()
+            val repository = UserPreferencesRepository(dataStore)
+            // Save with legacy name
+            repository.saveConverterUnits("Weight / Mass", "Ounce", "Pound")
+
+            val viewModel = UnitConverterViewModel(weightCategory, repository)
+            advanceUntilIdle()
+
+            assertEquals("Ounce", viewModel.uiState.value.fromUnit.label)
+            assertEquals("Pound", viewModel.uiState.value.toUnit.label)
+        }
+
+    @Test
+    fun `legacy category name Fuel Economy migrates to Fuel`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            val dataStore = FakeDataStore()
+            val repository = UserPreferencesRepository(dataStore)
+            val fuelCategory = UnitConverterData.categories.first { it.name == "Fuel" }
+            // Save with legacy name
+            repository.saveConverterUnits("Fuel Economy", "mpg (US)", "L/100km")
+
+            val viewModel = UnitConverterViewModel(fuelCategory, repository)
+            advanceUntilIdle()
+
+            assertEquals("mpg (US)", viewModel.uiState.value.fromUnit.label)
+            assertEquals("L/100km", viewModel.uiState.value.toUnit.label)
+        }
+
+    @Test
+    fun `legacy category name Data Size migrates to Data`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            val dataStore = FakeDataStore()
+            val repository = UserPreferencesRepository(dataStore)
+            val dataCategory = UnitConverterData.categories.first { it.name == "Data" }
+            // Save with legacy name
+            repository.saveConverterUnits("Data Size", "Byte", "Kilobyte")
+
+            val viewModel = UnitConverterViewModel(dataCategory, repository)
+            advanceUntilIdle()
+
+            assertEquals("Byte", viewModel.uiState.value.fromUnit.label)
+            assertEquals("Kilobyte", viewModel.uiState.value.toUnit.label)
+        }
+
+    @Test
+    fun `current category name takes precedence over legacy name`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            val dataStore = FakeDataStore()
+            val repository = UserPreferencesRepository(dataStore)
+            // Save with both legacy and current names (current should win)
+            repository.saveConverterUnits("Weight / Mass", "Ounce", "Pound")
+            repository.saveConverterUnits("Mass", "Gram", "Kilogram")
+
+            val viewModel = UnitConverterViewModel(weightCategory, repository)
+            advanceUntilIdle()
+
+            // Should use the current name's values
+            assertEquals("Gram", viewModel.uiState.value.fromUnit.label)
+            assertEquals("Kilogram", viewModel.uiState.value.toUnit.label)
+        }
+
+    @Test
     fun `selecting units persists to repository`() =
         runTest(mainDispatcherRule.dispatcher) {
             val dataStore = FakeDataStore()
@@ -83,7 +147,7 @@ class UnitConverterViewModelTest {
             UnitConverterViewModel(weightCategory, repository)
             advanceUntilIdle()
 
-            assertEquals("Weight / Mass", repository.lastConverterCategory.first())
+            assertEquals("Mass", repository.lastConverterCategory.first())
         }
 
     @Test

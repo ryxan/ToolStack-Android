@@ -29,8 +29,8 @@ class UserPreferencesRepositoryConverterTest {
         val dataStore = FakeDataStore()
         val repository = UserPreferencesRepository(dataStore)
 
-        repository.saveLastConverterCategory("Weight / Mass")
-        assertEquals("Weight / Mass", repository.lastConverterCategory.first())
+        repository.saveLastConverterCategory("Mass")
+        assertEquals("Mass", repository.lastConverterCategory.first())
 
         repository.saveLastConverterCategory("Length")
         assertEquals("Length", repository.lastConverterCategory.first())
@@ -49,17 +49,17 @@ class UserPreferencesRepositoryConverterTest {
         val dataStore = FakeDataStore()
         val repository = UserPreferencesRepository(dataStore)
 
-        repository.saveConverterUnits("Weight / Mass", "Ounce", "Pound")
+        repository.saveConverterUnits("Mass", "Ounce", "Pound")
         repository.saveConverterUnits("Length", "Foot", "Metre")
 
         val units = repository.converterUnits.first()
-        assertEquals(Pair("Ounce", "Pound"), units["Weight / Mass"])
+        assertEquals(Pair("Ounce", "Pound"), units["Mass"])
         assertEquals(Pair("Foot", "Metre"), units["Length"])
 
-        // Update Weight / Mass only
-        repository.saveConverterUnits("Weight / Mass", "Gram", "Kilogram")
+        // Update Mass only
+        repository.saveConverterUnits("Mass", "Gram", "Kilogram")
         val updatedUnits = repository.converterUnits.first()
-        assertEquals(Pair("Gram", "Kilogram"), updatedUnits["Weight / Mass"])
+        assertEquals(Pair("Gram", "Kilogram"), updatedUnits["Mass"])
         assertEquals(Pair("Foot", "Metre"), updatedUnits["Length"])
     }
 

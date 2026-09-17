@@ -66,15 +66,36 @@ class UnitConverterListViewModel @Inject constructor(
         private val DEFAULT_CATEGORIES: List<UnitCategory> = UnitConverterData.categories
 
         /**
+         * Normalizes legacy category names to current names for backward compatibility.
+         */
+        private fun normalizeCategoryName(name: String): String = when (name) {
+            "Weight / Mass" -> "Mass"
+            "Fuel Economy" -> "Fuel"
+            "Data Size" -> "Data"
+            else -> name
+        }
+
+        /**
          * Reorder [defaults] according to [savedNames]. Any name no longer present in
          * [defaults] is dropped; any new category added to [defaults] that is absent
          * from [savedNames] is appended at the end.
+         * Legacy category names are automatically normalized to current names.
          */
         fun applyOrder(defaults: List<UnitCategory>, savedNames: List<String>): List<UnitCategory> {
             if (savedNames.isEmpty()) return defaults
             val byName = defaults.associateBy { it.name }
-            val ordered = savedNames.mapNotNull { byName[it] }
-            val missing = defaults.filter { it.name !in savedNames }
+            // Normalize legacy names before lookup and deduplicate
+            val seenNames = mutableSetOf<String>()
+            val ordered = savedNames.mapNotNull { savedName ->
+                val normalized = normalizeCategoryName(savedName)
+                if (normalized in seenNames) {
+                    null  // Skip duplicate
+                } else {
+                    seenNames.add(normalized)
+                    byName[normalized]
+                }
+            }
+            val missing = defaults.filter { it.name !in seenNames }
             return ordered + missing
         }
     }

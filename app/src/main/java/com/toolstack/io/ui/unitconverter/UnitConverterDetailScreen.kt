@@ -31,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,6 +39,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -111,11 +114,11 @@ fun UnitConverterDetailScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     UnitInputRow(
-                        label = stringResource(R.string.unit_converter_from),
                         value = uiState.fromText,
                         unit = uiState.fromUnit,
                         units = uiState.category.units,
                         isActive = uiState.activeField == ActiveField.FROM,
+                        autoFocus = true,
                         onValueChange = viewModel::onFromTextChanged,
                         onUnitSelected = viewModel::onFromUnitSelected,
                         onBackspace = viewModel::onBackspace,
@@ -129,11 +132,11 @@ fun UnitConverterDetailScreen(
                     )
 
                     UnitInputRow(
-                        label = stringResource(R.string.unit_converter_to),
                         value = uiState.toText,
                         unit = uiState.toUnit,
                         units = uiState.category.units,
                         isActive = uiState.activeField == ActiveField.TO,
+                        autoFocus = false,
                         onValueChange = viewModel::onToTextChanged,
                         onUnitSelected = viewModel::onToUnitSelected,
                         onBackspace = viewModel::onBackspace,
@@ -182,105 +185,99 @@ fun UnitConverterDetailScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun UnitInputRow(
-    label: String,
     value: String,
     unit: UnitEntry,
     units: List<UnitEntry>,
     isActive: Boolean,
+    autoFocus: Boolean,
     onValueChange: (String) -> Unit,
     onUnitSelected: (UnitEntry) -> Unit,
     onBackspace: () -> Unit,
     onFocused: () -> Unit
 ) {
     var dropdownExpanded by remember { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }
 
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+    LaunchedEffect(autoFocus) {
+        if (autoFocus) {
+            focusRequester.requestFocus()
+        }
+    }
 
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            OutlinedTextField(
-                value = value,
-                onValueChange = onValueChange,
-                singleLine = true,
-                textStyle = MaterialTheme.typography.bodyLarge,
-                placeholder = {
-                    Text(
-                        text = stringResource(R.string.unit_converter_input_hint),
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                },
-                trailingIcon = {
-                    if (isActive && value.isNotEmpty()) {
-                        IconButton(onClick = onBackspace) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Backspace,
-                                contentDescription = stringResource(R.string.content_description_backspace),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                },
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Decimal,
-                    imeAction = ImeAction.Done
-                ),
-                modifier = Modifier
-                    .weight(1f)
-                    .onFocusChanged { focusState -> if (focusState.isFocused) onFocused() }
-            )
-
-            Spacer(modifier = Modifier.width(0.dp))
-
-            ExposedDropdownMenuBox(
-                expanded = dropdownExpanded,
-                onExpandedChange = { dropdownExpanded = it },
-                modifier = Modifier.width(150.dp)
-            ) {
-                OutlinedTextField(
-                    value = unit.label,
-                    onValueChange = {},
-                    readOnly = true,
-                    singleLine = true,
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded)
-                    },
-                    textStyle = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                )
-                ExposedDropdownMenu(
-                    expanded = dropdownExpanded,
-                    onDismissRequest = { dropdownExpanded = false }
-                ) {
-                    units.forEach { entry ->
-                        DropdownMenuItem(
-                            text = {
-                                Column {
-                                    Text(
-                                        text = entry.label,
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                    Text(
-                                        text = entry.symbol,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            },
-                            onClick = {
-                                onUnitSelected(entry)
-                                dropdownExpanded = false
-                            },
-                            contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = true,
+            textStyle = MaterialTheme.typography.bodyLarge,
+            trailingIcon = {
+                if (isActive && value.isNotEmpty()) {
+                    IconButton(onClick = onBackspace) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Backspace,
+                            contentDescription = stringResource(R.string.content_description_backspace),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                }
+            },
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Decimal,
+                imeAction = ImeAction.Done
+            ),
+            modifier = Modifier
+                .weight(1f)
+                .focusRequester(focusRequester)
+                .onFocusChanged { focusState -> if (focusState.isFocused) onFocused() }
+        )
+
+        Spacer(modifier = Modifier.width(0.dp))
+
+        ExposedDropdownMenuBox(
+            expanded = dropdownExpanded,
+            onExpandedChange = { dropdownExpanded = it },
+            modifier = Modifier.width(150.dp)
+        ) {
+            OutlinedTextField(
+                value = unit.label,
+                onValueChange = {},
+                readOnly = true,
+                singleLine = true,
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded)
+                },
+                textStyle = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+            )
+            ExposedDropdownMenu(
+                expanded = dropdownExpanded,
+                onDismissRequest = { dropdownExpanded = false }
+            ) {
+                units.forEach { entry ->
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text(
+                                    text = entry.label,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Text(
+                                    text = entry.symbol,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        },
+                        onClick = {
+                            onUnitSelected(entry)
+                            dropdownExpanded = false
+                        },
+                        contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                    )
                 }
             }
         }

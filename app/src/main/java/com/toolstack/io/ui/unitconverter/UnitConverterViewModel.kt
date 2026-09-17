@@ -75,7 +75,8 @@ class UnitConverterViewModel @Inject constructor(
         // Restore persisted units for this category if user hasn't already made a selection
         viewModelScope.launch {
             val savedMap = preferencesRepository.converterUnits.first()
-            val savedUnits = savedMap[category.name]
+            // Check both current and legacy category names for backward compatibility
+            val savedUnits = savedMap[category.name] ?: savedMap[legacyCategoryName(category.name)]
             if (savedUnits != null) {
                 val (fromLabel, toLabel) = savedUnits
                 val from = if (!fromUnitSelected) {
@@ -156,6 +157,17 @@ class UnitConverterViewModel @Inject constructor(
     companion object {
         /** Nav argument key — used in the route definition in MainActivity. */
         const val ARG_CATEGORY_INDEX = "categoryIndex"
+
+        /**
+         * Returns the legacy category name for backward compatibility with saved preferences.
+         * Maps renamed categories to their old names so users don't lose saved unit selections.
+         */
+        private fun legacyCategoryName(currentName: String): String? = when (currentName) {
+            "Mass" -> "Weight / Mass"
+            "Fuel" -> "Fuel Economy"
+            "Data" -> "Data Size"
+            else -> null
+        }
 
         fun factory(
             category: UnitCategory,
