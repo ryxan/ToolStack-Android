@@ -105,6 +105,7 @@ fun CalculatorScreen(
                 )
             )
         },
+        containerColor = com.toolstack.io.ui.theme.CalcBackground,
         modifier = modifier.fillMaxSize()
     ) { padding ->
         Column(
@@ -151,28 +152,33 @@ private fun DisplayPanel(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+        modifier = modifier
+            .padding(horizontal = 8.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.End
     ) {
         // Expression / history line (secondary, smaller)
         Text(
-            text = expression,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            text = expression.ifEmpty { " " },
+            style = MaterialTheme.typography.bodyLarge.copy(
+                fontSize = 20.sp
+            ),
+            color = com.toolstack.io.ui.theme.CalcDisplayDark.copy(alpha = 0.7f),
             textAlign = TextAlign.End,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(32.dp)
         )
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(8.dp))
         // Main display
         Text(
             text = display,
             style = MaterialTheme.typography.headlineMedium.copy(
-                fontSize = 52.sp,
-                fontWeight = FontWeight.Light
+                fontSize = 56.sp,
+                fontWeight = FontWeight.SemiBold
             ),
-            color = MaterialTheme.colorScheme.onBackground,
+            color = com.toolstack.io.ui.theme.CalcDisplayDark,
             textAlign = TextAlign.End,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -199,7 +205,7 @@ private fun Keypad(
     // Row 2:  7   8   9  ×
     // Row 3:  4   5   6  −
     // Row 4:  1   2   3  +
-    // Row 5:  0       .  =
+    // Row 5:  0  00   .  =
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -209,7 +215,7 @@ private fun Keypad(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            CalcFunctionKey(label = stringResource(R.string.calculator_key_clear), modifier = Modifier.weight(1f), onClick = onClear)
+            CalcClearKey(label = stringResource(R.string.calculator_key_clear), modifier = Modifier.weight(1f), onClick = onClear)
             CalcBackspaceKey(modifier = Modifier.weight(1f), onClick = onBackspace)
             CalcFunctionKey(label = stringResource(R.string.calculator_key_pct),   modifier = Modifier.weight(1f), onClick = onPercent)
             CalcOperatorKey(label = "÷", modifier = Modifier.weight(1f)) { onOperator("÷") }
@@ -244,12 +250,13 @@ private fun Keypad(
             CalcDigitKey(label = "3", modifier = Modifier.weight(1f)) { onDigit("3") }
             CalcOperatorKey(label = "+", modifier = Modifier.weight(1f)) { onOperator("+") }
         }
-        // Row 5 — zero spans 2 columns
+        // Row 5
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            CalcDigitKey(label = "0", modifier = Modifier.weight(2f)) { onDigit("0") }
+            CalcDigitKey(label = "0", modifier = Modifier.weight(1f)) { onDigit("0") }
+            CalcDigitKey(label = "00", modifier = Modifier.weight(1f)) { onDigit("00") }
             CalcDigitKey(label = ".", modifier = Modifier.weight(1f)) { onDigit(".") }
             CalcEqualsKey(modifier = Modifier.weight(1f), onClick = onEquals)
         }
@@ -264,12 +271,12 @@ private fun CalcDigitKey(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    FilledTonalButton(
+    Button(
         onClick = onClick,
         modifier = modifier.aspectRatio(1f),
-        colors = ButtonDefaults.filledTonalButtonColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = MaterialTheme.colorScheme.onSurface
+        colors = ButtonDefaults.buttonColors(
+            containerColor = com.toolstack.io.ui.theme.CalcDigitButton,
+            contentColor = androidx.compose.ui.graphics.Color.White
         )
     ) {
         Text(
@@ -289,8 +296,29 @@ private fun CalcOperatorKey(
         onClick = onClick,
         modifier = modifier.aspectRatio(1f),
         colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            containerColor = com.toolstack.io.ui.theme.CalcOperatorOrange,
+            contentColor = androidx.compose.ui.graphics.Color.White
+        )
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleLarge
+        )
+    }
+}
+
+@Composable
+private fun CalcClearKey(
+    label: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.aspectRatio(1f),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = com.toolstack.io.ui.theme.CalcClearRed,
+            contentColor = androidx.compose.ui.graphics.Color.White
         )
     ) {
         Text(
@@ -306,9 +334,13 @@ private fun CalcFunctionKey(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    OutlinedButton(
+    Button(
         onClick = onClick,
-        modifier = modifier.aspectRatio(1f)
+        modifier = modifier.aspectRatio(1f),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = com.toolstack.io.ui.theme.CalcFunctionDark,
+            contentColor = androidx.compose.ui.graphics.Color.White
+        )
     ) {
         Text(
             text = label,
@@ -326,8 +358,8 @@ private fun CalcEqualsKey(
         onClick = onClick,
         modifier = modifier.aspectRatio(1f),
         colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.secondary,
-            contentColor = MaterialTheme.colorScheme.onSecondary
+            containerColor = com.toolstack.io.ui.theme.CalcEqualsGreen,
+            contentColor = androidx.compose.ui.graphics.Color.White
         )
     ) {
         Text(
@@ -342,14 +374,18 @@ private fun CalcBackspaceKey(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    OutlinedButton(
+    Button(
         onClick = onClick,
-        modifier = modifier.aspectRatio(1f)
+        modifier = modifier.aspectRatio(1f),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = com.toolstack.io.ui.theme.CalcFunctionDark,
+            contentColor = androidx.compose.ui.graphics.Color.White
+        )
     ) {
         Icon(
             imageVector = Icons.AutoMirrored.Filled.Backspace,
             contentDescription = stringResource(R.string.content_description_backspace),
-            tint = MaterialTheme.colorScheme.onSurface
+            tint = androidx.compose.ui.graphics.Color.White
         )
     }
 }

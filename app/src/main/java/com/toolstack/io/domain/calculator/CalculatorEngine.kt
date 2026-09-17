@@ -59,7 +59,7 @@ object CalculatorEngine {
     // engine remains stateless while preserving the full arithmetic context.
 
     /**
-     * Applies a digit character (0–9) or decimal point to the current state.
+     * Applies a digit character (0–9), "00", or decimal point to the current state.
      */
     fun onDigit(state: CalculatorState, digit: String, internal: InternalState): Pair<CalculatorState, InternalState> {
         if (state.mode == CalculatorMode.CONSTRUCTION) return onDigitConstruction(state, digit, internal)
@@ -67,16 +67,22 @@ object CalculatorEngine {
         val newInternal: InternalState
         val newDisplay: String
 
-        if (internal.justEvaluated) {
-            // After "=" a digit press starts a fresh expression.
-            newInternal = InternalState().copy(pendingInput = if (digit == ".") "0." else digit)
+        if (internal.justEvaluated || (internal.pendingInput.isEmpty() && internal.pendingOperator != null)) {
+            // After "=" or after an operator press, a digit starts fresh input.
+            val initialInput = when {
+                digit == "." -> "0."
+                digit == "00" -> "0"  // Don't start with "00"
+                else -> digit
+            }
+            newInternal = internal.copy(pendingInput = initialInput, justEvaluated = false)
             newDisplay = newInternal.pendingInput
         } else {
             val current = internal.pendingInput
             newInternal = when {
                 digit == "." && current.contains(".") -> internal  // only one decimal point
                 digit == "0" && current == "0"        -> internal  // leading-zero guard
-                current == "0" && digit != "."        -> internal.copy(pendingInput = digit)
+                digit == "00" && current == "0"       -> internal  // don't allow "000..."
+                current == "0" && digit != "." && digit != "00" -> internal.copy(pendingInput = digit)
                 else                                  -> internal.copy(pendingInput = current + digit)
             }
             newDisplay = newInternal.pendingInput
