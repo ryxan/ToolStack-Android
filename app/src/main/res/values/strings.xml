@@ -3,6 +3,7 @@
     <string name="app_name">ToolStack</string>
     <string name="home_title">ToolStack</string>
     <string name="content_description_back">Back</string>
+    <string name="content_description_backspace">Delete last character</string>
     <string name="content_description_drag_handle">Drag to reorder</string>
     <string name="sae_to_metric">SAE to Metric</string>
     <string name="wrench_fastener">Wrench / Fastener Size</string>
@@ -185,6 +186,15 @@
     <string name="shortcut_label_conduit_bends">Conduit Bends</string>
     <string name="shortcut_label_unit_converter">Unit Converter</string>
     <string name="shortcut_label_ratio_mix">Ratio Mix</string>
+    <string name="shortcut_label_calculator">Calculator</string>
+
+    <!-- Calculator -->
+    <string name="calculator_title">Calculator</string>
+    <string name="calculator_key_clear">AC</string>
+    <string name="calculator_key_sign">+/−</string>
+    <string name="calculator_key_pct">%</string>
+    <string name="calculator_switch_to_unit_converter">Switch to Unit Converter</string>
+    <string name="unit_converter_switch_to_calculator">Switch to Calculator</string>
 
     <!-- Paywall copy shown when a non-premium user taps Add to Home Screen -->
     <string name="shortcut_premium_required_body">Home screen shortcuts are a Pro feature. Upgrade to pin any tool directly to your launcher.</string>

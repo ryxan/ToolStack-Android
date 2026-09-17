@@ -129,6 +129,7 @@ fun shortcutIconForRoute(route: String): Int = when (route) {
     "conduit_bends"   -> R.mipmap.ic_launcher
     "unit_converter"  -> R.mipmap.ic_launcher
     "ratio_mix"       -> R.mipmap.ic_launcher
+    "calculator"      -> R.mipmap.ic_launcher
     else              -> R.mipmap.ic_launcher
 }
 
@@ -146,5 +147,6 @@ fun shortcutLabelResForRoute(route: String): Int = when (route) {
     "conduit_bends"   -> R.string.shortcut_label_conduit_bends
     "unit_converter"  -> R.string.shortcut_label_unit_converter
     "ratio_mix"       -> R.string.shortcut_label_ratio_mix
+    "calculator"      -> R.string.shortcut_label_calculator
     else              -> R.string.app_name
 }

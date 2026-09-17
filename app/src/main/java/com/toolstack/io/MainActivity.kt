@@ -22,6 +22,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.toolstack.io.data.repository.UserPreferencesRepository
 import com.toolstack.io.ui.bearings.BearingsScreen
+import com.toolstack.io.ui.calculator.CalculatorScreen
 import com.toolstack.io.ui.conduitbends.ConduitBendsScreen
 import com.toolstack.io.ui.home.HomeScreen
 import com.toolstack.io.ui.saemetric.SaeMetricScreen
@@ -216,6 +217,13 @@ class MainActivity : ComponentActivity() {
                                         )
                                     }
                                 },
+                                onNavigateToCalculator = {
+                                    if (navBackStackEntry.lifecycle.currentState
+                                        == androidx.lifecycle.Lifecycle.State.RESUMED
+                                    ) {
+                                        navController.navigate(Screen.Calculator.route)
+                                    }
+                                },
                                 onAddShortcut = addShortcutFor(Screen.UnitConverter.route)
                             )
                         }
@@ -232,6 +240,19 @@ class MainActivity : ComponentActivity() {
                             RatioMixScreen(
                                 onBack = { navController.popBackStack() },
                                 onAddShortcut = addShortcutFor(Screen.RatioMix.route)
+                            )
+                        }
+                        composable(Screen.Calculator.route) { navBackStackEntry ->
+                            CalculatorScreen(
+                                onBack = { navController.popBackStack() },
+                                onNavigateToUnitConverter = {
+                                    if (navBackStackEntry.lifecycle.currentState
+                                        == androidx.lifecycle.Lifecycle.State.RESUMED
+                                    ) {
+                                        navController.navigate(Screen.UnitConverter.route)
+                                    }
+                                },
+                                onAddShortcut = addShortcutFor(Screen.Calculator.route)
                             )
                         }
                     }
@@ -267,4 +288,5 @@ sealed class Screen(val route: String) {
         fun routeWithArg(categoryIndex: Int) = "unit_converter_detail/$categoryIndex"
     }
     data object RatioMix : Screen("ratio_mix")
+    data object Calculator : Screen("calculator")
 }

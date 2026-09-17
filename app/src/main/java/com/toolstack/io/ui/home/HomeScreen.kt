@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Anchor
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.Construction
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.ElectricalServices
@@ -318,4 +319,5 @@ private val HomeModuleIcon.imageVector: ImageVector
         HomeModuleIcon.ConduitBends   -> Icons.Filled.Construction
         HomeModuleIcon.UnitConverter  -> Icons.Filled.SwapHoriz
         HomeModuleIcon.RatioMix       -> Icons.Filled.WaterDrop
+        HomeModuleIcon.Calculator     -> Icons.Filled.Calculate
     }
