@@ -47,16 +47,17 @@ object UnitConverterData {
     private val length = UnitCategory(
         name        = "Length",
         icon        = Icons.Filled.Straighten,
-        description = "mm · cm · m · km · in · ft · mi",
+        description = "ft · m · km · mi · in · cm",
         units = listOf(
-            linear("Millimetre",  "mm",  0.001),
-            linear("Centimetre",  "cm",  0.01),
+            // Common default: feet → metres
+            linear("Foot",        "ft",  0.3048),
             linear("Metre",       "m",   1.0),
             linear("Kilometre",   "km",  1000.0),
-            linear("Inch",        "in",  0.0254),
-            linear("Foot",        "ft",  0.3048),
-            linear("Yard",        "yd",  0.9144),
             linear("Mile",        "mi",  1609.344),
+            linear("Inch",        "in",  0.0254),
+            linear("Yard",        "yd",  0.9144),
+            linear("Centimetre",  "cm",  0.01),
+            linear("Millimetre",  "mm",  0.001),
             linear("Nautical mi", "nmi", 1852.0),
             linear("Furlong",     "fur", 201.168)
         )
@@ -66,17 +67,18 @@ object UnitConverterData {
     private val weight = UnitCategory(
         name        = "Weight / Mass",
         icon        = Icons.Filled.Scale,
-        description = "mg · g · kg · t · oz · lb · ton",
+        description = "lb · kg · oz · g · t · st",
         units = listOf(
-            linear("Milligram",       "mg",  0.000001),
-            linear("Gram",            "g",   0.001),
-            linear("Kilogram",        "kg",  1.0),
-            linear("Tonne (metric)",  "t",   1000.0),
-            linear("Ounce",           "oz",  0.02834952),
+            // Common default: pounds → kilograms
             linear("Pound",           "lb",  0.45359237),
+            linear("Kilogram",        "kg",  1.0),
+            linear("Ounce",           "oz",  0.02834952),
+            linear("Gram",            "g",   0.001),
+            linear("Tonne (metric)",  "t",   1000.0),
             linear("Stone",           "st",  6.35029318),
             linear("Short ton (US)",  "tn",  907.18474),
             linear("Long ton (UK)",   "LT",  1016.0469088),
+            linear("Milligram",       "mg",  0.000001),
             linear("Grain",           "gr",  0.00006479891)
         )
     )
@@ -104,20 +106,21 @@ object UnitConverterData {
     private val volume = UnitCategory(
         name        = "Volume",
         icon        = Icons.Filled.WaterDrop,
-        description = "mL · L · m³ · gal · qt · fl oz · bu",
+        description = "gal · L · mL · m³ · qt · fl oz",
         units = listOf(
-            linear("Millilitre",       "mL",    0.001),
+            // Common default: US gallons → litres
+            linear("US gallon",        "gal",   3.785411784),
             linear("Litre",            "L",     1.0),
+            linear("Millilitre",       "mL",    0.001),
             linear("Cubic metre",      "m³",    1000.0),
-            linear("Cubic inch",       "in³",   0.016387064),
-            linear("Cubic foot",       "ft³",   28.316846592),
+            linear("US quart",         "qt",    0.946352946),
+            linear("US pint",          "pt",    0.473176473),
             linear("US fluid oz",      "fl oz", 0.02957352956),
             linear("US cup",           "cup",   0.2365882365),
-            linear("US pint",          "pt",    0.473176473),
-            linear("US quart",         "qt",    0.946352946),
-            linear("US gallon",        "gal",   3.785411784),
             linear("Imperial gallon",  "Igal",  4.54609),
             linear("Imperial pint",    "Ipt",   0.56826125),
+            linear("Cubic inch",       "in³",   0.016387064),
+            linear("Cubic foot",       "ft³",   28.316846592),
             linear("Bushel (US)",      "bu",    35.23907016688),
             linear("Tablespoon",       "tbsp",  0.01478676478),
             linear("Teaspoon",         "tsp",   0.00492892159)
@@ -128,19 +131,20 @@ object UnitConverterData {
     private val temperature = UnitCategory(
         name        = "Temperature",
         icon        = Icons.Filled.Thermostat,
-        description = "°C · °F · K · °R",
+        description = "°F · °C · K · °R",
         units = listOf(
-            UnitEntry(
-                label    = "Celsius",
-                symbol   = "°C",
-                toBase   = { v -> v },
-                fromBase = { v -> v }
-            ),
+            // Common default: Fahrenheit → Celsius
             UnitEntry(
                 label    = "Fahrenheit",
                 symbol   = "°F",
                 toBase   = { v -> (v - 32.0) * 5.0 / 9.0 },
                 fromBase = { v -> v * 9.0 / 5.0 + 32.0 }
+            ),
+            UnitEntry(
+                label    = "Celsius",
+                symbol   = "°C",
+                toBase   = { v -> v },
+                fromBase = { v -> v }
             ),
             UnitEntry(
                 label    = "Kelvin",
@@ -161,11 +165,12 @@ object UnitConverterData {
     private val speed = UnitCategory(
         name        = "Speed",
         icon        = Icons.Filled.Speed,
-        description = "m/s · km/h · mph · knots · ft/s",
+        description = "km/h · mph · m/s · knots · ft/s",
         units = listOf(
-            linear("m/s",         "m/s",    1.0),
+            // Common default: km/h → mph
             linear("km/h",        "km/h",   0.27777778),
             linear("mph",         "mph",    0.44704),
+            linear("m/s",         "m/s",    1.0),
             linear("Knot",        "kn",     0.51444444),
             linear("ft/s",        "ft/s",   0.3048),
             linear("ft/min",      "ft/min", 0.00508)
@@ -176,14 +181,15 @@ object UnitConverterData {
     private val pressure = UnitCategory(
         name        = "Pressure",
         icon        = Icons.Filled.FilterAlt,
-        description = "Pa · kPa · bar · PSI · atm · mmHg",
+        description = "PSI · kPa · bar · Pa · atm · mmHg",
         units = listOf(
-            linear("Pascal",        "Pa",    1.0),
-            linear("Kilopascal",    "kPa",   1000.0),
-            linear("Megapascal",    "MPa",   1_000_000.0),
-            linear("Bar",           "bar",   100_000.0),
-            linear("Millibar",      "mbar",  100.0),
+            // Common default: PSI → kPa
             linear("PSI",           "psi",   6894.757),
+            linear("Kilopascal",    "kPa",   1000.0),
+            linear("Bar",           "bar",   100_000.0),
+            linear("Pascal",        "Pa",    1.0),
+            linear("Megapascal",    "MPa",   1_000_000.0),
+            linear("Millibar",      "mbar",  100.0),
             linear("Atmosphere",    "atm",   101_325.0),
             linear("mmHg (torr)",   "mmHg",  133.3224),
             linear("inHg",          "inHg",  3386.389),
@@ -295,10 +301,11 @@ object UnitConverterData {
     private val fuelEconomy = UnitCategory(
         name        = "Fuel Economy",
         icon        = Icons.Filled.LocalGasStation,
-        description = "L/100km · mpg (US) · mpg (Imp) · km/L",
+        description = "mpg (US) · L/100km · mpg (Imp) · km/L",
         units = listOf(
-            UnitEntry("L/100km",        "L/100km",   toBase = { v -> v },                                        fromBase = { v -> v }),
+            // Common default: mpg (US) → L/100km
             UnitEntry("mpg (US)",       "mpg",       toBase = { v -> if (v == 0.0) Double.NaN else 235.214583 / v }, fromBase = { v -> if (v == 0.0) Double.NaN else 235.214583 / v }),
+            UnitEntry("L/100km",        "L/100km",   toBase = { v -> v },                                        fromBase = { v -> v }),
             UnitEntry("mpg (Imperial)", "mpg (Imp)", toBase = { v -> if (v == 0.0) Double.NaN else 282.480936 / v }, fromBase = { v -> if (v == 0.0) Double.NaN else 282.480936 / v }),
             UnitEntry("km/L",           "km/L",      toBase = { v -> if (v == 0.0) Double.NaN else 100.0 / v },     fromBase = { v -> if (v == 0.0) Double.NaN else 100.0 / v })
         )

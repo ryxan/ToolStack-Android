@@ -41,8 +41,8 @@ class UnitConverterViewModelTest {
             val viewModel = UnitConverterViewModel(weightCategory, repository)
             advanceUntilIdle()
 
-            assertEquals("Milligram", viewModel.uiState.value.fromUnit.label)
-            assertEquals("Gram", viewModel.uiState.value.toUnit.label)
+            assertEquals("Pound", viewModel.uiState.value.fromUnit.label)
+            assertEquals("Kilogram", viewModel.uiState.value.toUnit.label)
         }
 
     @Test
