@@ -38,9 +38,8 @@ import com.toolstack.io.ui.wrenchfastener.WrenchFastenerScreen
 import com.toolstack.io.ui.theme.IndustrialUtilityTheme
 import com.toolstack.io.util.ShortcutUtil
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -54,13 +53,14 @@ class MainActivity : ComponentActivity() {
     private var isAppReady = false
 
     /**
-     * Emits shortcut route strings arriving via [onNewIntent] while the
-     * activity is already running. Capacity of 1 ensures a rapid double-tap
-     * does not queue two navigations; the collector in [setContent] processes
-     * one emission and any duplicate is dropped.
+     * Delivers shortcut route strings arriving via [onNewIntent] while the
+     * activity is already running. CONFLATED capacity keeps only the latest
+     * route, so a rapid double-tap does not queue two navigations. Unlike a
+     * non-replaying SharedFlow, a Channel retains the value until the
+     * LaunchedEffect collector starts and calls receive(), so routes are not
+     * silently dropped when onNewIntent fires before Compose has composed.
      */
-    private val _shortcutRoute = MutableSharedFlow<String>(extraBufferCapacity = 1)
-    private val shortcutRoute: SharedFlow<String> = _shortcutRoute.asSharedFlow()
+    private val _shortcutRoute = Channel<String>(Channel.CONFLATED)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
@@ -138,7 +138,7 @@ class MainActivity : ComponentActivity() {
                     // the back stack to Home → Tool, matching the cold-launch shape and
                     // preventing a stale destination from sitting below the new screen.
                     LaunchedEffect(Unit) {
-                        shortcutRoute.collect { route ->
+                        _shortcutRoute.consumeEach { route ->
                             if (navController.graph.findNode(route) != null) {
                                 navController.navigate(route) {
                                     popUpTo(Screen.Home.route) { saveState = false }
@@ -250,7 +250,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         ShortcutUtil.extractRoute(intent.data)?.let { route ->
-            _shortcutRoute.tryEmit(route)
+            _shortcutRoute.trySend(route)
         }
     }
 }

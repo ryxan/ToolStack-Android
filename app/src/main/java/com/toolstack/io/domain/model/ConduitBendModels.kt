@@ -1,5 +1,9 @@
 package com.toolstack.io.domain.model
 
+/** Measurement system used for user-facing input/output in the Conduit Bends tool.
+ *  Internal calculations always use inches; only formatting and parsing are affected. */
+enum class UnitMode { IMPERIAL, METRIC }
+
 /**
  * All bend types the Conduit Bends tool supports.
  * [isImplemented] gates whether the selection card is tappable or shown as "coming soon".
