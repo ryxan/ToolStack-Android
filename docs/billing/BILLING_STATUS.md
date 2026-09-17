@@ -96,7 +96,8 @@ badge + upgrade dialog appear automatically in `HomeScreen`.
 
 ## Architecture notes
 
-- `isPremium` flows: `BillingRepository.purchaseState` → `HomeViewModel.uiState.isPremium` → `HomeScreen`- `BillingRepository` is `@Singleton` and self-connects on first use. No manual
+- `isPremium` flows: `BillingRepository.purchaseState` → `HomeViewModel.uiState.isPremium` → `HomeScreen`
+- `BillingRepository` is `@Singleton` and self-connects on first use. No manual
   lifecycle management needed.
 - Verification policy: fail-**open** on `IOException` / `UnknownHostException`
   (trusts Play's local `PURCHASED` state when backend is unreachable); fail-**closed**
