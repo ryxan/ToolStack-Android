@@ -1,6 +1,8 @@
 package com.toolstack.io.ui.calculator
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.toolstack.io.data.repository.UserPreferencesRepository
 import com.toolstack.io.domain.calculator.CalculatorEngine
 import com.toolstack.io.domain.calculator.CalculatorMode
 import com.toolstack.io.domain.calculator.CalculatorState
@@ -10,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
@@ -22,13 +25,26 @@ import javax.inject.Inject
  * The engine already has stubs for each construction-mode handler.
  */
 @HiltViewModel
-class CalculatorViewModel @Inject constructor() : ViewModel() {
+class CalculatorViewModel @Inject constructor(
+    private val userPreferencesRepository: UserPreferencesRepository
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CalculatorUiState())
     val uiState: StateFlow<CalculatorUiState> = _uiState.asStateFlow()
 
     // Arithmetic context — not exposed to the UI.
     private var internal = InternalState()
+
+    init {
+        // Load persisted history on startup
+        viewModelScope.launch {
+            userPreferencesRepository.calculatorHistory.collect { history ->
+                _uiState.update { it.copy(
+                    calculatorState = it.calculatorState.copy(history = history)
+                ) }
+            }
+        }
+    }
 
     // ── button handlers ───────────────────────────────────────────────────────
 
@@ -41,13 +57,24 @@ class CalculatorViewModel @Inject constructor() : ViewModel() {
     }
 
     fun onEquals() = applyEngine { state ->
-        CalculatorEngine.onEquals(state, internal)
+        val (newState, newInternal) = CalculatorEngine.onEquals(state, internal)
+        // Persist history after adding new calculation
+        viewModelScope.launch {
+            userPreferencesRepository.saveCalculatorHistory(newState.history)
+        }
+        newState to newInternal
     }
 
     fun onClear() {
         val (newCalc, newInternal) = CalculatorEngine.onClear(_uiState.value.calculatorState)
         internal = newInternal
         _uiState.update { it.copy(calculatorState = newCalc) }
+    }
+
+    fun onClearHistory() {
+        viewModelScope.launch {
+            userPreferencesRepository.clearCalculatorHistory()
+        }
     }
 
     fun onBackspace() = applyEngine { state ->

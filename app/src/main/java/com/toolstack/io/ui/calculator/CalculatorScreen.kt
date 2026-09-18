@@ -1,5 +1,6 @@
 package com.toolstack.io.ui.calculator
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -19,10 +20,15 @@ import androidx.compose.material.icons.automirrored.filled.AddToHomeScreen
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Backspace
+import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -31,10 +37,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -64,6 +74,9 @@ fun CalculatorScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val calcState = uiState.calculatorState
+    
+    var showMenu by remember { mutableStateOf(false) }
+    var showClearHistoryDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -96,6 +109,34 @@ fun CalculatorScreen(
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.AddToHomeScreen,
                                 contentDescription = stringResource(R.string.content_description_add_shortcut)
+                            )
+                        }
+                    }
+                    // More menu
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(
+                                imageVector = Icons.Filled.MoreVert,
+                                contentDescription = "More options"
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Clear History") },
+                                onClick = {
+                                    showMenu = false
+                                    showClearHistoryDialog = true
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Filled.DeleteSweep,
+                                        contentDescription = null
+                                    )
+                                },
+                                enabled = calcState.history.isNotEmpty()
                             )
                         }
                     }
@@ -144,8 +185,10 @@ fun CalculatorScreen(
             ) {
                 // ── Display ───────────────────────────────────────────────────────
                 DisplayPanel(
+                    history = calcState.history,
                     expression = calcState.expression,
                     display = calcState.display,
+                    liveResult = calcState.liveResult,
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -172,44 +215,111 @@ fun CalculatorScreen(
             }
         }
     }
+    
+    // Clear History Confirmation Dialog
+    if (showClearHistoryDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearHistoryDialog = false },
+            title = { Text("Clear History?") },
+            text = { Text("This will permanently delete all calculation history.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.onClearHistory()
+                        showClearHistoryDialog = false
+                    }
+                ) {
+                    Text("Clear")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearHistoryDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
 
 // ── Display panel ─────────────────────────────────────────────────────────────
 
 @Composable
 private fun DisplayPanel(
+    history: List<String>,
     expression: String,
     display: String,
+    liveResult: String,
     modifier: Modifier = Modifier
 ) {
+    val scrollState = rememberScrollState()
+    
+    // Auto-scroll to the end (right) when history changes
+    androidx.compose.runtime.LaunchedEffect(history.size) {
+        if (history.isNotEmpty()) {
+            scrollState.animateScrollTo(scrollState.maxValue)
+        }
+    }
+    
     Column(
         modifier = modifier
-            .padding(horizontal = 8.dp, vertical = 16.dp),
+            .padding(horizontal = 8.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.End
     ) {
-        // Expression / history line (secondary, smaller)
+        // History Line (Top) - scrollable past calculations
+        if (history.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(32.dp)
+                    .horizontalScroll(scrollState),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                history.reversed().forEachIndexed { index, item ->
+                    if (index > 0) {
+                        Text(
+                            text = "  |  ",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                            color = com.toolstack.io.ui.theme.CalcDisplayDark.copy(alpha = 0.4f)
+                        )
+                    }
+                    Text(
+                        text = item,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                        color = com.toolstack.io.ui.theme.CalcDisplayDark.copy(alpha = 0.6f),
+                        maxLines = 1
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+        } else {
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+        
+        // Main Expression Line (Middle) - active input
         Text(
             text = expression.ifEmpty { " " },
-            style = MaterialTheme.typography.bodyLarge.copy(
-                fontSize = 20.sp
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Normal
             ),
-            color = com.toolstack.io.ui.theme.CalcDisplayDark.copy(alpha = 0.7f),
+            color = com.toolstack.io.ui.theme.CalcDisplayDark,
             textAlign = TextAlign.End,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(32.dp)
+            modifier = Modifier.fillMaxWidth()
         )
-        Spacer(modifier = Modifier.height(8.dp))
-        // Main display
+        
+        Spacer(modifier = Modifier.height(4.dp))
+        
+        // Dynamic Result Preview (Bottom) - live evaluation
         Text(
-            text = display,
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontSize = 56.sp,
-                fontWeight = FontWeight.SemiBold
+            text = if (liveResult.isNotEmpty()) "= $liveResult" else " ",
+            style = MaterialTheme.typography.bodyLarge.copy(
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Medium
             ),
-            color = com.toolstack.io.ui.theme.CalcDisplayDark,
+            color = com.toolstack.io.ui.theme.CalcDisplayDark.copy(alpha = 0.8f),
             textAlign = TextAlign.End,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
