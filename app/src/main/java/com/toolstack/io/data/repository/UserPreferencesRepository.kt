@@ -185,23 +185,25 @@ class UserPreferencesRepository @Inject constructor(
                 ?: emptyList()
         }
 
-    suspend fun saveCalculatorHistory(history: List<String>) {
-        try {
+    suspend fun saveCalculatorHistory(history: List<String>): Result<Unit> {
+        return try {
             dataStore.edit { preferences ->
                 preferences[KEY_CALCULATOR_HISTORY] = history.joinToString("\n")
             }
+            Result.success(Unit)
         } catch (e: IOException) {
-            // Log error if needed
+            Result.failure(e)
         }
     }
 
-    suspend fun clearCalculatorHistory() {
-        try {
+    suspend fun clearCalculatorHistory(): Result<Unit> {
+        return try {
             dataStore.edit { preferences ->
                 preferences.remove(KEY_CALCULATOR_HISTORY)
             }
+            Result.success(Unit)
         } catch (e: IOException) {
-            // Log error if needed
+            Result.failure(e)
         }
     }
 

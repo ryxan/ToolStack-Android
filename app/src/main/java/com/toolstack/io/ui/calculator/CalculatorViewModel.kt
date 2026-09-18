@@ -34,11 +34,15 @@ class CalculatorViewModel @Inject constructor(
 
     // Arithmetic context — not exposed to the UI.
     private var internal = InternalState()
+    
+    // Track if history has been loaded to prevent saving before initial load
+    private var historyLoaded = false
 
     init {
         // Load persisted history on startup
         viewModelScope.launch {
             userPreferencesRepository.calculatorHistory.collect { history ->
+                historyLoaded = true
                 _uiState.update { it.copy(
                     calculatorState = it.calculatorState.copy(history = history)
                 ) }
@@ -58,9 +62,12 @@ class CalculatorViewModel @Inject constructor(
 
     fun onEquals() = applyEngine { state ->
         val (newState, newInternal) = CalculatorEngine.onEquals(state, internal)
-        // Persist history after adding new calculation
-        viewModelScope.launch {
-            userPreferencesRepository.saveCalculatorHistory(newState.history)
+        // Only persist history after initial load completes
+        if (historyLoaded) {
+            viewModelScope.launch {
+                userPreferencesRepository.saveCalculatorHistory(newState.history)
+                    .onFailure { /* Silently ignore save failures for now */ }
+            }
         }
         newState to newInternal
     }

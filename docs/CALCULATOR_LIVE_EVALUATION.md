@@ -165,7 +165,7 @@ The calculator uses a **two-pass evaluation** to respect operator precedence:
 
 ## Test Coverage
 
-Enhanced test suite with **17 total tests**:
+Enhanced test suite with **15 total tests**:
 
 ### New Tests
 1. `supports multi-operation expressions` - Full `5+5+5-3` workflow
@@ -176,9 +176,9 @@ Enhanced test suite with **17 total tests**:
 - Expression building tests updated for multi-operation support
 
 ### All Tests Passing ✅
-- 17/17 tests passing
+- 15/15 tests passing
 - Zero regressions
-- Full coverage of new expression building feature
+- Full coverage of new expression-building feature
 
 ## Examples
 

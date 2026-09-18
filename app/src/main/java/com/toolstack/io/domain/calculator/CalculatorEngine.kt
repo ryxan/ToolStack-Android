@@ -83,6 +83,7 @@ object CalculatorEngine {
         } else {
             val current = internal.pendingInput
             val newInput = when {
+                current.isEmpty() && digit == "." -> "0."  // Normalize initial decimal
                 digit == "." && current.contains(".") -> current  // only one decimal point
                 digit == "0" && current == "0"        -> current  // leading-zero guard
                 digit == "00" && current == "0"       -> current  // don't allow "000..."
@@ -168,8 +169,10 @@ object CalculatorEngine {
         val exprStr = completeTokens.joinToString(" ")
         val historyEntry = if (completeTokens.isNotEmpty()) "$exprStr = $resultStr" else resultStr
 
-        // Add to history only if there was an actual expression
-        val newHistory = if (completeTokens.size > 1) {
+        // Add to history only if there was a complete expression
+        val newHistory = if (
+            completeTokens.size >= 3 && !isOperator(completeTokens.last())
+        ) {
             listOf(historyEntry) + state.history
         } else {
             state.history

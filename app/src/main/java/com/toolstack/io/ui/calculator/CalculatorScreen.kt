@@ -253,9 +253,12 @@ private fun DisplayPanel(
 ) {
     val scrollState = rememberScrollState()
     
-    // Auto-scroll to the end (right) when history changes
-    androidx.compose.runtime.LaunchedEffect(history.size) {
-        if (history.isNotEmpty()) {
+    // Auto-scroll to the end (right) when history changes and scroll bounds are measured
+    androidx.compose.runtime.LaunchedEffect(history.size, scrollState.maxValue) {
+        if (history.isNotEmpty() && 
+            scrollState.maxValue > 0 && 
+            scrollState.maxValue != Int.MAX_VALUE
+        ) {
             scrollState.animateScrollTo(scrollState.maxValue)
         }
     }
