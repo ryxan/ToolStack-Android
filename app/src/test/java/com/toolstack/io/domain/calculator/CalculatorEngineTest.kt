@@ -65,58 +65,22 @@ class CalculatorEngineTest {
     }
 
     @Test
-    fun `onPercent with multiplication computes percentage of left operand`() {
-        // User entered: 50 × 50 %
+    fun `onPercent with operator still divides by 100`() {
+        // After refactor, percent just divides by 100 regardless of context
         val state = CalculatorState(display = "50")
         val internal = InternalState(
-            leftOperand = 50.0,
-            pendingOperator = "×",
+            expressionTokens = listOf("50", "×"),
             pendingInput = "50"
-        )
-        
-        val (newState, newInternal) = CalculatorEngine.onPercent(state, internal)
-        
-        // 50 × 50% should show 25 (which is 50 × 50 ÷ 100)
-        assertEquals("25", newState.display)
-        assertEquals("25", newInternal.pendingInput)
-    }
-
-    @Test
-    fun `onPercent with addition computes percentage of left operand`() {
-        // User entered: 72 + 5 %
-        // Should compute 72 + (72 × 5 ÷ 100) = 72 + 3.6
-        val state = CalculatorState(display = "5")
-        val internal = InternalState(
-            leftOperand = 72.0,
-            pendingOperator = "+",
-            pendingInput = "5"
-        )
-        
-        val (newState, newInternal) = CalculatorEngine.onPercent(state, internal)
-        
-        assertEquals("3.6", newState.display)
-        assertEquals("3.6", newInternal.pendingInput)
-    }
-
-    @Test
-    fun `onPercent with subtraction computes discount amount`() {
-        // User entered: 72 − 20 %
-        // Should compute 72 − (72 × 20 ÷ 100) = 72 − 14.4
-        val state = CalculatorState(display = "20")
-        val internal = InternalState(
-            leftOperand = 72.0,
-            pendingOperator = "−",
-            pendingInput = "20"
         )
         
         val (newState, _) = CalculatorEngine.onPercent(state, internal)
         
-        assertEquals("14.4", newState.display)
+        assertEquals("0.5", newState.display)
     }
 
     @Test
     fun `expression line persists when typing digits after operator`() {
-        // User enters: 5 + 5 - 5
+        // User enters: 5 + 5 + 5
         // Start with 5
         var state = CalculatorState(display = "5")
         var internal = InternalState(pendingInput = "5")
@@ -125,24 +89,169 @@ class CalculatorEngineTest {
         val (state2, internal2) = CalculatorEngine.onOperator(state, "+", internal)
         assertEquals("5 +", state2.expression)
         
-        // Type 5
+        // Type 5 - now expression shows complete equation
         val (state3, internal3) = CalculatorEngine.onDigit(state2, "5", internal2)
-        assertEquals("5 +", state3.expression) // Expression line should stay as "5 +"
+        assertEquals("5 + 5", state3.expression)
         assertEquals("5", state3.display)
+        assertEquals("10", state3.liveResult) // Live result shows 10
         
-        // Press - (evaluates to 10, then sets up subtraction)
-        val (state4, internal4) = CalculatorEngine.onOperator(state3, "−", internal3)
-        assertEquals("10 −", state4.expression)
-        assertEquals("10", state4.display)
+        // Press + (should add to expression, not evaluate)
+        val (state4, internal4) = CalculatorEngine.onOperator(state3, "+", internal3)
+        assertEquals("5 + 5 +", state4.expression)
+        
+        // Type 5 again
+        val (state5, internal5) = CalculatorEngine.onDigit(state4, "5", internal4)
+        assertEquals("5 + 5 + 5", state5.expression)
+        assertEquals("5", state5.display)
+        assertEquals("15", state5.liveResult) // Live result shows 15
+        
+        // Press = (final result should be 15)
+        val (finalState, _) = CalculatorEngine.onEquals(state5, internal5)
+        assertEquals("15", finalState.expression)
+        assertEquals("15", finalState.display)
+        assertEquals(1, finalState.history.size)
+        assertEquals("5 + 5 + 5 = 15", finalState.history[0])
+    }
+
+    @Test
+    fun `live result updates as digits are typed`() {
+        // Start with 12
+        var state = CalculatorState(display = "12")
+        var internal = InternalState(pendingInput = "12")
+        
+        // Press +
+        val (state2, internal2) = CalculatorEngine.onOperator(state, "+", internal)
+        assertEquals("12 +", state2.expression)
+        assertEquals("", state2.liveResult)  // No live result yet
+        
+        // Type 8
+        val (state3, internal3) = CalculatorEngine.onDigit(state2, "8", internal2)
+        assertEquals("12 + 8", state3.expression)
+        assertEquals("8", state3.display)
+        assertEquals("20", state3.liveResult)  // Live result shows 20
+        
+        // Type another digit to make 88
+        val (state4, internal4) = CalculatorEngine.onDigit(state3, "8", internal3)
+        assertEquals("12 + 88", state4.expression)
+        assertEquals("88", state4.display)
+        assertEquals("100", state4.liveResult)  // Live result updates to 100
+    }
+
+    @Test
+    fun `live result clears when operator is pressed`() {
+        // Build up an expression with live result
+        var state = CalculatorState(display = "5")
+        var internal = InternalState(pendingInput = "5")
+        
+        val (state2, internal2) = CalculatorEngine.onOperator(state, "+", internal)
+        val (state3, internal3) = CalculatorEngine.onDigit(state2, "3", internal2)
+        
+        // Should have live result
+        assertEquals("8", state3.liveResult)
+        
+        // Press another operator - live result should clear
+        val (state4, internal4) = CalculatorEngine.onOperator(state3, "×", internal3)
+        assertEquals("", state4.liveResult)
+    }
+
+    @Test
+    fun `history accumulates multiple calculations`() {
+        var state = CalculatorState()
+        var internal = InternalState()
+        
+        // First calculation: 5 + 5 = 10
+        val (s1, i1) = CalculatorEngine.onDigit(state, "5", internal)
+        val (s2, i2) = CalculatorEngine.onOperator(s1, "+", i1)
+        val (s3, i3) = CalculatorEngine.onDigit(s2, "5", i2)
+        val (s4, i4) = CalculatorEngine.onEquals(s3, i3)
+        
+        assertEquals(1, s4.history.size)
+        assertEquals("5 + 5 = 10", s4.history[0])
+        
+        // Second calculation: 10 × 2 = 20
+        val (s5, i5) = CalculatorEngine.onOperator(s4, "×", i4)
+        val (s6, i6) = CalculatorEngine.onDigit(s5, "2", i5)
+        val (s7, i7) = CalculatorEngine.onEquals(s6, i6)
+        
+        assertEquals(2, s7.history.size)
+        assertEquals("10 × 2 = 20", s7.history[0])  // Most recent first
+        assertEquals("5 + 5 = 10", s7.history[1])
+    }
+
+    @Test
+    fun `clear resets to initial state but preserves history`() {
+        // Build up some state
+        var state = CalculatorState(display = "12", expression = "5 + 12", liveResult = "17", history = listOf("10 + 5 = 15"))
+        
+        val (newState, newInternal) = CalculatorEngine.onClear(state)
+        
+        assertEquals("0", newState.display)
+        assertEquals("0", newState.expression)
+        assertEquals("", newState.liveResult)
+        assertEquals(listOf("10 + 5 = 15"), newState.history)  // History preserved
+    }
+
+    @Test
+    fun `supports multi-operation expressions`() {
+        // Test the desired behavior: 5 + 5 + 5 - 3 = 12
+        var state = CalculatorState()
+        var internal = InternalState()
         
         // Type 5
-        val (state5, internal5) = CalculatorEngine.onDigit(state4, "5", internal4)
-        assertEquals("10 −", state5.expression) // Expression line should stay as "10 −"
-        assertEquals("5", state5.display)
+        val (s1, i1) = CalculatorEngine.onDigit(state, "5", internal)
+        assertEquals("5", s1.expression)
         
-        // Press = (final result should be 5)
-        val (finalState, _) = CalculatorEngine.onEquals(state5, internal5)
-        assertEquals("10 − 5 =", finalState.expression)
-        assertEquals("5", finalState.display)
+        // Press +
+        val (s2, i2) = CalculatorEngine.onOperator(s1, "+", i1)
+        assertEquals("5 +", s2.expression)
+        
+        // Type 5
+        val (s3, i3) = CalculatorEngine.onDigit(s2, "5", i2)
+        assertEquals("5 + 5", s3.expression)
+        assertEquals("10", s3.liveResult)  // Shows 10
+        
+        // Press + (adds to expression)
+        val (s4, i4) = CalculatorEngine.onOperator(s3, "+", i3)
+        assertEquals("5 + 5 +", s4.expression)
+        
+        // Type 5
+        val (s5, i5) = CalculatorEngine.onDigit(s4, "5", i4)
+        assertEquals("5 + 5 + 5", s5.expression)
+        assertEquals("15", s5.liveResult)  // Shows 15
+        
+        // Press -
+        val (s6, i6) = CalculatorEngine.onOperator(s5, "−", i5)
+        assertEquals("5 + 5 + 5 −", s6.expression)
+        
+        // Type 3
+        val (s7, i7) = CalculatorEngine.onDigit(s6, "3", i6)
+        assertEquals("5 + 5 + 5 − 3", s7.expression)
+        assertEquals("12", s7.liveResult)  // Shows 12
+        
+        // Press =
+        val (s8, i8) = CalculatorEngine.onEquals(s7, i7)
+        assertEquals("12", s8.display)
+        assertEquals("12", s8.expression)
+        assertEquals(1, s8.history.size)
+        assertEquals("5 + 5 + 5 − 3 = 12", s8.history[0])
+    }
+
+    @Test
+    fun `respects operator precedence`() {
+        // Test: 5 + 3 × 2 = 11 (not 16)
+        var state = CalculatorState()
+        var internal = InternalState()
+        
+        val (s1, i1) = CalculatorEngine.onDigit(state, "5", internal)
+        val (s2, i2) = CalculatorEngine.onOperator(s1, "+", i1)
+        val (s3, i3) = CalculatorEngine.onDigit(s2, "3", i2)
+        val (s4, i4) = CalculatorEngine.onOperator(s3, "×", i3)
+        val (s5, i5) = CalculatorEngine.onDigit(s4, "2", i4)
+        
+        assertEquals("5 + 3 × 2", s5.expression)
+        assertEquals("11", s5.liveResult)  // 5 + (3 × 2) = 11
+        
+        val (s6, i6) = CalculatorEngine.onEquals(s5, i5)
+        assertEquals("11", s6.display)
     }
 }

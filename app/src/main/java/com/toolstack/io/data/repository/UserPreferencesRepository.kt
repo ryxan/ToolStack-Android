@@ -170,6 +170,43 @@ class UserPreferencesRepository @Inject constructor(
         }
     }
 
+    /**
+     * Persisted calculator history. Returns a list of calculation strings
+     * (e.g., "5 + 5 + 5 - 3 = 12"). Most recent first.
+     */
+    val calculatorHistory: Flow<List<String>> = dataStore.data
+        .catch { e ->
+            if (e is IOException) emit(emptyPreferences()) else throw e
+        }
+        .map { preferences ->
+            preferences[KEY_CALCULATOR_HISTORY]
+                ?.split("\n")
+                ?.filter { it.isNotBlank() }
+                ?: emptyList()
+        }
+
+    suspend fun saveCalculatorHistory(history: List<String>): Result<Unit> {
+        return try {
+            dataStore.edit { preferences ->
+                preferences[KEY_CALCULATOR_HISTORY] = history.joinToString("\n")
+            }
+            Result.success(Unit)
+        } catch (e: IOException) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun clearCalculatorHistory(): Result<Unit> {
+        return try {
+            dataStore.edit { preferences ->
+                preferences.remove(KEY_CALCULATOR_HISTORY)
+            }
+            Result.success(Unit)
+        } catch (e: IOException) {
+            Result.failure(e)
+        }
+    }
+
     companion object {
         private val KEY_SAE_METRIC_MAX_INCHES = intPreferencesKey("sae_metric_max_inches")
         private const val DEFAULT_MAX_INCHES = 1
@@ -182,6 +219,7 @@ class UserPreferencesRepository @Inject constructor(
         private val KEY_RATIO_MIX_PRESETS = stringPreferencesKey("ratio_mix_presets")
         private val KEY_LAST_CONVERTER_CATEGORY = stringPreferencesKey("last_converter_category")
         private val KEY_CONVERTER_UNITS = stringPreferencesKey("converter_units")
+        private val KEY_CALCULATOR_HISTORY = stringPreferencesKey("calculator_history")
 
         /** Separator between a part's label and its ratio value. U+FFFE is a non-character. */
         private const val PART_SEP = "\uFFFE"

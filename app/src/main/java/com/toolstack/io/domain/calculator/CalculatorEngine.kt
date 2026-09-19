@@ -17,14 +17,18 @@ enum class CalculatorMode { BASIC, CONSTRUCTION }
 /**
  * Immutable snapshot of calculator state produced by [CalculatorEngine].
  *
- * @param display     The string shown in the main readout. Always non-empty.
- * @param expression  Secondary line showing the in-progress expression, e.g. "12 + 3 =".
- *                    Empty when idle.
- * @param mode        Which operating mode is currently active.
+ * @param display         The string shown in the main readout. Always non-empty.
+ * @param expression      Secondary line showing the in-progress expression, e.g. "12 + 3 =".
+ *                        Empty when idle.
+ * @param liveResult      Dynamic preview of the current expression's result. Empty when no valid expression.
+ * @param history         List of past calculations (e.g., "12 + 8 = 20"). Most recent first.
+ * @param mode            Which operating mode is currently active.
  */
 data class CalculatorState(
     val display: String = "0",
     val expression: String = "",
+    val liveResult: String = "",
+    val history: List<String> = emptyList(),
     val mode: CalculatorMode = CalculatorMode.BASIC
 )
 
@@ -67,35 +71,41 @@ object CalculatorEngine {
         val newInternal: InternalState
         val newDisplay: String
 
-        if (internal.justEvaluated || (internal.pendingInput.isEmpty() && internal.pendingOperator != null)) {
-            // After "=" or after an operator press, a digit starts fresh input.
+        if (internal.justEvaluated) {
+            // After "=", start a fresh expression
             val initialInput = when {
                 digit == "." -> "0."
-                digit == "00" -> "0"  // Don't start with "00"
+                digit == "00" -> "0"
                 else -> digit
             }
-            newInternal = internal.copy(pendingInput = initialInput, justEvaluated = false)
-            newDisplay = newInternal.pendingInput
+            newInternal = InternalState(pendingInput = initialInput)
+            newDisplay = initialInput
         } else {
             val current = internal.pendingInput
-            newInternal = when {
-                digit == "." && current.contains(".") -> internal  // only one decimal point
-                digit == "0" && current == "0"        -> internal  // leading-zero guard
-                digit == "00" && current == "0"       -> internal  // don't allow "000..."
-                current == "0" && digit != "." && digit != "00" -> internal.copy(pendingInput = digit)
-                else                                  -> internal.copy(pendingInput = current + digit)
+            val newInput = when {
+                current.isEmpty() && digit == "." -> "0."  // Normalize initial decimal
+                digit == "." && current.contains(".") -> current  // only one decimal point
+                digit == "0" && current == "0"        -> current  // leading-zero guard
+                digit == "00" && current == "0"       -> current  // don't allow "000..."
+                current == "0" && digit != "." && digit != "00" -> digit
+                current.isEmpty()                     -> digit
+                else                                  -> current + digit
             }
-            newDisplay = newInternal.pendingInput
+            newInternal = internal.copy(pendingInput = newInput)
+            newDisplay = newInput
         }
 
-        // Preserve the expression line when typing digits (don't rebuild it)
-        val newExpression = if (internal.pendingOperator != null && internal.leftOperand != null) {
-            "${formatNumber(internal.leftOperand)} ${internal.pendingOperator}"
-        } else {
-            ""
-        }
+        // Build full expression string
+        val expressionStr = buildExpressionString(newInternal.expressionTokens, newInternal.pendingInput)
         
-        return state.copy(display = newDisplay, expression = newExpression) to newInternal
+        // Compute live result from the full expression
+        val liveResult = evaluateExpression(newInternal.expressionTokens, newInternal.pendingInput)
+        
+        return state.copy(
+            display = newDisplay, 
+            expression = expressionStr,
+            liveResult = liveResult
+        ) to newInternal
     }
 
     /**
@@ -104,98 +114,152 @@ object CalculatorEngine {
     fun onOperator(state: CalculatorState, op: String, internal: InternalState): Pair<CalculatorState, InternalState> {
         if (state.mode == CalculatorMode.CONSTRUCTION) return onOperatorConstruction(state, op, internal)
 
-        val currentValue = state.display.toDoubleOrNull() ?: 0.0
-
-        val newInternal = if (internal.leftOperand != null && !internal.justEvaluated && internal.pendingInput.isEmpty()) {
-            // Replace queued operator without evaluating (e.g. "5 + ×" → use ×).
-            internal.copy(pendingOperator = op)
-        } else {
-            val left = if (internal.leftOperand != null && !internal.justEvaluated) {
-                evaluate(internal.leftOperand, internal.pendingOperator, currentValue)
+        // If we have pending input, add it and the operator to the expression
+        val newTokens = if (internal.pendingInput.isNotEmpty()) {
+            internal.expressionTokens + internal.pendingInput + op
+        } else if (internal.expressionTokens.isEmpty()) {
+            // Starting with just an operator after "="? Use the last result
+            listOf(state.display, op)
+        } else if (internal.expressionTokens.isNotEmpty()) {
+            // Replace the last operator if we just pressed an operator
+            val last = internal.expressionTokens.last()
+            if (isOperator(last)) {
+                internal.expressionTokens.dropLast(1) + op
             } else {
-                currentValue
+                internal.expressionTokens + op
             }
-            InternalState(leftOperand = left, pendingOperator = op, pendingInput = "")
+        } else {
+            listOf(op)
         }
 
-        val exprDisplay = formatNumber(newInternal.leftOperand ?: currentValue) + " " + op
+        val newInternal = internal.copy(
+            expressionTokens = newTokens,
+            pendingInput = "",
+            justEvaluated = false
+        )
+
+        val expressionStr = buildExpressionString(newTokens, "")
+        
         return state.copy(
-            display = formatNumber(newInternal.leftOperand ?: currentValue),
-            expression = exprDisplay
+            display = state.display,  // Keep showing the last number
+            expression = expressionStr,
+            liveResult = ""  // Clear live result when operator is added
         ) to newInternal
     }
 
     /**
-     * Evaluates the queued operation and shows the result.
+     * Evaluates the full expression and shows the result.
+     * Appends the completed calculation to history.
      */
     fun onEquals(state: CalculatorState, internal: InternalState): Pair<CalculatorState, InternalState> {
         if (state.mode == CalculatorMode.CONSTRUCTION) return onEqualsConstruction(state, internal)
 
-        val right = if (internal.pendingInput.isNotEmpty()) {
-            internal.pendingInput.toDoubleOrNull() ?: 0.0
+        // Build the complete expression including any pending input
+        val completeTokens = if (internal.pendingInput.isNotEmpty()) {
+            internal.expressionTokens + internal.pendingInput
         } else {
-            internal.leftOperand ?: 0.0
+            internal.expressionTokens
         }
-        val left = internal.leftOperand ?: right
 
-        val result = evaluate(left, internal.pendingOperator, right)
+        // Evaluate the full expression
+        val result = calculateFromTokens(completeTokens)
         val resultStr = formatNumber(result)
 
-        val exprLine = "${formatNumber(left)} ${internal.pendingOperator ?: ""} ${formatNumber(right)} ="
+        // Build the history entry
+        val exprStr = completeTokens.joinToString(" ")
+        val historyEntry = if (completeTokens.isNotEmpty()) "$exprStr = $resultStr" else resultStr
+
+        // Add to history only if there was a complete expression
+        val newHistory = if (
+            completeTokens.size >= 3 && !isOperator(completeTokens.last())
+        ) {
+            listOf(historyEntry) + state.history
+        } else {
+            state.history
+        }
 
         val newInternal = InternalState(
-            leftOperand = result,
-            pendingOperator = null,
+            expressionTokens = emptyList(),
             pendingInput = resultStr,
             justEvaluated = true
         )
-        return state.copy(display = resultStr, expression = exprLine) to newInternal
+        
+        return state.copy(
+            display = resultStr, 
+            expression = resultStr,
+            liveResult = "",
+            history = newHistory
+        ) to newInternal
     }
 
     /**
      * Clears all state (AC button).
      */
     fun onClear(state: CalculatorState): Pair<CalculatorState, InternalState> =
-        state.copy(display = "0", expression = "") to InternalState()
+        state.copy(display = "0", expression = "0", liveResult = "") to InternalState()
 
     /**
-     * Deletes the last character of the current input.
+     * Deletes the last character of the current input or last token.
      */
     fun onBackspace(state: CalculatorState, internal: InternalState): Pair<CalculatorState, InternalState> {
         if (state.mode == CalculatorMode.CONSTRUCTION) return onBackspaceConstruction(state, internal)
         if (internal.justEvaluated) return onClear(state)
 
-        val trimmed = internal.pendingInput.dropLast(1)
-        val newPending = if (trimmed.isEmpty() || trimmed == "-") "0" else trimmed
-        val newInternal = internal.copy(pendingInput = newPending)
-        return state.copy(display = newPending) to newInternal
+        val newInternal: InternalState
+        val newDisplay: String
+
+        if (internal.pendingInput.isNotEmpty()) {
+            // Delete from pending input
+            val trimmed = internal.pendingInput.dropLast(1)
+            newInternal = internal.copy(pendingInput = trimmed)
+            newDisplay = if (trimmed.isEmpty() && internal.expressionTokens.isNotEmpty()) {
+                // Show the last number from tokens
+                internal.expressionTokens.findLast { !isOperator(it) } ?: "0"
+            } else if (trimmed.isEmpty()) {
+                "0"
+            } else {
+                trimmed
+            }
+        } else if (internal.expressionTokens.isNotEmpty()) {
+            // Remove the last token
+            val newTokens = internal.expressionTokens.dropLast(1)
+            newInternal = internal.copy(expressionTokens = newTokens)
+            newDisplay = newTokens.findLast { !isOperator(it) } ?: "0"
+        } else {
+            // Nothing to delete
+            return state to internal
+        }
+        
+        val expressionStr = buildExpressionString(newInternal.expressionTokens, newInternal.pendingInput)
+        val liveResult = evaluateExpression(newInternal.expressionTokens, newInternal.pendingInput)
+        
+        return state.copy(
+            display = newDisplay,
+            expression = if (expressionStr.isEmpty()) "0" else expressionStr,
+            liveResult = liveResult
+        ) to newInternal
     }
 
     /**
      * Applies percentage in context of the current operation.
-     *
-     * Implements Windows Calculator / pocket calculator behavior:
-     * - With an operator queued: replaces the current number with (leftOperand × current ÷ 100)
-     *   Examples: `72 + 5%` → `72 + 3.6`, `50 × 50%` → `50 × 25`
-     * - Without an operator: simply divides by 100
-     *   Example: `50%` → `0.5`
      */
     fun onPercent(state: CalculatorState, internal: InternalState): Pair<CalculatorState, InternalState> {
         if (state.mode == CalculatorMode.CONSTRUCTION) return onPercentConstruction(state, internal)
         
         val currentValue = state.display.toDoubleOrNull() ?: 0.0
-        
-        // If there's a pending operator and left operand, compute percentage of left operand
-        val percentValue = if (internal.leftOperand != null && internal.pendingOperator != null) {
-            // Context-aware: B% means (A × B ÷ 100)
-            internal.leftOperand * currentValue / 100.0
-        } else {
-            // Simple: just divide by 100
-            currentValue / 100.0
-        }
+        val percentValue = currentValue / 100.0
         
         val str = formatNumber(percentValue)
-        return state.copy(display = str) to internal.copy(pendingInput = str, justEvaluated = false)
+        val newInternal = internal.copy(pendingInput = str, justEvaluated = false)
+        
+        val expressionStr = buildExpressionString(newInternal.expressionTokens, str)
+        val liveResult = evaluateExpression(newInternal.expressionTokens, str)
+        
+        return state.copy(
+            display = str,
+            expression = expressionStr,
+            liveResult = liveResult
+        ) to newInternal
     }
 
     /**
@@ -205,10 +269,113 @@ object CalculatorEngine {
         if (state.mode == CalculatorMode.CONSTRUCTION) return onSignFlipConstruction(state, internal)
         val value = (state.display.toDoubleOrNull() ?: 0.0) * -1.0
         val str = formatNumber(value)
-        return state.copy(display = str) to internal.copy(pendingInput = str, justEvaluated = false)
+        val newInternal = internal.copy(pendingInput = str, justEvaluated = false)
+        
+        val expressionStr = buildExpressionString(newInternal.expressionTokens, str)
+        val liveResult = evaluateExpression(newInternal.expressionTokens, str)
+        
+        return state.copy(
+            display = str,
+            expression = expressionStr,
+            liveResult = liveResult
+        ) to newInternal
     }
 
     // ── formatting ────────────────────────────────────────────────────────────
+
+    /**
+     * Builds a displayable expression string from tokens and pending input.
+     */
+    private fun buildExpressionString(tokens: List<String>, pendingInput: String): String {
+        val parts = tokens + if (pendingInput.isNotEmpty()) listOf(pendingInput) else emptyList()
+        return if (parts.isEmpty()) "0" else parts.joinToString(" ")
+    }
+
+    /**
+     * Checks if a token is an operator.
+     */
+    private fun isOperator(token: String): Boolean =
+        token in listOf("+", "−", "×", "÷")
+
+    /**
+     * Evaluates an expression from tokens and pending input, returns formatted result or empty string.
+     */
+    private fun evaluateExpression(tokens: List<String>, pendingInput: String): String {
+        val completeTokens = if (pendingInput.isNotEmpty()) {
+            tokens + pendingInput
+        } else {
+            tokens
+        }
+
+        // Only show live result if we have a complete operation (at least: number operator number)
+        if (completeTokens.size < 3) return ""
+        
+        // Don't show if the last token is an operator
+        if (completeTokens.isNotEmpty() && isOperator(completeTokens.last())) return ""
+
+        val result = calculateFromTokens(completeTokens)
+        return formatNumber(result)
+    }
+
+    /**
+     * Calculates the result from a list of tokens (numbers and operators).
+     * Respects operator precedence (× and ÷ before + and −).
+     */
+    private fun calculateFromTokens(tokens: List<String>): Double {
+        if (tokens.isEmpty()) return 0.0
+        if (tokens.size == 1) return tokens[0].toDoubleOrNull() ?: 0.0
+
+        // First pass: handle × and ÷ (higher precedence)
+        val afterMultDiv = mutableListOf<String>()
+        var i = 0
+        while (i < tokens.size) {
+            val token = tokens[i]
+            when {
+                token == "×" && i > 0 && i < tokens.size - 1 -> {
+                    val left = afterMultDiv.removeLastOrNull()?.toDoubleOrNull() ?: 0.0
+                    val right = tokens[i + 1].toDoubleOrNull() ?: 0.0
+                    afterMultDiv.add(formatNumber(left * right))
+                    i += 2
+                }
+                token == "÷" && i > 0 && i < tokens.size - 1 -> {
+                    val left = afterMultDiv.removeLastOrNull()?.toDoubleOrNull() ?: 0.0
+                    val right = tokens[i + 1].toDoubleOrNull() ?: 1.0
+                    afterMultDiv.add(formatNumber(if (right == 0.0) Double.NaN else left / right))
+                    i += 2
+                }
+                else -> {
+                    afterMultDiv.add(token)
+                    i++
+                }
+            }
+        }
+
+        // Second pass: handle + and − (lower precedence)
+        var result = afterMultDiv[0].toDoubleOrNull() ?: 0.0
+        i = 1
+        while (i < afterMultDiv.size) {
+            val operator = afterMultDiv[i]
+            val nextValue = afterMultDiv.getOrNull(i + 1)?.toDoubleOrNull() ?: 0.0
+            result = when (operator) {
+                "+" -> result + nextValue
+                "−" -> result - nextValue
+                else -> result
+            }
+            i += 2
+        }
+
+        return result
+    }
+
+    /**
+     * Computes the live result preview for the current expression.
+     * Returns empty string if the expression is incomplete or invalid.
+     * @deprecated Use evaluateExpression instead
+     */
+    private fun computeLiveResult(internal: InternalState, currentDisplay: String): String {
+        // Legacy function - redirect to new implementation
+        return evaluateExpression(internal.expressionTokens, currentDisplay)
+    }
 
     /**
      * Formats a [Double] for display: strips trailing zeros from decimals,
@@ -283,12 +450,13 @@ object CalculatorEngine {
  * [CalculatorState.expression]. The ViewModel holds both objects together.
  */
 data class InternalState(
-    /** The accumulated left operand, null when starting fresh. */
-    val leftOperand: Double? = null,
-    /** The queued operator symbol ("+" / "−" / "×" / "÷"), null when none queued. */
-    val pendingOperator: String? = null,
-    /** Characters typed for the current (right) operand. Empty means use [leftOperand]. */
+    /** The full expression being built as a list of tokens (numbers and operators). */
+    val expressionTokens: List<String> = emptyList(),
+    /** Characters being typed for the current number. */
     val pendingInput: String = "",
     /** True immediately after "=" so the next digit starts a fresh expression. */
-    val justEvaluated: Boolean = false
+    val justEvaluated: Boolean = false,
+    /** Legacy fields for backward compatibility - to be removed */
+    val leftOperand: Double? = null,
+    val pendingOperator: String? = null
 )
