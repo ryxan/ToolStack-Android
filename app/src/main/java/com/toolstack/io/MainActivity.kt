@@ -71,13 +71,11 @@ class MainActivity : ComponentActivity() {
         // Extract a deep-link route from the launch intent (e.g. from a home
         // screen shortcut: toolstack://screen/sae_metric).
         // Read unconditionally so that cold launches always pick up the route.
-        // Double-navigation on configuration change is prevented by pendingDeepLink
-        // being consumed (set to null) after the first navigate call below.
         val deepLinkRoute: String? = ShortcutUtil.extractRoute(intent?.data)
 
-        // If launching directly to a shortcut, hold the splash screen until initial
-        // navigation completes so the user doesn't see an intermediate screen flash.
-        isAppReady = deepLinkRoute == null
+        // Splash screen dismisses immediately since we'll start at the correct
+        // destination directly via dynamic startDestination.
+        isAppReady = true
         splashScreen.setKeepOnScreenCondition { !isAppReady }
 
         setContent {
@@ -118,26 +116,10 @@ class MainActivity : ComponentActivity() {
                         shortcutViewModel = shortcutViewModel
                     )
 
-                    // Track whether we've already consumed the deep-link route so
-                    // we don't navigate again on recomposition.
-                    val pendingDeepLink = remember { mutableStateOf(deepLinkRoute) }
-
-                    // Dismiss the splash screen if the app is restored directly onto a
-                    // non-Home destination (e.g. activity recreated after a shortcut
-                    // deep-link). Without this, isAppReady stays false and the splash
-                    // screen is held forever because the Home composable never runs.
-                    val currentBackStackEntry by navController.currentBackStackEntryAsState()
-                    LaunchedEffect(currentBackStackEntry?.destination?.route) {
-                        val route = currentBackStackEntry?.destination?.route
-                        if (!route.isNullOrEmpty() && route != Screen.Home.route) {
-                            isAppReady = true
-                        }
-                    }
-
                     // Warm-launch handler: consume shortcut routes emitted by onNewIntent
-                    // and navigate without restarting the Activity. popUpTo(Home) resets
-                    // the back stack to Home → Tool, matching the cold-launch shape and
-                    // preventing a stale destination from sitting below the new screen.
+                    // and navigate without restarting the Activity. We use popUpTo to
+                    // ensure the back stack is consistent: either Home alone (normal launch)
+                    // or Home → Tool (shortcut launch).
                     LaunchedEffect(Unit) {
                         _shortcutRoute.consumeEach { route ->
                             if (navController.graph.findNode(route) != null) {
@@ -149,22 +131,27 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
+                    // Dynamic start destination: deep-link shortcuts land directly on
+                    // the tool screen; normal launches start at Home. The deep-link route
+                    // is validated against the graph below — invalid routes fall back to Home.
+                    val startDestination = deepLinkRoute?.takeIf { route ->
+                        route != Screen.Home.route && listOf(
+                            Screen.SaeMetric.route,
+                            Screen.WrenchFastener.route,
+                            Screen.TapsAndDrills.route,
+                            Screen.Bearings.route,
+                            Screen.ConduitBends.route,
+                            Screen.UnitConverter.route,
+                            Screen.RatioMix.route,
+                            Screen.Calculator.route
+                        ).contains(route)
+                    } ?: Screen.Home.route
+
                     NavHost(
                         navController = navController,
-                        startDestination = Screen.Home.route
+                        startDestination = startDestination
                     ) {
                         composable(Screen.Home.route) {
-                            // After NavHost is composed, consume a pending deep-link
-                            // by navigating away from Home.  We do it here rather
-                            // than before NavHost so the graph is already built.
-                            pendingDeepLink.value?.let { route ->
-                                pendingDeepLink.value = null
-                                if (navController.graph.findNode(route) != null) {
-                                    navController.navigate(route)
-                                }
-                                isAppReady = true
-                            }
-
                             HomeScreen(
                                 onNavigate = { route ->
                                     if (navController.graph.findNode(route) != null) {
