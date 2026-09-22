@@ -55,27 +55,39 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.toolstack.io.R
-import java.text.DecimalFormat
-import java.text.DecimalFormatSymbols
 import java.util.Locale
 
 /**
  * Formats a numeric string with thousand separators for display.
  * Preserves the input for incomplete/invalid numbers (e.g., "123.", ".", "-").
+ * Preserves scientific notation (e.g., "1e+10") and all fractional digits.
  */
 private fun formatNumber(value: String): String {
     if (value.isEmpty() || value == "." || value == "-" || value.endsWith(".")) {
         return value
     }
     
+    // Don't format scientific notation - pass through as-is
+    if (value.contains('e', ignoreCase = true)) {
+        return value
+    }
+    
     return try {
-        val number = value.toDoubleOrNull() ?: return value
-        val symbols = DecimalFormatSymbols(Locale.US).apply {
-            groupingSeparator = ','
-            decimalSeparator = '.'
+        // Split into integer and fractional parts to preserve exact decimal digits
+        val parts = value.split('.')
+        val integerPart = parts[0]
+        val fractionalPart = if (parts.size > 1) parts[1] else ""
+        
+        // Format integer part with thousand separators
+        val number = integerPart.toLongOrNull() ?: return value
+        val formattedInteger = String.format(Locale.US, "%,d", number)
+        
+        // Reconstruct with original fractional digits
+        if (fractionalPart.isNotEmpty()) {
+            "$formattedInteger.$fractionalPart"
+        } else {
+            formattedInteger
         }
-        val formatter = DecimalFormat("#,###.##########", symbols)
-        formatter.format(number)
     } catch (e: Exception) {
         value
     }
@@ -83,25 +95,26 @@ private fun formatNumber(value: String): String {
 
 /**
  * Formats numbers in an expression string while preserving operators.
+ * Uses space-delimited tokens from the engine to avoid breaking scientific notation.
  * Example: "123456 + 789" -> "123,456 + 789"
+ *          "1e+10 × 2" -> "1e+10 × 2" (scientific notation preserved)
  */
 private fun formatExpression(expression: String): String {
     if (expression.isEmpty()) return expression
     
-    // Split by operators while keeping them
-    val tokens = expression.split(Regex("([+−×÷=])")).filter { it.isNotBlank() }
-    val operators = Regex("[+−×÷=]").findAll(expression).map { it.value }.toList()
+    // The engine already provides space-delimited tokens
+    // Split by spaces and format each token if it's a number
+    val tokens = expression.split(" ")
     
-    val result = StringBuilder()
-    tokens.forEachIndexed { index, token ->
-        val trimmed = token.trim()
-        result.append(formatNumber(trimmed))
-        if (index < operators.size) {
-            result.append(" ${operators[index]} ")
+    return tokens.joinToString(" ") { token ->
+        // Check if it's an operator
+        if (token in listOf("+", "−", "×", "÷", "=")) {
+            token
+        } else {
+            // It's a number - format it
+            formatNumber(token)
         }
     }
-    
-    return result.toString().trim()
 }
 
 /**
