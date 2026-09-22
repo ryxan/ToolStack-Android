@@ -64,6 +64,7 @@ object CalculatorEngine {
 
     /**
      * Applies a digit character (0–9), "00", or decimal point to the current state.
+     * Enforces a maximum of 15 digits per number (excluding the decimal point).
      */
     fun onDigit(state: CalculatorState, digit: String, internal: InternalState): Pair<CalculatorState, InternalState> {
         if (state.mode == CalculatorMode.CONSTRUCTION) return onDigitConstruction(state, digit, internal)
@@ -82,6 +83,21 @@ object CalculatorEngine {
             newDisplay = initialInput
         } else {
             val current = internal.pendingInput
+            
+            // Count digits only (excluding decimal point and minus sign)
+            val digitCount = current.count { it.isDigit() }
+            val newDigitCount = when (digit) {
+                "00" -> 2
+                "." -> 0
+                else -> digit.count { it.isDigit() }
+            }
+            
+            // Enforce 15-digit limit
+            if (digitCount + newDigitCount > 15 && digit != ".") {
+                // Reject the input if it would exceed 15 digits
+                return state to internal
+            }
+            
             val newInput = when {
                 current.isEmpty() && digit == "." -> "0."  // Normalize initial decimal
                 digit == "." && current.contains(".") -> current  // only one decimal point

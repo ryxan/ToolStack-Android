@@ -55,6 +55,67 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.toolstack.io.R
+import java.util.Locale
+
+/**
+ * Formats a numeric string with thousand separators for display.
+ * Preserves the input for incomplete/invalid numbers (e.g., "123.", ".", "-").
+ * Preserves scientific notation (e.g., "1e+10") and all fractional digits.
+ */
+private fun formatNumber(value: String): String {
+    if (value.isEmpty() || value == "." || value == "-" || value.endsWith(".")) {
+        return value
+    }
+    
+    // Don't format scientific notation - pass through as-is
+    if (value.contains('e', ignoreCase = true)) {
+        return value
+    }
+    
+    return try {
+        // Split into integer and fractional parts to preserve exact decimal digits
+        val parts = value.split('.')
+        val integerPart = parts[0]
+        val fractionalPart = if (parts.size > 1) parts[1] else ""
+        
+        // Format integer part with thousand separators
+        val number = integerPart.toLongOrNull() ?: return value
+        val formattedInteger = String.format(Locale.US, "%,d", number)
+        
+        // Reconstruct with original fractional digits
+        if (fractionalPart.isNotEmpty()) {
+            "$formattedInteger.$fractionalPart"
+        } else {
+            formattedInteger
+        }
+    } catch (e: Exception) {
+        value
+    }
+}
+
+/**
+ * Formats numbers in an expression string while preserving operators.
+ * Uses space-delimited tokens from the engine to avoid breaking scientific notation.
+ * Example: "123456 + 789" -> "123,456 + 789"
+ *          "1e+10 × 2" -> "1e+10 × 2" (scientific notation preserved)
+ */
+private fun formatExpression(expression: String): String {
+    if (expression.isEmpty()) return expression
+    
+    // The engine already provides space-delimited tokens
+    // Split by spaces and format each token if it's a number
+    val tokens = expression.split(" ")
+    
+    return tokens.joinToString(" ") { token ->
+        // Check if it's an operator
+        if (token in listOf("+", "−", "×", "÷", "=")) {
+            token
+        } else {
+            // It's a number - format it
+            formatNumber(token)
+        }
+    }
+}
 
 /**
  * Main calculator screen.
@@ -251,15 +312,23 @@ private fun DisplayPanel(
     liveResult: String,
     modifier: Modifier = Modifier
 ) {
-    val scrollState = rememberScrollState()
+    val historyScrollState = rememberScrollState()
+    val expressionScrollState = rememberScrollState()
     
-    // Auto-scroll to the end (right) when history changes and scroll bounds are measured
-    androidx.compose.runtime.LaunchedEffect(history.size, scrollState.maxValue) {
+    // Auto-scroll history to the end (right) when history changes
+    androidx.compose.runtime.LaunchedEffect(history.size, historyScrollState.maxValue) {
         if (history.isNotEmpty() && 
-            scrollState.maxValue > 0 && 
-            scrollState.maxValue != Int.MAX_VALUE
+            historyScrollState.maxValue > 0 && 
+            historyScrollState.maxValue != Int.MAX_VALUE
         ) {
-            scrollState.animateScrollTo(scrollState.maxValue)
+            historyScrollState.animateScrollTo(historyScrollState.maxValue)
+        }
+    }
+    
+    // Auto-scroll expression to bottom when it grows
+    androidx.compose.runtime.LaunchedEffect(expression, expressionScrollState.maxValue) {
+        if (expressionScrollState.maxValue > 0) {
+            expressionScrollState.animateScrollTo(expressionScrollState.maxValue)
         }
     }
     
@@ -274,7 +343,7 @@ private fun DisplayPanel(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(32.dp)
-                    .horizontalScroll(scrollState),
+                    .horizontalScroll(historyScrollState),
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -299,35 +368,65 @@ private fun DisplayPanel(
             Spacer(modifier = Modifier.height(32.dp))
         }
         
-        // Main Expression Line (Middle) - active input
-        Text(
-            text = expression.ifEmpty { " " },
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Normal
-            ),
-            color = com.toolstack.io.ui.theme.CalcDisplayDark,
-            textAlign = TextAlign.End,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.fillMaxWidth()
-        )
-        
-        Spacer(modifier = Modifier.height(4.dp))
-        
-        // Dynamic Result Preview (Bottom) - live evaluation
-        Text(
-            text = if (liveResult.isNotEmpty()) "= $liveResult" else " ",
-            style = MaterialTheme.typography.bodyLarge.copy(
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Medium
-            ),
-            color = com.toolstack.io.ui.theme.CalcDisplayDark.copy(alpha = 0.8f),
-            textAlign = TextAlign.End,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.fillMaxWidth()
-        )
+        // Main Expression Area - scrollable and multi-line with dynamic sizing
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(100.dp)
+                .verticalScroll(expressionScrollState)
+        ) {
+            val maxWidth = this.maxWidth
+            
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.End
+            ) {
+                // Main Expression Line - dynamic font size based on content length
+                val formattedExpression = formatExpression(expression.ifEmpty { " " })
+                val baseFontSize = 40.sp
+                val dynamicFontSize = when {
+                    formattedExpression.length < 12 -> baseFontSize
+                    formattedExpression.length < 20 -> 36.sp
+                    formattedExpression.length < 30 -> 32.sp
+                    else -> 28.sp
+                }
+                
+                Text(
+                    text = formattedExpression,
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontSize = dynamicFontSize,
+                        fontWeight = FontWeight.Normal,
+                        lineHeight = dynamicFontSize * 1.2f
+                    ),
+                    color = com.toolstack.io.ui.theme.CalcDisplayDark,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                // Dynamic Result Preview
+                if (liveResult.isNotEmpty()) {
+                    val formattedResult = formatNumber(liveResult)
+                    val resultFontSize = when {
+                        formattedResult.length < 12 -> 32.sp
+                        formattedResult.length < 20 -> 28.sp
+                        else -> 24.sp
+                    }
+                    
+                    Text(
+                        text = "= $formattedResult",
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontSize = resultFontSize,
+                            fontWeight = FontWeight.Normal
+                        ),
+                        color = com.toolstack.io.ui.theme.CalcDisplayDark.copy(alpha = 0.8f),
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -349,7 +448,7 @@ private fun Keypad(
     // Row 2:  7   8   9  ×
     // Row 3:  4   5   6  −
     // Row 4:  1   2   3  +
-    // Row 5:  0  00   .  =
+    // Row 5: 00   0   .  =
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -399,8 +498,8 @@ private fun Keypad(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            CalcDigitKey(label = "0", modifier = Modifier.weight(1f)) { onDigit("0") }
             CalcDigitKey(label = "00", modifier = Modifier.weight(1f)) { onDigit("00") }
+            CalcDigitKey(label = "0", modifier = Modifier.weight(1f)) { onDigit("0") }
             CalcDigitKey(label = ".", modifier = Modifier.weight(1f)) { onDigit(".") }
             CalcEqualsKey(modifier = Modifier.weight(1f), onClick = onEquals)
         }
@@ -425,7 +524,10 @@ private fun CalcDigitKey(
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.titleLarge
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Normal
+            )
         )
     }
 }
@@ -446,7 +548,10 @@ private fun CalcOperatorKey(
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.titleLarge
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontSize = 40.sp,
+                fontWeight = FontWeight.Normal
+            )
         )
     }
 }
@@ -467,7 +572,10 @@ private fun CalcClearKey(
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.titleLarge
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Normal
+            )
         )
     }
 }
@@ -488,7 +596,10 @@ private fun CalcFunctionKey(
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.titleLarge
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Normal
+            )
         )
     }
 }
@@ -508,7 +619,10 @@ private fun CalcEqualsKey(
     ) {
         Text(
             text = "=",
-            style = MaterialTheme.typography.titleLarge
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontSize = 40.sp,
+                fontWeight = FontWeight.Normal
+            )
         )
     }
 }
@@ -529,7 +643,8 @@ private fun CalcBackspaceKey(
         Icon(
             imageVector = Icons.AutoMirrored.Filled.Backspace,
             contentDescription = stringResource(R.string.content_description_backspace),
-            tint = androidx.compose.ui.graphics.Color.White
+            tint = androidx.compose.ui.graphics.Color.White,
+            modifier = Modifier.padding(4.dp)
         )
     }
 }
