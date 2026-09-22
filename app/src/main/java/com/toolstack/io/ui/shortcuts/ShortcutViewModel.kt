@@ -122,14 +122,14 @@ private val PurchaseState.isActive: Boolean
  */
 @DrawableRes
 fun shortcutIconForRoute(route: String): Int = when (route) {
-    "sae_metric"      -> R.mipmap.ic_launcher
-    "wrench_fastener" -> R.mipmap.ic_launcher
-    "taps_and_drills" -> R.mipmap.ic_launcher
-    "bearings"        -> R.mipmap.ic_launcher
-    "conduit_bends"   -> R.mipmap.ic_launcher
-    "unit_converter"  -> R.mipmap.ic_launcher
-    "ratio_mix"       -> R.mipmap.ic_launcher
-    "calculator"      -> R.mipmap.ic_launcher
+    "sae_metric"      -> R.mipmap.ic_shortcut_sae_metric
+    "wrench_fastener" -> R.mipmap.ic_shortcut_wrench_fastener
+    "taps_and_drills" -> R.mipmap.ic_shortcut_taps_and_drills
+    "bearings"        -> R.mipmap.ic_shortcut_bearings
+    "conduit_bends"   -> R.mipmap.ic_shortcut_conduit_bends
+    "unit_converter"  -> R.mipmap.ic_shortcut_unit_converter
+    "ratio_mix"       -> R.mipmap.ic_shortcut_ratio_mix
+    "calculator"      -> R.mipmap.ic_shortcut_calculator
     else              -> R.mipmap.ic_launcher
 }
 

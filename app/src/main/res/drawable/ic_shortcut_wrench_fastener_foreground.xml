@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:translateX="24"
+        android:translateY="24"
+        android:scaleX="2.5"
+        android:scaleY="2.5">
+        <!-- Material Icons Handyman (crossed tools) -->
+        <path
+            android:fillColor="#BBDEFB"
+            android:pathData="M21.67,18.17l-5.3,-5.3h-0.99l-2.54,2.54v0.99l3.21,3.21c0.39,0.39 1.02,0.39 1.41,0l4.21,-4.21c0.39,-0.39 0.39,-1.02 0,-1.41z" />
+        <path
+            android:fillColor="#BBDEFB"
+            android:pathData="M17.34,10.19l1.41,-1.41 2.12,2.12c1.17,-1.17 1.17,-3.07 0,-4.24l-3.54,-3.54 -1.41,1.41L15.22,3.7V2.29l-3.54,3.54 0.71,0.71H11.98L9.4,9.12l1.06,1.06 2.57,-2.58L11.98,6.54L9.39,9.13 10.45,10.19 13.03,7.6z" />
+        <path
+            android:fillColor="#BBDEFB"
+            android:pathData="M3.26,10.5c0,-0.57 0.48,-1.05 1.05,-1.05s1.05,0.48 1.05,1.05 -0.48,1.05 -1.05,1.05 -1.05,-0.48 -1.05,-1.05z" />
+        <path
+            android:fillColor="#BBDEFB"
+            android:pathData="M5.71,11.71l0.71,0.71 2.54,-2.54v-0.99l-3.21,-3.21c-0.39,-0.39 -1.02,-0.39 -1.41,0L0.13,10.89c-0.39,0.39 -0.39,1.02 0,1.41l5.3,5.3h0.99l2.54,-2.54v-0.99l-2.54,2.54 -0.71,-0.71z" />
+    </group>
+</vector>
