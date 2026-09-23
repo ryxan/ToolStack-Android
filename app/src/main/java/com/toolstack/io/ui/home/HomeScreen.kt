@@ -340,4 +340,5 @@ private val HomeModuleIcon.imageVector: ImageVector
         HomeModuleIcon.UnitConverter  -> Icons.Filled.SwapHoriz
         HomeModuleIcon.RatioMix       -> Icons.Filled.WaterDrop
         HomeModuleIcon.Calculator     -> Icons.Filled.Calculate
+        HomeModuleIcon.Sprayer        -> Icons.Filled.WaterDrop
     }
