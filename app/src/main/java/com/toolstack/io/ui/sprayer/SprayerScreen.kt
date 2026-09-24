@@ -38,6 +38,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.toolstack.io.R
 
+/**
+ * Displays sprayer inputs and calculated coverage.
+ * Omits the shortcut action when [onAddShortcut] is null.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SprayerScreen(

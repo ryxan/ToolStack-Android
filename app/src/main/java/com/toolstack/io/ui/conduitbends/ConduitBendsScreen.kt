@@ -1148,9 +1148,8 @@ private fun DisclaimerCard() {
 
 /**
  * Dispatches to the correct schematic drawing for each bend type.
- * [showLabels] — show dimension annotations.
- * [inputInches] — if provided, the user's raw measurement is live-annotated.
- * [result] — if provided, calculated values are shown on the diagram.
+ * [showLabels] adds measurement ticks for corner, stub-up, and offset diagrams.
+ * [inputInches] and [result] currently do not affect the drawing.
  */
 @Composable
 private fun BendDiagram(
@@ -1183,9 +1182,8 @@ private fun BendDiagram(
 // ── 90° Corner ────────────────────────────────────────────────────────────────
 
 /**
- * Flat L-shaped corner — two straight runs meeting at a right angle,
- * with a small radius arc at the knee. No elevation change.
- * Shows pipe running along the floor, then turning up along the wall.
+ * Draws a floor-level pipe that bends upward at a rounded corner, with a wall/floor
+ * reference and an optional mark tick on the horizontal run.
  */
 private fun DrawScope.drawCorner90(
     pipeColor: Color,
@@ -1693,6 +1691,7 @@ private fun DrawScope.drawArrowTick(x: Float, y: Float, color: Color, sw: Float)
 
 // ── Inline pipe diagrams for step cards ──────────────────────────────────────
 
+/** Draws a pipe with a mark at [markFraction] of its width; [labelText] is not rendered. */
 @Composable
 private fun PipeWithMark(markFraction: Float, labelText: String) {
     val pipeColor   = MaterialTheme.colorScheme.primary
@@ -1715,6 +1714,10 @@ private fun PipeWithMark(markFraction: Float, labelText: String) {
     }
 }
 
+/**
+ * Draws a pipe with marks at the given fractions of its width.
+ * [label1] and [label2] are not rendered.
+ */
 @Composable
 private fun PipeWithTwoMarks(
     mark1Fraction: Float,

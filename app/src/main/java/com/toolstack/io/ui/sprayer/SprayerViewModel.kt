@@ -15,26 +15,31 @@ class SprayerViewModel @Inject constructor() : ViewModel() {
     private val _uiState = MutableStateFlow(SprayerUiState())
     val uiState: StateFlow<SprayerUiState> = _uiState.asStateFlow()
 
+    /** Stores the tank volume in gallons and recalculates the displayed results. */
     fun onTankVolumeChanged(value: String) {
         _uiState.update { it.copy(tankVolumeText = value) }
         recalculate()
     }
 
+    /** Stores the spray volume in gallons per acre and recalculates the displayed results. */
     fun onSprayRateChanged(value: String) {
         _uiState.update { it.copy(sprayRateText = value) }
         recalculate()
     }
 
+    /** Stores the chemical rate in liters per acre and recalculates the displayed results. */
     fun onChemRateChanged(value: String) {
         _uiState.update { it.copy(chemRateText = value) }
         recalculate()
     }
 
+    /** Stores the acres covered by one jug and recalculates the displayed results. */
     fun onAcresPerJugChanged(value: String) {
         _uiState.update { it.copy(acresPerJugText = value) }
         recalculate()
     }
 
+    /** Switches calculation modes, retaining inputs but clearing the previous mode's results. */
     fun onModeToggled() {
         _uiState.update { current ->
             val newMode = if (current.mode == SprayerMode.RATE_PER_ACRE) {
@@ -47,6 +52,11 @@ class SprayerViewModel @Inject constructor() : ViewModel() {
         recalculate()
     }
 
+    /**
+     * Updates coverage and either chemical amounts or jug count for the active mode.
+     * Non-numeric inputs count as zero; nonpositive results are left blank. Positive
+     * results are formatted to two decimal places using the US locale.
+     */
     private fun recalculate() {
         val current = _uiState.value
         val tankVolume = current.tankVolumeText.toDoubleOrNull() ?: 0.0
