@@ -55,8 +55,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -245,7 +247,7 @@ private fun ModuleCard(
                 )
             },
             leadingContent = {
-                ModuleIcon(icon = module.icon.imageVector, showProBadge = showLock)
+                ModuleIcon(iconEnum = module.icon, showProBadge = showLock)
             },
             trailingContent = {
                 if (showLock) {
@@ -274,7 +276,7 @@ private fun ModuleCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ModuleIcon(icon: ImageVector, showProBadge: Boolean) {
+private fun ModuleIcon(iconEnum: HomeModuleIcon, showProBadge: Boolean) {
     BadgedBox(
         badge = {
             if (showProBadge) {
@@ -300,11 +302,29 @@ private fun ModuleIcon(icon: ImageVector, showProBadge: Boolean) {
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp)
-                )
+                when (iconEnum) {
+                    HomeModuleIcon.ConduitBends -> {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_conduit_bender),
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    HomeModuleIcon.WrenchFastener -> {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_wrench_fastener),
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    else -> {
+                        Icon(
+                            imageVector = iconEnum.imageVector,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
             }
         }
     }
@@ -316,8 +336,9 @@ private val HomeModuleIcon.imageVector: ImageVector
         HomeModuleIcon.SaeMetric      -> Icons.Filled.Straighten
         HomeModuleIcon.WrenchFastener -> Icons.Filled.Handyman
         HomeModuleIcon.TapsAndDrills  -> Icons.Filled.Build
-        HomeModuleIcon.ConduitBends   -> Icons.Filled.Construction
+        HomeModuleIcon.ConduitBends   -> Icons.Filled.Construction // fallback if needed
         HomeModuleIcon.UnitConverter  -> Icons.Filled.SwapHoriz
         HomeModuleIcon.RatioMix       -> Icons.Filled.WaterDrop
         HomeModuleIcon.Calculator     -> Icons.Filled.Calculate
+        HomeModuleIcon.Sprayer        -> Icons.Filled.WaterDrop
     }

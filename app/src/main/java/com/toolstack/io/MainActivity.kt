@@ -32,6 +32,7 @@ import com.toolstack.io.ui.shortcuts.ShortcutPaywallHost
 import com.toolstack.io.ui.shortcuts.ShortcutViewModel
 import com.toolstack.io.ui.shortcuts.shortcutIconForRoute
 import com.toolstack.io.ui.shortcuts.shortcutLabelResForRoute
+import com.toolstack.io.ui.sprayer.SprayerScreen
 import com.toolstack.io.ui.unitconverter.UnitConverterDetailScreen
 import com.toolstack.io.ui.unitconverter.UnitConverterScreen
 import com.toolstack.io.ui.unitconverter.UnitConverterViewModel
@@ -143,7 +144,8 @@ class MainActivity : ComponentActivity() {
                             Screen.ConduitBends.route,
                             Screen.UnitConverter.route,
                             Screen.RatioMix.route,
-                            Screen.Calculator.route
+                            Screen.Calculator.route,
+                            Screen.Sprayer.route
                         ).contains(route)
                     } ?: Screen.Home.route
 
@@ -242,6 +244,12 @@ class MainActivity : ComponentActivity() {
                                 onAddShortcut = addShortcutFor(Screen.Calculator.route)
                             )
                         }
+                        composable(Screen.Sprayer.route) {
+                            SprayerScreen(
+                                onBack = { navController.popBackStack() },
+                                onAddShortcut = addShortcutFor(Screen.Sprayer.route)
+                            )
+                        }
                     }
                 }
             }
@@ -276,4 +284,5 @@ sealed class Screen(val route: String) {
     }
     data object RatioMix : Screen("ratio_mix")
     data object Calculator : Screen("calculator")
+    data object Sprayer : Screen("sprayer")
 }

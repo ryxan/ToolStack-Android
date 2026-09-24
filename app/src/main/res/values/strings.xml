@@ -199,6 +199,21 @@
     <!-- Paywall copy shown when a non-premium user taps Add to Home Screen -->
     <string name="shortcut_premium_required_body">Home screen shortcuts are a Pro feature. Upgrade to pin any tool directly to your launcher.</string>
 
+    <!-- Sprayer Calculator -->
+    <string name="sprayer_title">Sprayer Calculator</string>
+    <string name="sprayer_tank_volume">Tank Volume (Gallons)</string>
+    <string name="sprayer_spray_rate">Spray Volume (Gallons/Acre)</string>
+    <string name="sprayer_chem_rate">Chemical Rate (Liters/Acre)</string>
+    <string name="sprayer_acres_per_jug">Acres per Jug</string>
+    <string name="sprayer_mode_rate_per_acre">Rate per Acre</string>
+    <string name="sprayer_mode_acres_per_jug">Acres per Jug</string>
+    <string name="sprayer_results_title">Results</string>
+    <string name="sprayer_acres_covered">Acres Covered</string>
+    <string name="sprayer_total_chem_liters">Total Chemical (L)</string>
+    <string name="sprayer_total_chem_gallons">Total Chemical (Gal)</string>
+    <string name="sprayer_total_jugs">Total Jugs</string>
+    <string name="shortcut_label_sprayer">Sprayer Calc</string>
+
     <!-- Bearings -->
     <string name="bearings_search_label">Find bearing by dimensions</string>
     <string name="bearings_bore_label">Bore (ID)</string>

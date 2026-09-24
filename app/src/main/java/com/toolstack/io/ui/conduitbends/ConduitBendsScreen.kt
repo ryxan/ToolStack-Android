@@ -67,6 +67,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -1147,9 +1148,8 @@ private fun DisclaimerCard() {
 
 /**
  * Dispatches to the correct schematic drawing for each bend type.
- * [showLabels] — show dimension annotations.
- * [inputInches] — if provided, the user's raw measurement is live-annotated.
- * [result] — if provided, calculated values are shown on the diagram.
+ * [showLabels] adds measurement ticks for corner, stub-up, and offset diagrams.
+ * [inputInches] and [result] currently do not affect the drawing.
  */
 @Composable
 private fun BendDiagram(
@@ -1162,7 +1162,7 @@ private fun BendDiagram(
     val pipeColor    = MaterialTheme.colorScheme.primary
     val accentColor  = MaterialTheme.colorScheme.error
     val labelColor   = MaterialTheme.colorScheme.onSurfaceVariant
-    val strokeWidth  = 6f
+    val strokeWidth  = 8f  // Increased from 6f for better visibility
 
     Canvas(modifier = modifier) {
         when (bendType) {
@@ -1182,8 +1182,8 @@ private fun BendDiagram(
 // ── 90° Corner ────────────────────────────────────────────────────────────────
 
 /**
- * Flat L-shaped corner — two straight runs meeting at a right angle,
- * with a small radius arc at the knee. No elevation change.
+ * Draws a floor-level pipe that bends upward at a rounded corner, with a wall/floor
+ * reference and an optional mark tick on the horizontal run.
  */
 private fun DrawScope.drawCorner90(
     pipeColor: Color,
@@ -1195,53 +1195,58 @@ private fun DrawScope.drawCorner90(
     val w   = size.width
     val h   = size.height
     val pad = sw * 2
+    
+    // Draw reference wall/floor for orientation
+    drawReferenceWall(pipeColor)
 
-    // Long horizontal run coming from the left
+    // Horizontal run along the floor (slightly elevated for visibility)
+    val floorY = h - pad - sw * 2
     val kneeX = w * 0.55f
-    val kneeY = h * 0.55f
 
-    drawLine(
+    draw3DPipe(
+        start       = Offset(w * 0.15f, floorY),
+        end         = Offset(kneeX, floorY),
         color       = pipeColor,
-        start       = Offset(pad, kneeY),
-        end         = Offset(kneeX, kneeY),
-        strokeWidth = sw,
-        cap         = StrokeCap.Round
+        strokeWidth = sw
     )
 
-    // Short arc at the corner knee
+    // Arc at the corner knee, bending upward
     val radius = h * 0.18f
     val kneePath = Path().apply {
-        moveTo(kneeX, kneeY)
+        moveTo(kneeX, floorY)
         cubicTo(
-            kneeX + radius * 0.8f, kneeY,
-            kneeX + radius,        kneeY - radius * 0.8f,
-            kneeX + radius,        kneeY - radius
+            kneeX + radius * 0.5f, floorY,
+            kneeX + radius * 0.5f, floorY - radius * 0.5f,
+            kneeX + radius * 0.5f, floorY - radius
         )
     }
-    drawPath(
-        path  = kneePath,
-        color = pipeColor,
-        style = Stroke(width = sw, cap = StrokeCap.Round)
+    draw3DPipePath(
+        path        = kneePath,
+        color       = pipeColor,
+        strokeWidth = sw
     )
 
-    // Short vertical run going up
-    drawLine(
+    // Vertical run going up toward ceiling
+    draw3DPipe(
+        start       = Offset(kneeX + radius * 0.5f, floorY - radius),
+        end         = Offset(kneeX + radius * 0.5f, pad * 2),
         color       = pipeColor,
-        start       = Offset(kneeX + radius, kneeY - radius),
-        end         = Offset(kneeX + radius, pad),
-        strokeWidth = sw,
-        cap         = StrokeCap.Round
+        strokeWidth = sw
     )
 
     // Mark tick on the horizontal run
     if (showLabels) {
-        val markX = kneeX * 0.45f
-        drawArrowTick(markX, kneeY, accentColor, sw)
+        val markX = w * 0.35f
+        drawArrowTick(markX, floorY, accentColor, sw * 0.9f)
     }
 }
 
 // ── 90° Stub-Up ───────────────────────────────────────────────────────────────
 
+/**
+ * Shows a horizontal pipe run along the floor that bends 90° upward.
+ * The reference wall/floor corner helps visualize the vertical orientation.
+ */
 private fun DrawScope.drawStubUp90(
     pipeColor: Color,
     accentColor: Color,
@@ -1252,58 +1257,63 @@ private fun DrawScope.drawStubUp90(
     val w = size.width
     val h = size.height
     val pad = sw * 2
+    
+    // Draw reference wall/floor for orientation
+    drawReferenceWall(pipeColor)
 
-    // Horizontal run along the bottom (left side)
+    // Horizontal run along the bottom floor
     val runEndX   = w * 0.45f
-    val floorY    = h - pad - sw
+    val floorY    = h - pad - sw * 2
 
-    // Vertical stub going up (right side)
+    // Vertical stub going up
     val stubStartX = runEndX
-    val stubTopY   = pad + sw
+    val stubTopY   = pad * 2
 
-    // Horizontal segment
-    drawLine(
-        color       = pipeColor,
-        start       = Offset(pad, floorY),
+    // Horizontal segment along floor
+    draw3DPipe(
+        start       = Offset(w * 0.10f, floorY),
         end         = Offset(runEndX, floorY),
-        strokeWidth = sw,
-        cap         = StrokeCap.Round
+        color       = pipeColor,
+        strokeWidth = sw
     )
 
-    // Curved knee — simple arc approximation using a quadratic bezier path
+    // Curved knee — rises from floor
     val bendRadius = h * 0.22f
     val kneePath = Path().apply {
         moveTo(runEndX, floorY)
         cubicTo(
             runEndX + bendRadius * 0.5f, floorY,
-            stubStartX + bendRadius, floorY - bendRadius,
-            stubStartX + bendRadius, floorY - bendRadius * 1.5f
+            stubStartX + bendRadius * 0.5f, floorY - bendRadius,
+            stubStartX + bendRadius * 0.5f, floorY - bendRadius * 1.5f
         )
     }
-    drawPath(
+    draw3DPipePath(
         path        = kneePath,
         color       = pipeColor,
-        style       = Stroke(width = sw, cap = StrokeCap.Round)
+        strokeWidth = sw
     )
 
-    // Vertical stub
-    drawLine(
+    // Vertical stub rising up
+    draw3DPipe(
+        start       = Offset(stubStartX + bendRadius * 0.5f, floorY - bendRadius * 1.5f),
+        end         = Offset(stubStartX + bendRadius * 0.5f, stubTopY),
         color       = pipeColor,
-        start       = Offset(stubStartX + bendRadius, floorY - bendRadius * 1.5f),
-        end         = Offset(stubStartX + bendRadius, stubTopY),
-        strokeWidth = sw,
-        cap         = StrokeCap.Round
+        strokeWidth = sw
     )
 
     // Mark arrow on the horizontal run
     if (showLabels) {
-        val markX = runEndX * 0.42f
-        drawArrowTick(markX, floorY, accentColor, sw)
+        val markX = runEndX * 0.55f
+        drawArrowTick(markX, floorY, accentColor, sw * 0.9f)
     }
 }
 
 // ── Offset ────────────────────────────────────────────────────────────────────
 
+/**
+ * Shows a horizontal pipe running along the floor that rises to clear an obstacle,
+ * then returns to floor level. The reference wall/floor shows this is a side view.
+ */
 private fun DrawScope.drawOffset(
     pipeColor: Color,
     accentColor: Color,
@@ -1314,147 +1324,400 @@ private fun DrawScope.drawOffset(
     val w   = size.width
     val h   = size.height
     val pad = sw * 2
+    
+    // Draw reference wall/floor for orientation
+    drawReferenceWall(pipeColor)
 
-    val leftY  = h - pad - sw           // low run
-    val rightY = pad + sw               // high run (over the obstacle)
-    val riseX1 = w * 0.32f             // start of first bend
-    val riseX2 = w * 0.65f             // start of second bend
+    val floorLevel  = h - pad - sw * 2      // pipe level along floor
+    val raisedLevel = h * 0.35f             // raised level over obstacle
+    val riseX1 = w * 0.30f                  // start of first bend
+    val riseX2 = w * 0.65f                  // start of second bend
 
-    // Left horizontal run
-    drawLine(pipeColor, Offset(pad, leftY), Offset(riseX1, leftY), sw, cap = StrokeCap.Round)
-
-    // Diagonal crossing section
-    drawLine(pipeColor, Offset(riseX1, leftY), Offset(riseX2, rightY), sw, cap = StrokeCap.Round)
-
-    // Right horizontal run
-    drawLine(pipeColor, Offset(riseX2, rightY), Offset(w - pad, rightY), sw, cap = StrokeCap.Round)
-
-    // Obstacle box
-    val obstacleLeft  = riseX1 + (riseX2 - riseX1) * 0.15f
-    val obstacleRight = riseX1 + (riseX2 - riseX1) * 0.85f
-    val obstacleTop   = leftY - (leftY - rightY) * 0.7f
-    drawLine(
-        color       = accentColor.copy(alpha = 0.4f),
-        start       = Offset(obstacleLeft, leftY),
-        end         = Offset(obstacleLeft, obstacleTop),
-        strokeWidth = sw * 0.7f
+    // Draw pipes FIRST (background)
+    // Left horizontal run along floor
+    draw3DPipe(
+        start       = Offset(w * 0.10f, floorLevel),
+        end         = Offset(riseX1, floorLevel),
+        color       = pipeColor,
+        strokeWidth = sw
     )
-    drawLine(
-        color       = accentColor.copy(alpha = 0.4f),
-        start       = Offset(obstacleRight, leftY),
-        end         = Offset(obstacleRight, obstacleTop),
-        strokeWidth = sw * 0.7f
+
+    // Diagonal rise over obstacle
+    draw3DPipe(
+        start       = Offset(riseX1, floorLevel),
+        end         = Offset(riseX2, raisedLevel),
+        color       = pipeColor,
+        strokeWidth = sw
     )
-    drawLine(
-        color       = accentColor.copy(alpha = 0.4f),
-        start       = Offset(obstacleLeft, obstacleTop),
-        end         = Offset(obstacleRight, obstacleTop),
-        strokeWidth = sw * 0.7f
+
+    // Right horizontal run back at floor level
+    draw3DPipe(
+        start       = Offset(riseX2, raisedLevel),
+        end         = Offset(w * 0.90f, floorLevel),
+        color       = pipeColor,
+        strokeWidth = sw
+    )
+
+    // Draw obstacle LAST (foreground) - appears in front of lower pipe sections
+    val obstacleLeft  = riseX1 + (riseX2 - riseX1) * 0.25f
+    val obstacleWidth = (riseX2 - riseX1) * 0.50f
+    val obstacleHeight = floorLevel - raisedLevel - sw * 3
+    val obstacleRight = obstacleLeft + obstacleWidth
+    
+    draw3DObstacle(
+        topLeft = Offset(obstacleLeft, floorLevel - obstacleHeight),
+        width   = obstacleWidth,
+        height  = obstacleHeight,
+        color   = accentColor
     )
 
     // Mark ticks
     if (showLabels) {
-        drawArrowTick(riseX1, leftY, accentColor, sw)
-        drawArrowTick(riseX2, rightY, accentColor, sw)
+        drawArrowTick(riseX1, floorLevel, accentColor, sw * 0.9f)
+        drawArrowTick(riseX2, raisedLevel, accentColor, sw * 0.9f)
     }
 }
 
 // ── 3-Point Saddle ────────────────────────────────────────────────────────────
 
+/**
+ * Shows pipe running along floor that rises over an obstacle in the middle.
+ * The reference wall/floor provides spatial context for the vertical clearance.
+ */
 private fun DrawScope.drawSaddle3Point(pipeColor: Color, accentColor: Color, sw: Float) {
     val w   = size.width
     val h   = size.height
     val pad = sw * 2
+    
+    // Draw reference wall/floor for orientation
+    drawReferenceWall(pipeColor)
 
-    val baseY    = h * 0.70f
-    val peakY    = h * 0.20f
+    val baseY    = h - pad - sw * 2  // floor level
+    val peakY    = h * 0.25f         // peak height over obstacle
     val x1       = w * 0.15f
-    val x2       = w * 0.32f
-    val x3       = w * 0.50f   // centre / peak
-    val x4       = w * 0.68f
+    val x3       = w * 0.50f         // centre / peak
     val x5       = w * 0.85f
 
-    drawLine(pipeColor, Offset(pad, baseY), Offset(x1, baseY), sw, cap = StrokeCap.Round)
-    drawLine(pipeColor, Offset(x1, baseY), Offset(x3, peakY), sw, cap = StrokeCap.Round)
-    drawLine(pipeColor, Offset(x3, peakY), Offset(x5, baseY), sw, cap = StrokeCap.Round)
-    drawLine(pipeColor, Offset(x5, baseY), Offset(w - pad, baseY), sw, cap = StrokeCap.Round)
+    // Draw pipes FIRST (background)
+    draw3DPipe(
+        start       = Offset(w * 0.05f, baseY),
+        end         = Offset(x1, baseY),
+        color       = pipeColor,
+        strokeWidth = sw
+    )
+    draw3DPipe(
+        start       = Offset(x1, baseY),
+        end         = Offset(x3, peakY),
+        color       = pipeColor,
+        strokeWidth = sw
+    )
+    draw3DPipe(
+        start       = Offset(x3, peakY),
+        end         = Offset(x5, baseY),
+        color       = pipeColor,
+        strokeWidth = sw
+    )
+    draw3DPipe(
+        start       = Offset(x5, baseY),
+        end         = Offset(w * 0.95f, baseY),
+        color       = pipeColor,
+        strokeWidth = sw
+    )
 
-    // Centre tick
+    // Draw obstacle LAST (foreground) - appears in front
+    val obstacleWidth = (x5 - x1) * 0.55f
+    val obstacleLeft = x3 - obstacleWidth / 2
+    val obstacleRight = obstacleLeft + obstacleWidth
+    val obstacleHeight = baseY - peakY - sw * 4
+    
+    draw3DObstacle(
+        topLeft = Offset(obstacleLeft, baseY - obstacleHeight),
+        width   = obstacleWidth,
+        height  = obstacleHeight,
+        color   = accentColor
+    )
+
+    // Centre tick at peak
     drawArrowTick(x3, peakY, accentColor, sw)
 }
 
 // ── 4-Point Saddle ────────────────────────────────────────────────────────────
 
+/**
+ * Shows pipe running along floor with a flat top section clearing an obstacle.
+ * The reference wall/floor shows this is a side view.
+ */
 private fun DrawScope.drawSaddle4Point(pipeColor: Color, accentColor: Color, sw: Float) {
     val w   = size.width
     val h   = size.height
     val pad = sw * 2
+    
+    // Draw reference wall/floor for orientation
+    drawReferenceWall(pipeColor)
 
-    val baseY  = h * 0.72f
-    val topY   = h * 0.22f
-    val x1     = w * 0.15f
-    val x2     = w * 0.35f
-    val x3     = w * 0.65f
-    val x4     = w * 0.85f
+    val baseY  = h - pad - sw * 2  // floor level
+    val topY   = h * 0.30f         // elevated section
+    val x1     = w * 0.18f
+    val x2     = w * 0.38f
+    val x3     = w * 0.62f
+    val x4     = w * 0.82f
 
-    drawLine(pipeColor, Offset(pad, baseY), Offset(x1, baseY), sw, cap = StrokeCap.Round)
-    drawLine(pipeColor, Offset(x1, baseY), Offset(x2, topY), sw, cap = StrokeCap.Round)
-    drawLine(pipeColor, Offset(x2, topY), Offset(x3, topY), sw, cap = StrokeCap.Round)
-    drawLine(pipeColor, Offset(x3, topY), Offset(x4, baseY), sw, cap = StrokeCap.Round)
-    drawLine(pipeColor, Offset(x4, baseY), Offset(w - pad, baseY), sw, cap = StrokeCap.Round)
+    // Draw pipes FIRST (background)
+    draw3DPipe(
+        start       = Offset(w * 0.05f, baseY),
+        end         = Offset(x1, baseY),
+        color       = pipeColor,
+        strokeWidth = sw
+    )
+    draw3DPipe(
+        start       = Offset(x1, baseY),
+        end         = Offset(x2, topY),
+        color       = pipeColor,
+        strokeWidth = sw
+    )
+    draw3DPipe(
+        start       = Offset(x2, topY),
+        end         = Offset(x3, topY),
+        color       = pipeColor,
+        strokeWidth = sw
+    )
+    draw3DPipe(
+        start       = Offset(x3, topY),
+        end         = Offset(x4, baseY),
+        color       = pipeColor,
+        strokeWidth = sw
+    )
+    draw3DPipe(
+        start       = Offset(x4, baseY),
+        end         = Offset(w * 0.95f, baseY),
+        color       = pipeColor,
+        strokeWidth = sw
+    )
+
+    // Draw obstacle LAST (foreground) - appears in front
+    val obstacleWidth = (x4 - x1) * 0.65f
+    val obstacleLeft = ((x1 + x4) / 2) - obstacleWidth / 2
+    val obstacleRight = obstacleLeft + obstacleWidth
+    val obstacleHeight = baseY - topY - sw * 4
+    
+    draw3DObstacle(
+        topLeft = Offset(obstacleLeft, baseY - obstacleHeight),
+        width   = obstacleWidth,
+        height  = obstacleHeight,
+        color   = accentColor
+    )
 }
 
 // ── Back-to-Back ──────────────────────────────────────────────────────────────
 
+/**
+ * Shows two 90° bends in opposite directions with a horizontal run connecting them.
+ * The reference wall/floor shows the vertical orientation of the stub sections.
+ */
 private fun DrawScope.drawBackToBack(pipeColor: Color, accentColor: Color, sw: Float) {
     val w    = size.width
     val h    = size.height
     val pad  = sw * 2
-    val midX = w * 0.50f
+    
+    // Draw reference wall/floor for orientation
+    drawReferenceWall(pipeColor)
 
-    val bottomY = h - pad - sw
-    val topY    = pad + sw
+    val bottomY = h - pad - sw * 2  // floor level
+    val topY    = h * 0.25f         // elevated horizontal run
 
-    // Left vertical stub (up)
-    drawLine(pipeColor, Offset(w * 0.18f, bottomY), Offset(w * 0.18f, topY), sw, cap = StrokeCap.Round)
-    // Horizontal connecting run
-    drawLine(pipeColor, Offset(w * 0.18f, topY), Offset(w * 0.82f, topY), sw, cap = StrokeCap.Round)
-    // Right vertical stub (down)
-    drawLine(pipeColor, Offset(w * 0.82f, topY), Offset(w * 0.82f, bottomY), sw, cap = StrokeCap.Round)
+    val leftX  = w * 0.25f
+    val rightX = w * 0.75f
 
-    // Heel marks
-    drawArrowTick(w * 0.18f, topY, accentColor, sw)
-    drawArrowTick(w * 0.82f, topY, accentColor, sw)
+    // Left vertical stub (up from floor)
+    draw3DPipe(
+        start       = Offset(leftX, bottomY),
+        end         = Offset(leftX, topY),
+        color       = pipeColor,
+        strokeWidth = sw
+    )
+    // Horizontal connecting run at elevated level
+    draw3DPipe(
+        start       = Offset(leftX, topY),
+        end         = Offset(rightX, topY),
+        color       = pipeColor,
+        strokeWidth = sw
+    )
+    // Right vertical stub (down to floor)
+    draw3DPipe(
+        start       = Offset(rightX, topY),
+        end         = Offset(rightX, bottomY),
+        color       = pipeColor,
+        strokeWidth = sw
+    )
+
+    // Heel marks at the bends
+    drawArrowTick(leftX, topY, accentColor, sw * 0.9f)
+    drawArrowTick(rightX, topY, accentColor, sw * 0.9f)
 }
 
 // ── Shared drawing helpers ────────────────────────────────────────────────────
 
+/**
+ * Draws a reference wall/floor corner to provide spatial orientation.
+ * The wall runs vertically on the left side, floor runs horizontally at the bottom.
+ */
+private fun DrawScope.drawReferenceWall(color: Color) {
+    val wallThickness = 4f
+    val wallColor = color.copy(alpha = 0.25f)
+    
+    // Vertical wall on the left side
+    drawLine(
+        color       = wallColor,
+        start       = Offset(0f, 0f),
+        end         = Offset(0f, size.height),
+        strokeWidth = wallThickness,
+        cap         = StrokeCap.Square
+    )
+    
+    // Horizontal floor at the bottom
+    drawLine(
+        color       = wallColor,
+        start       = Offset(0f, size.height),
+        end         = Offset(size.width, size.height),
+        strokeWidth = wallThickness,
+        cap         = StrokeCap.Square
+    )
+}
+
+/**
+ * Draws a pipe segment with subtle 3D appearance.
+ * Creates a cylindrical look with minimal layering for clean appearance.
+ */
+private fun DrawScope.draw3DPipe(
+    start: Offset,
+    end: Offset,
+    color: Color,
+    strokeWidth: Float
+) {
+    // Shadow for depth
+    drawLine(
+        color       = Color.Black.copy(alpha = 0.20f),
+        start       = Offset(start.x + 1.5f, start.y + 1.5f),
+        end         = Offset(end.x + 1.5f, end.y + 1.5f),
+        strokeWidth = strokeWidth + 1f,
+        cap         = StrokeCap.Round
+    )
+    
+    // Main pipe body
+    drawLine(
+        color       = color,
+        start       = start,
+        end         = end,
+        strokeWidth = strokeWidth,
+        cap         = StrokeCap.Round
+    )
+}
+
+/**
+ * Draws a 3D pipe path with subtle shading for curved sections.
+ */
+private fun DrawScope.draw3DPipePath(
+    path: Path,
+    color: Color,
+    strokeWidth: Float
+) {
+    // Shadow
+    drawPath(
+        path  = path,
+        color = Color.Black.copy(alpha = 0.20f),
+        style = Stroke(width = strokeWidth + 1f, cap = StrokeCap.Round)
+    )
+    
+    // Main body
+    drawPath(
+        path  = path,
+        color = color,
+        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+    )
+}
+
+/**
+ * Draws a clean obstacle box with fill and border.
+ */
+private fun DrawScope.draw3DObstacle(
+    topLeft: Offset,
+    width: Float,
+    height: Float,
+    color: Color
+) {
+    // Shadow
+    drawRect(
+        color = Color.Black.copy(alpha = 0.15f),
+        topLeft = Offset(topLeft.x + 2f, topLeft.y + 2f),
+        size = androidx.compose.ui.geometry.Size(width, height)
+    )
+    
+    // Main fill
+    drawRect(
+        color = color.copy(alpha = 0.25f),
+        topLeft = topLeft,
+        size = androidx.compose.ui.geometry.Size(width, height)
+    )
+    
+    // Border
+    drawRect(
+        color = color.copy(alpha = 0.60f),
+        topLeft = topLeft,
+        size = androidx.compose.ui.geometry.Size(width, height),
+        style = Stroke(width = 2f)
+    )
+}
+
 /** Clean perpendicular tick mark indicating a measurement mark on the pipe. */
 private fun DrawScope.drawArrowTick(x: Float, y: Float, color: Color, sw: Float) {
     val len = sw * 3f
+    // Shadow
+    drawLine(
+        color       = Color.Black.copy(alpha = 0.25f),
+        start       = Offset(x + 1f, y - len + 1f),
+        end         = Offset(x + 1f, y + len + 1f),
+        strokeWidth = sw * 1.1f,
+        cap         = StrokeCap.Round
+    )
+    // Main tick
     drawLine(
         color       = color,
         start       = Offset(x, y - len),
         end         = Offset(x, y + len),
-        strokeWidth = sw * 0.9f,
+        strokeWidth = sw,
         cap         = StrokeCap.Round
     )
 }
 
 // ── Inline pipe diagrams for step cards ──────────────────────────────────────
 
+/** Draws a pipe with a mark at [markFraction] of its width; [labelText] is not rendered. */
 @Composable
 private fun PipeWithMark(markFraction: Float, labelText: String) {
     val pipeColor   = MaterialTheme.colorScheme.primary
     val accentColor = MaterialTheme.colorScheme.error
     Canvas(modifier = Modifier.fillMaxSize()) {
         val midY = size.height / 2f
-        drawLine(pipeColor, Offset(0f, midY), Offset(size.width, midY), 6f, cap = StrokeCap.Round)
+        val sw = 8f
+        
+        // Draw 3D pipe
+        draw3DPipe(
+            start       = Offset(0f, midY),
+            end         = Offset(size.width, midY),
+            color       = pipeColor,
+            strokeWidth = sw
+        )
+        
+        // Draw mark tick
         val markX = size.width * markFraction
-        drawLine(accentColor, Offset(markX, midY - 16f), Offset(markX, midY + 16f), 4f, cap = StrokeCap.Round)
+        drawArrowTick(markX, midY, accentColor, sw * 0.9f)
     }
 }
 
+/**
+ * Draws a pipe with marks at the given fractions of its width.
+ * [label1] and [label2] are not rendered.
+ */
 @Composable
 private fun PipeWithTwoMarks(
     mark1Fraction: Float,
@@ -1466,10 +1729,20 @@ private fun PipeWithTwoMarks(
     val accentColor = MaterialTheme.colorScheme.error
     Canvas(modifier = Modifier.fillMaxSize()) {
         val midY = size.height / 2f
-        drawLine(pipeColor, Offset(0f, midY), Offset(size.width, midY), 6f, cap = StrokeCap.Round)
+        val sw = 8f
+        
+        // Draw 3D pipe
+        draw3DPipe(
+            start       = Offset(0f, midY),
+            end         = Offset(size.width, midY),
+            color       = pipeColor,
+            strokeWidth = sw
+        )
+        
+        // Draw mark ticks
         listOf(mark1Fraction, mark2Fraction).forEach { frac ->
             val x = size.width * frac
-            drawLine(accentColor, Offset(x, midY - 16f), Offset(x, midY + 16f), 4f, cap = StrokeCap.Round)
+            drawArrowTick(x, midY, accentColor, sw * 0.9f)
         }
     }
 }
