@@ -1359,13 +1359,15 @@ private fun DrawScope.drawOffset(
     )
 
     // Draw obstacle LAST (foreground) - appears in front of lower pipe sections
+    // Position obstacle so pipe VISIBLY clears it with adequate spacing
     val obstacleLeft  = riseX1 + (riseX2 - riseX1) * 0.25f
     val obstacleWidth = (riseX2 - riseX1) * 0.50f
-    val obstacleHeight = floorLevel - raisedLevel - sw * 3
-    val obstacleRight = obstacleLeft + obstacleWidth
+    val clearance = sw * 2f  // Visible gap between pipe and obstacle
+    val obstacleHeight = floorLevel - raisedLevel - clearance - sw
+    val obstacleTop = floorLevel - obstacleHeight
     
     draw3DObstacle(
-        topLeft = Offset(obstacleLeft, floorLevel - obstacleHeight),
+        topLeft = Offset(obstacleLeft, obstacleTop),
         width   = obstacleWidth,
         height  = obstacleHeight,
         color   = accentColor
@@ -1425,13 +1427,15 @@ private fun DrawScope.drawSaddle3Point(pipeColor: Color, accentColor: Color, sw:
     )
 
     // Draw obstacle LAST (foreground) - appears in front
+    // Position obstacle so pipe VISIBLY clears it at the peak
     val obstacleWidth = (x5 - x1) * 0.55f
     val obstacleLeft = x3 - obstacleWidth / 2
-    val obstacleRight = obstacleLeft + obstacleWidth
-    val obstacleHeight = baseY - peakY - sw * 4
+    val clearance = sw * 2.5f  // Visible gap between pipe at peak and obstacle
+    val obstacleHeight = baseY - peakY - clearance - sw
+    val obstacleTop = baseY - obstacleHeight
     
     draw3DObstacle(
-        topLeft = Offset(obstacleLeft, baseY - obstacleHeight),
+        topLeft = Offset(obstacleLeft, obstacleTop),
         width   = obstacleWidth,
         height  = obstacleHeight,
         color   = accentColor
@@ -1495,13 +1499,15 @@ private fun DrawScope.drawSaddle4Point(pipeColor: Color, accentColor: Color, sw:
     )
 
     // Draw obstacle LAST (foreground) - appears in front
+    // Position obstacle so the elevated pipe section VISIBLY clears it
     val obstacleWidth = (x4 - x1) * 0.65f
     val obstacleLeft = ((x1 + x4) / 2) - obstacleWidth / 2
-    val obstacleRight = obstacleLeft + obstacleWidth
-    val obstacleHeight = baseY - topY - sw * 4
+    val clearance = sw * 2.5f  // Visible gap between elevated pipe and obstacle
+    val obstacleHeight = baseY - topY - clearance - sw
+    val obstacleTop = baseY - obstacleHeight
     
     draw3DObstacle(
-        topLeft = Offset(obstacleLeft, baseY - obstacleHeight),
+        topLeft = Offset(obstacleLeft, obstacleTop),
         width   = obstacleWidth,
         height  = obstacleHeight,
         color   = accentColor
