@@ -132,4 +132,52 @@ class SprayerViewModelTest {
         assertEquals("", switchedState.totalChemGallonsText)
         assertTrue(switchedState.totalJugsText.isNotEmpty())
     }
+
+    @Test
+    fun `negative tank volume produces no results`() {
+        viewModel.onTankVolumeChanged("-100")
+        viewModel.onSprayRateChanged("10")
+        viewModel.onChemRateChanged("2.5")
+
+        val uiState = viewModel.uiState.value
+        assertEquals("", uiState.totalAcresText)
+        assertEquals("", uiState.totalChemLitersText)
+        assertEquals("", uiState.totalChemGallonsText)
+    }
+
+    @Test
+    fun `negative chemical rate produces no results`() {
+        viewModel.onTankVolumeChanged("100")
+        viewModel.onSprayRateChanged("10")
+        viewModel.onChemRateChanged("-2.5")
+
+        val uiState = viewModel.uiState.value
+        // Total acres should still calculate, but chem amounts should be blank
+        assertEquals("10.00", uiState.totalAcresText)
+        assertEquals("", uiState.totalChemLitersText)
+        assertEquals("", uiState.totalChemGallonsText)
+    }
+
+    @Test
+    fun `negative spray rate produces no results`() {
+        viewModel.onTankVolumeChanged("100")
+        viewModel.onSprayRateChanged("-10")
+        viewModel.onChemRateChanged("2.5")
+
+        val uiState = viewModel.uiState.value
+        assertEquals("", uiState.totalAcresText)
+        assertEquals("", uiState.totalChemLitersText)
+    }
+
+    @Test
+    fun `negative acres per jug produces no jug count`() {
+        viewModel.onTankVolumeChanged("100")
+        viewModel.onSprayRateChanged("10")
+        viewModel.onModeToggled()
+        viewModel.onAcresPerJugChanged("-2.5")
+
+        val uiState = viewModel.uiState.value
+        assertEquals("10.00", uiState.totalAcresText)
+        assertEquals("", uiState.totalJugsText)
+    }
 }

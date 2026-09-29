@@ -54,19 +54,20 @@ class SprayerViewModel @Inject constructor() : ViewModel() {
 
     /**
      * Updates coverage and either chemical amounts or jug count for the active mode.
-     * Non-numeric inputs count as zero; nonpositive results are left blank. Positive
-     * results are formatted to two decimal places using the US locale.
+     * Non-numeric inputs count as zero; negative values are rejected (treated as invalid).
+     * Nonpositive results are left blank. Positive results are formatted to two decimal
+     * places using the US locale.
      */
     private fun recalculate() {
         val current = _uiState.value
-        val tankVolume = current.tankVolumeText.toDoubleOrNull() ?: 0.0
-        val sprayRate = current.sprayRateText.toDoubleOrNull() ?: 0.0
+        val tankVolume = current.tankVolumeText.toDoubleOrNull()?.takeIf { it > 0 } ?: 0.0
+        val sprayRate = current.sprayRateText.toDoubleOrNull()?.takeIf { it > 0 } ?: 0.0
 
-        val totalAcres = if (sprayRate > 0) tankVolume / sprayRate else 0.0
+        val totalAcres = if (sprayRate > 0 && tankVolume > 0) tankVolume / sprayRate else 0.0
 
         when (current.mode) {
             SprayerMode.RATE_PER_ACRE -> {
-                val chemRate = current.chemRateText.toDoubleOrNull() ?: 0.0
+                val chemRate = current.chemRateText.toDoubleOrNull()?.takeIf { it > 0 } ?: 0.0
                 val totalLiters = totalAcres * chemRate
                 val totalGallons = totalLiters * LITERS_TO_GALLONS
 
@@ -78,7 +79,7 @@ class SprayerViewModel @Inject constructor() : ViewModel() {
                 )}
             }
             SprayerMode.ACRES_PER_JUG -> {
-                val acresPerJug = current.acresPerJugText.toDoubleOrNull() ?: 0.0
+                val acresPerJug = current.acresPerJugText.toDoubleOrNull()?.takeIf { it > 0 } ?: 0.0
                 val totalJugs = if (acresPerJug > 0) totalAcres / acresPerJug else 0.0
 
                 _uiState.update { it.copy(
