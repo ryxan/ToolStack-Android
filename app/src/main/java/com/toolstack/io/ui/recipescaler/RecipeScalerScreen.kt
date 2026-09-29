@@ -15,9 +15,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -43,6 +45,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -140,60 +143,31 @@ fun RecipeScalerScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            // ── Servings input ────────────────────────────────────────────────
+            // ── Section 1: Original Recipe Card ───────────────────────────────
             item {
-                ServingsInputSection(
+                OriginalRecipeCard(
                     originalServingsText = uiState.originalServingsText,
-                    desiredServingsText = uiState.desiredServingsText,
-                    multiplierText = uiState.multiplierText,
+                    ingredients = uiState.ingredients,
                     onOriginalServingsChanged = viewModel::onOriginalServingsChanged,
-                    onDesiredServingsChanged = viewModel::onDesiredServingsChanged
+                    onClearAll = viewModel::clearAllIngredients,
+                    onIngredientQuantityChanged = viewModel::onIngredientQuantityChanged,
+                    onIngredientUnitChanged = viewModel::onIngredientUnitChanged,
+                    onIngredientStateChanged = viewModel::onIngredientStateChanged,
+                    onIngredientNameChanged = viewModel::onIngredientNameChanged,
+                    onRemoveIngredient = viewModel::removeIngredient,
+                    onAddIngredient = viewModel::addIngredient,
+                    canAddMore = uiState.ingredients.size < RecipeScalerViewModel.MAX_INGREDIENTS
                 )
             }
 
-            // ── Ingredients section ───────────────────────────────────────────
+            // ── Section 2: Scaled Recipe Card ─────────────────────────────────
             item {
-                Text(
-                    text = stringResource(R.string.recipe_scaler_ingredients_label),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                ScaledRecipeCard(
+                    desiredServingsText = uiState.desiredServingsText,
+                    scaledIngredients = uiState.scaledIngredients,
+                    onDesiredServingsChanged = viewModel::onDesiredServingsChanged,
+                    onCopyRecipe = viewModel::onShowShoppingListDialog
                 )
-            }
-
-            itemsIndexed(uiState.ingredients, key = { _, ingredient -> ingredient.id }) { index, ingredient ->
-                IngredientRow(
-                    ingredient = ingredient,
-                    canRemove = uiState.ingredients.size > 1,
-                    onQuantityChanged = { viewModel.onIngredientQuantityChanged(ingredient.id, it) },
-                    onUnitChanged = { viewModel.onIngredientUnitChanged(ingredient.id, it) },
-                    onStateChanged = { viewModel.onIngredientStateChanged(ingredient.id, it) },
-                    onNameChanged = { viewModel.onIngredientNameChanged(ingredient.id, it) },
-                    onRemove = { viewModel.removeIngredient(ingredient.id) }
-                )
-            }
-
-            // ── Add ingredient button ─────────────────────────────────────────
-            item {
-                if (uiState.ingredients.size < RecipeScalerViewModel.MAX_INGREDIENTS) {
-                    Button(
-                        onClick = viewModel::addIngredient,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(imageVector = Icons.Filled.Add, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = stringResource(R.string.recipe_scaler_add_ingredient))
-                    }
-                }
-            }
-
-            // ── Scaled results ────────────────────────────────────────────────
-            if (uiState.scaledIngredients.isNotEmpty()) {
-                item {
-                    ScaledResultsCard(
-                        scaledIngredients = uiState.scaledIngredients,
-                        onShowShoppingList = viewModel::onShowShoppingListDialog
-                    )
-                }
             }
 
             // ── Disclaimer ────────────────────────────────────────────────────
@@ -209,104 +183,22 @@ fun RecipeScalerScreen(
     }
 }
 
-// ── Servings Input Section ────────────────────────────────────────────────────
+// ── Original Recipe Card ──────────────────────────────────────────────────────
 
 @Composable
-private fun ServingsInputSection(
+private fun OriginalRecipeCard(
     originalServingsText: String,
-    desiredServingsText: String,
-    multiplierText: String,
+    ingredients: List<com.toolstack.io.domain.model.IngredientItem>,
     onOriginalServingsChanged: (String) -> Unit,
-    onDesiredServingsChanged: (String) -> Unit
+    onClearAll: () -> Unit,
+    onIngredientQuantityChanged: (String, String) -> Unit,
+    onIngredientUnitChanged: (String, String) -> Unit,
+    onIngredientStateChanged: (String, IngredientState) -> Unit,
+    onIngredientNameChanged: (String, String) -> Unit,
+    onRemoveIngredient: (String) -> Unit,
+    onAddIngredient: () -> Unit,
+    canAddMore: Boolean
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.recipe_scaler_servings_title),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                OutlinedTextField(
-                    value = originalServingsText,
-                    onValueChange = onOriginalServingsChanged,
-                    singleLine = true,
-                    label = { Text(text = stringResource(R.string.recipe_scaler_original_servings)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.weight(1f)
-                )
-
-                Text(
-                    text = "→",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                OutlinedTextField(
-                    value = desiredServingsText,
-                    onValueChange = onDesiredServingsChanged,
-                    singleLine = true,
-                    label = { Text(text = stringResource(R.string.recipe_scaler_desired_servings)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            if (multiplierText.isNotEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .padding(12.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.recipe_scaler_multiplier, multiplierText),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        fontWeight = FontWeight.Medium,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-        }
-    }
-}
-
-// ── Ingredient Row ────────────────────────────────────────────────────────────
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun IngredientRow(
-    ingredient: com.toolstack.io.domain.model.IngredientItem,
-    canRemove: Boolean,
-    onQuantityChanged: (String) -> Unit,
-    onUnitChanged: (String) -> Unit,
-    onStateChanged: (IngredientState) -> Unit,
-    onNameChanged: (String) -> Unit,
-    onRemove: () -> Unit
-) {
-    var unitExpanded by remember { mutableStateOf(false) }
-
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -317,114 +209,285 @@ private fun IngredientRow(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // First row: Quantity, Unit, State toggle
+            // Header with step number and servings input
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedTextField(
-                    value = ingredient.qtyString,
-                    onValueChange = onQuantityChanged,
-                    singleLine = true,
-                    label = { Text(text = stringResource(R.string.recipe_scaler_quantity)) },
-                    placeholder = { Text(text = stringResource(R.string.recipe_scaler_quantity_hint)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                    modifier = Modifier.weight(1f)
-                )
-
-                ExposedDropdownMenuBox(
-                    expanded = unitExpanded,
-                    onExpandedChange = { unitExpanded = it },
-                    modifier = Modifier.weight(1f)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    OutlinedTextField(
-                        value = RecipeScalerCalculator.ALL_UNITS.find { it.first == ingredient.unit }?.second ?: "-",
-                        onValueChange = {},
-                        readOnly = true,
-                        singleLine = true,
-                        label = { Text(text = stringResource(R.string.recipe_scaler_unit)) },
-                        trailingIcon = {
-                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = unitExpanded)
-                        },
-                        modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                    )
-                    ExposedDropdownMenu(
-                        expanded = unitExpanded,
-                        onDismissRequest = { unitExpanded = false }
+                    // Step number badge
+                    Surface(
+                        modifier = Modifier.size(32.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                     ) {
-                        RecipeScalerCalculator.ALL_UNITS.forEach { (value, label) ->
-                            DropdownMenuItem(
-                                text = { Text(text = label) },
-                                onClick = {
-                                    onUnitChanged(value)
-                                    unitExpanded = false
-                                },
-                                contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Text(
+                                text = "1",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
+                    Text(
+                        text = stringResource(R.string.recipe_scaler_original_recipe),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                // Serves input
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.recipe_scaler_serves_label),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = originalServingsText,
+                        onValueChange = onOriginalServingsChanged,
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.width(72.dp),
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                            textAlign = TextAlign.Center
+                        )
+                    )
                 }
             }
 
-            // Second row: State toggle chips
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = ingredient.state == IngredientState.DRY,
-                    onClick = { onStateChanged(IngredientState.DRY) },
-                    label = { Text(text = IngredientState.DRY.displayName) }
+            // Clear all button
+            if (ingredients.isNotEmpty()) {
+                TextButton(
+                    onClick = onClearAll,
+                    modifier = Modifier.align(Alignment.Start)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = stringResource(R.string.recipe_scaler_clear_all),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+
+            // Column headers
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.recipe_scaler_qty_header),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
                 )
-                FilterChip(
-                    selected = ingredient.state == IngredientState.LIQUID,
-                    onClick = { onStateChanged(IngredientState.LIQUID) },
-                    label = { Text(text = IngredientState.LIQUID.displayName) }
+                Text(
+                    text = stringResource(R.string.recipe_scaler_unit_header),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = stringResource(R.string.recipe_scaler_type_header),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = stringResource(R.string.recipe_scaler_ingredient_header),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1.5f)
+                )
+                Spacer(modifier = Modifier.width(40.dp)) // Space for delete button
+            }
+
+            // Ingredient rows
+            ingredients.forEach { ingredient ->
+                CompactIngredientRow(
+                    ingredient = ingredient,
+                    onQuantityChanged = { onIngredientQuantityChanged(ingredient.id, it) },
+                    onUnitChanged = { onIngredientUnitChanged(ingredient.id, it) },
+                    onStateChanged = { onIngredientStateChanged(ingredient.id, it) },
+                    onNameChanged = { onIngredientNameChanged(ingredient.id, it) },
+                    onRemove = { onRemoveIngredient(ingredient.id) }
                 )
             }
 
-            // Third row: Name and delete button
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                OutlinedTextField(
-                    value = ingredient.name,
-                    onValueChange = onNameChanged,
-                    singleLine = true,
-                    label = { Text(text = stringResource(R.string.recipe_scaler_ingredient_name)) },
-                    placeholder = { Text(text = stringResource(R.string.recipe_scaler_ingredient_name_hint)) },
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-                    modifier = Modifier.weight(1f)
-                )
-
-                if (canRemove) {
-                    IconButton(onClick = onRemove) {
-                        Icon(
-                            imageVector = Icons.Filled.Delete,
-                            contentDescription = stringResource(R.string.recipe_scaler_remove_ingredient),
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                    }
+            // Add ingredient button
+            if (canAddMore) {
+                OutlinedButton(
+                    onClick = onAddIngredient,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                    )
+                ) {
+                    Icon(imageVector = Icons.Filled.Add, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = stringResource(R.string.recipe_scaler_add_ingredient))
                 }
             }
         }
     }
 }
 
-// ── Scaled Results Card ───────────────────────────────────────────────────────
+// ── Compact Ingredient Row ────────────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CompactIngredientRow(
+    ingredient: com.toolstack.io.domain.model.IngredientItem,
+    onQuantityChanged: (String) -> Unit,
+    onUnitChanged: (String) -> Unit,
+    onStateChanged: (IngredientState) -> Unit,
+    onNameChanged: (String) -> Unit,
+    onRemove: () -> Unit
+) {
+    var unitExpanded by remember { mutableStateOf(false) }
+    var stateExpanded by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Quantity
+        OutlinedTextField(
+            value = ingredient.qtyString,
+            onValueChange = onQuantityChanged,
+            singleLine = true,
+            placeholder = { Text(text = "Qty", style = MaterialTheme.typography.bodySmall) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+            modifier = Modifier.weight(1f),
+            textStyle = MaterialTheme.typography.bodyMedium
+        )
+
+        // Unit dropdown
+        ExposedDropdownMenuBox(
+            expanded = unitExpanded,
+            onExpandedChange = { unitExpanded = it },
+            modifier = Modifier.weight(1f)
+        ) {
+            OutlinedTextField(
+                value = RecipeScalerCalculator.ALL_UNITS.find { it.first == ingredient.unit }?.second ?: "-",
+                onValueChange = {},
+                readOnly = true,
+                singleLine = true,
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = unitExpanded)
+                },
+                modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+                textStyle = MaterialTheme.typography.bodyMedium
+            )
+            ExposedDropdownMenu(
+                expanded = unitExpanded,
+                onDismissRequest = { unitExpanded = false }
+            ) {
+                RecipeScalerCalculator.ALL_UNITS.forEach { (value, label) ->
+                    DropdownMenuItem(
+                        text = { Text(text = label) },
+                        onClick = {
+                            onUnitChanged(value)
+                            unitExpanded = false
+                        },
+                        contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                    )
+                }
+            }
+        }
+
+        // Type dropdown (Dry/Liquid)
+        ExposedDropdownMenuBox(
+            expanded = stateExpanded,
+            onExpandedChange = { stateExpanded = it },
+            modifier = Modifier.weight(1f)
+        ) {
+            OutlinedTextField(
+                value = ingredient.state.shortName,
+                onValueChange = {},
+                readOnly = true,
+                singleLine = true,
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = stateExpanded)
+                },
+                modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+                textStyle = MaterialTheme.typography.bodyMedium
+            )
+            ExposedDropdownMenu(
+                expanded = stateExpanded,
+                onDismissRequest = { stateExpanded = false }
+            ) {
+                IngredientState.entries.forEach { state ->
+                    DropdownMenuItem(
+                        text = { Text(text = state.displayName) },
+                        onClick = {
+                            onStateChanged(state)
+                            stateExpanded = false
+                        },
+                        contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                    )
+                }
+            }
+        }
+
+        // Ingredient name
+        OutlinedTextField(
+            value = ingredient.name,
+            onValueChange = onNameChanged,
+            singleLine = true,
+            placeholder = { Text(text = "Ingredient", style = MaterialTheme.typography.bodySmall) },
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+            modifier = Modifier.weight(1.5f),
+            textStyle = MaterialTheme.typography.bodyMedium
+        )
+
+        // Delete button
+        IconButton(onClick = onRemove) {
+            Icon(
+                imageVector = Icons.Filled.Delete,
+                contentDescription = stringResource(R.string.recipe_scaler_remove_ingredient),
+                tint = MaterialTheme.colorScheme.error
+            )
+        }
+    }
+}
+
+// ── Scaled Recipe Card ────────────────────────────────────────────────────────
 
 @Composable
-private fun ScaledResultsCard(
+private fun ScaledRecipeCard(
+    desiredServingsText: String,
     scaledIngredients: List<com.toolstack.io.domain.model.ScaledIngredient>,
-    onShowShoppingList: () -> Unit
+    onDesiredServingsChanged: (String) -> Unit,
+    onCopyRecipe: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
+            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -432,41 +495,114 @@ private fun ScaledResultsCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = stringResource(R.string.recipe_scaler_results_title),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-
-            scaledIngredients.forEach { ingredient ->
+            // Header with step number and servings input
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Step number badge
+                    Surface(
+                        modifier = Modifier.size(32.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Text(
+                                text = "2",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                    Text(
+                        text = stringResource(R.string.recipe_scaler_scaled_recipe),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                // Scale to input
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = ingredient.name.ifBlank { stringResource(R.string.recipe_scaler_unnamed_ingredient) },
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.weight(1f)
+                        text = stringResource(R.string.recipe_scaler_scale_to_label),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Text(
-                        text = ingredient.displayText,
-                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    OutlinedTextField(
+                        value = desiredServingsText,
+                        onValueChange = onDesiredServingsChanged,
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.width(72.dp),
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                            textAlign = TextAlign.Center
+                        )
                     )
                 }
             }
 
-            OutlinedButton(
-                onClick = onShowShoppingList,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(imageVector = Icons.Filled.ContentCopy, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(text = stringResource(R.string.recipe_scaler_copy_shopping_list))
+            // Scaled ingredients list
+            if (scaledIngredients.isNotEmpty()) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    scaledIngredients.forEach { ingredient ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = ingredient.name.ifBlank { stringResource(R.string.recipe_scaler_unnamed_ingredient) },
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                text = ingredient.displayText,
+                                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
+                            )
+                        }
+                    }
+                }
+
+                // Copy button
+                Button(
+                    onClick = onCopyRecipe,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(imageVector = Icons.Filled.ContentCopy, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = stringResource(R.string.recipe_scaler_copy_scaled_recipe))
+                }
+            } else {
+                // Empty state
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(R.string.recipe_scaler_empty_scaled_recipe),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }

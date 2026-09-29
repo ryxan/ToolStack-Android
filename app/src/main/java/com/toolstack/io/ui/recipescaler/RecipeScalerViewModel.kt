@@ -102,6 +102,12 @@ class RecipeScalerViewModel @Inject constructor() : ViewModel() {
         _uiState.update { it.copy(showShoppingListDialog = false) }
     }
 
+    fun clearAllIngredients() {
+        _uiState.update { it.copy(ingredients = emptyList()).recalculate() }
+        // Add one empty ingredient back
+        addIngredient()
+    }
+
     companion object {
         const val MAX_INGREDIENTS = 50
     }
