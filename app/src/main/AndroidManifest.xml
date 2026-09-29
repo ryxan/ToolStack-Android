@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:name=".IndustrialUtilityApplication"
         android:allowBackup="true"
@@ -19,6 +21,18 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Deep-link scheme for home screen shortcuts.
+                 toolstack://screen/{route} routes to a specific tool screen.
+                 autoVerify is false — no Digital Asset Links file is needed
+                 because shortcuts are created programmatically by this app. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data
+                    android:scheme="toolstack"
+                    android:host="screen" />
             </intent-filter>
         </activity>
 

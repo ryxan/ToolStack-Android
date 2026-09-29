@@ -24,6 +24,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.AddToHomeScreen
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -75,6 +76,7 @@ import java.util.Locale
 @Composable
 fun TapsAndDrillsScreen(
     onBack: () -> Unit,
+    onAddShortcut: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: TapsAndDrillsViewModel = hiltViewModel()
 ) {
@@ -153,6 +155,17 @@ fun TapsAndDrillsScreen(
                             contentDescription = stringResource(R.string.content_description_back),
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
+                    }
+                },
+                actions = {
+                    if (onAddShortcut != null) {
+                        IconButton(onClick = onAddShortcut) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.AddToHomeScreen,
+                                contentDescription = stringResource(R.string.content_description_add_shortcut),
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
