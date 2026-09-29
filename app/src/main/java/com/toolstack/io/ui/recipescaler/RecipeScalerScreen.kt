@@ -293,19 +293,19 @@ private fun OriginalRecipeCard(
             // Column headers
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
                     text = stringResource(R.string.recipe_scaler_qty_header),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1.2f)
                 )
                 Text(
                     text = stringResource(R.string.recipe_scaler_unit_header),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1.2f)
                 )
                 Text(
                     text = stringResource(R.string.recipe_scaler_type_header),
@@ -317,7 +317,7 @@ private fun OriginalRecipeCard(
                     text = stringResource(R.string.recipe_scaler_ingredient_header),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1.5f)
+                    modifier = Modifier.weight(2f)
                 )
                 Spacer(modifier = Modifier.width(40.dp)) // Space for delete button
             }
@@ -371,7 +371,7 @@ private fun CompactIngredientRow(
 
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Quantity
@@ -381,7 +381,7 @@ private fun CompactIngredientRow(
             singleLine = true,
             placeholder = { Text(text = "Qty", style = MaterialTheme.typography.bodySmall) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1.2f),
             textStyle = MaterialTheme.typography.bodyMedium
         )
 
@@ -389,7 +389,7 @@ private fun CompactIngredientRow(
         ExposedDropdownMenuBox(
             expanded = unitExpanded,
             onExpandedChange = { unitExpanded = it },
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1.2f)
         ) {
             OutlinedTextField(
                 value = RecipeScalerCalculator.ALL_UNITS.find { it.first == ingredient.unit }?.second ?: "-",
@@ -460,17 +460,26 @@ private fun CompactIngredientRow(
             singleLine = true,
             placeholder = { Text(text = "Ingredient", style = MaterialTheme.typography.bodySmall) },
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-            modifier = Modifier.weight(1.5f),
+            modifier = Modifier.weight(2f),
             textStyle = MaterialTheme.typography.bodyMedium
         )
 
-        // Delete button
-        IconButton(onClick = onRemove) {
-            Icon(
-                imageVector = Icons.Filled.Delete,
-                contentDescription = stringResource(R.string.recipe_scaler_remove_ingredient),
-                tint = MaterialTheme.colorScheme.error
-            )
+        // Delete button - compact with no padding
+        Box(
+            modifier = Modifier.size(40.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            IconButton(
+                onClick = onRemove,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Delete,
+                    contentDescription = stringResource(R.string.recipe_scaler_remove_ingredient),
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
     }
 }
