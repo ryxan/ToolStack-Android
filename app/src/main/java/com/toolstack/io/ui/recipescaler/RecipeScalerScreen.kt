@@ -6,6 +6,7 @@ import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -470,25 +471,32 @@ private fun CompactIngredientRow(
         )
 
         // Unit selector button
-        OutlinedTextField(
-            value = RecipeScalerCalculator.ALL_UNITS.find { it.first == ingredient.unit }?.second ?: "-",
-            onValueChange = {},
-            readOnly = true,
-            singleLine = true,
+        Surface(
             modifier = Modifier
                 .weight(1f)
-                .clickable { showUnitDialog = true },
-            textStyle = MaterialTheme.typography.bodyMedium.copy(
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.primary
-            ),
-            colors = OutlinedTextFieldDefaults.colors(
-                disabledTextColor = MaterialTheme.colorScheme.primary,
-                disabledBorderColor = MaterialTheme.colorScheme.outline,
-                disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            ),
-            enabled = false
-        )
+                .clickable(
+                    onClick = { showUnitDialog = true },
+                    role = androidx.compose.ui.semantics.Role.Button
+                ),
+            shape = MaterialTheme.shapes.extraSmall,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+            color = Color.Transparent
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                Text(
+                    text = RecipeScalerCalculator.ALL_UNITS.find { it.first == ingredient.unit }?.second ?: "-",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                )
+            }
+        }
 
         // Ingredient name
         OutlinedTextField(
