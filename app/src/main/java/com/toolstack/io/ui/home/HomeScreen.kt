@@ -317,6 +317,13 @@ private fun ModuleIcon(iconEnum: HomeModuleIcon, showProBadge: Boolean) {
                             modifier = Modifier.size(24.dp)
                         )
                     }
+                    HomeModuleIcon.Sprayer -> {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_sprayer),
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                     else -> {
                         Icon(
                             imageVector = iconEnum.imageVector,
@@ -336,9 +343,11 @@ private val HomeModuleIcon.imageVector: ImageVector
         HomeModuleIcon.SaeMetric      -> Icons.Filled.Straighten
         HomeModuleIcon.WrenchFastener -> Icons.Filled.Handyman
         HomeModuleIcon.TapsAndDrills  -> Icons.Filled.Build
-        HomeModuleIcon.ConduitBends   -> Icons.Filled.Construction // fallback if needed
+        HomeModuleIcon.ConduitBends   -> Icons.Filled.Construction
         HomeModuleIcon.UnitConverter  -> Icons.Filled.SwapHoriz
         HomeModuleIcon.RatioMix       -> Icons.Filled.WaterDrop
         HomeModuleIcon.Calculator     -> Icons.Filled.Calculate
         HomeModuleIcon.Sprayer        -> Icons.Filled.WaterDrop
+        HomeModuleIcon.RecipeScaler   -> Icons.Filled.ViewModule
+
     }

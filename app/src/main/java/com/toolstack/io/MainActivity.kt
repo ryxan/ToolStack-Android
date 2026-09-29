@@ -32,6 +32,7 @@ import com.toolstack.io.ui.shortcuts.ShortcutPaywallHost
 import com.toolstack.io.ui.shortcuts.ShortcutViewModel
 import com.toolstack.io.ui.shortcuts.shortcutIconForRoute
 import com.toolstack.io.ui.shortcuts.shortcutLabelResForRoute
+import com.toolstack.io.ui.recipescaler.RecipeScalerScreen
 import com.toolstack.io.ui.sprayer.SprayerScreen
 import com.toolstack.io.ui.unitconverter.UnitConverterDetailScreen
 import com.toolstack.io.ui.unitconverter.UnitConverterScreen
@@ -145,7 +146,8 @@ class MainActivity : ComponentActivity() {
                             Screen.UnitConverter.route,
                             Screen.RatioMix.route,
                             Screen.Calculator.route,
-                            Screen.Sprayer.route
+                            Screen.Sprayer.route,
+                            Screen.RecipeScaler.route
                         ).contains(route)
                     } ?: Screen.Home.route
 
@@ -250,6 +252,12 @@ class MainActivity : ComponentActivity() {
                                 onAddShortcut = addShortcutFor(Screen.Sprayer.route)
                             )
                         }
+                        composable(Screen.RecipeScaler.route) {
+                            RecipeScalerScreen(
+                                onBack = { navController.popBackStack() },
+                                onAddShortcut = addShortcutFor(Screen.RecipeScaler.route)
+                            )
+                        }
                     }
                 }
             }
@@ -285,4 +293,5 @@ sealed class Screen(val route: String) {
     data object RatioMix : Screen("ratio_mix")
     data object Calculator : Screen("calculator")
     data object Sprayer : Screen("sprayer")
+    data object RecipeScaler : Screen("recipe_scaler")
 }

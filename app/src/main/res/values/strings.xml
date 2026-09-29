@@ -229,4 +229,27 @@
     <string name="bearings_tolerance_0_1">±0.1 mm</string>
     <string name="bearings_tolerance_0_5">±0.5 mm</string>
     <string name="bearings_tolerance_1_0">±1.0 mm</string>
+
+    <!-- Recipe Scaler -->
+    <string name="recipe_scaler_title">Recipe Scaler</string>
+    <string name="recipe_scaler_servings_title">Servings</string>
+    <string name="recipe_scaler_original_servings">Original</string>
+    <string name="recipe_scaler_desired_servings">Desired</string>
+    <string name="recipe_scaler_multiplier">Scale by %1$s×</string>
+    <string name="recipe_scaler_ingredients_label">Ingredients</string>
+    <string name="recipe_scaler_quantity">Qty</string>
+    <string name="recipe_scaler_quantity_hint">e.g. 1 1/2</string>
+    <string name="recipe_scaler_unit">Unit</string>
+    <string name="recipe_scaler_ingredient_name">Ingredient</string>
+    <string name="recipe_scaler_ingredient_name_hint">e.g. flour</string>
+    <string name="recipe_scaler_add_ingredient">Add ingredient</string>
+    <string name="recipe_scaler_remove_ingredient">Remove ingredient</string>
+    <string name="recipe_scaler_results_title">Scaled Recipe</string>
+    <string name="recipe_scaler_unnamed_ingredient">Unnamed</string>
+    <string name="recipe_scaler_copy_shopping_list">Copy shopping list</string>
+    <string name="recipe_scaler_shopping_list_title">Shopping List</string>
+    <string name="recipe_scaler_no_ingredients">No ingredients to show</string>
+    <string name="recipe_scaler_copy_action">Copy</string>
+    <string name="recipe_scaler_copied_toast">Copied to clipboard</string>
+    <string name="shortcut_label_recipe_scaler">Recipe Scaler</string>
 </resources>
