@@ -74,6 +74,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.toolstack.io.R
@@ -1162,7 +1163,10 @@ private fun BendDiagram(
     val pipeColor    = MaterialTheme.colorScheme.primary
     val accentColor  = MaterialTheme.colorScheme.error
     val labelColor   = MaterialTheme.colorScheme.onSurfaceVariant
-    val strokeWidth  = 8f  // Increased from 6f for better visibility
+    
+    // Use density-scaled stroke width instead of hard-coded value
+    val density = LocalDensity.current
+    val strokeWidth = with(density) { 8.dp.toPx() }
 
     Canvas(modifier = modifier) {
         when (bendType) {
@@ -1265,9 +1269,9 @@ private fun DrawScope.drawStubUp90(
     val runEndX   = w * 0.45f
     val floorY    = h - pad - sw * 2
 
-    // Vertical stub going up
+    // Vertical stub going up - ensure minimum height for visibility
     val stubStartX = runEndX
-    val stubTopY   = pad * 2
+    val stubTopY   = maxOf(pad * 2, h * 0.15f)  // Use canvas-proportional height with minimum
 
     // Horizontal segment along floor
     draw3DPipe(
@@ -1279,12 +1283,17 @@ private fun DrawScope.drawStubUp90(
 
     // Curved knee — rises from floor
     val bendRadius = h * 0.22f
+    val kneeEndY = floorY - bendRadius * 1.5f
+    
+    // Ensure the knee doesn't go above the stub top
+    val adjustedKneeEndY = maxOf(kneeEndY, stubTopY + sw * 2)
+    
     val kneePath = Path().apply {
         moveTo(runEndX, floorY)
         cubicTo(
             runEndX + bendRadius * 0.5f, floorY,
             stubStartX + bendRadius * 0.5f, floorY - bendRadius,
-            stubStartX + bendRadius * 0.5f, floorY - bendRadius * 1.5f
+            stubStartX + bendRadius * 0.5f, adjustedKneeEndY
         )
     }
     draw3DPipePath(
@@ -1293,13 +1302,18 @@ private fun DrawScope.drawStubUp90(
         strokeWidth = sw
     )
 
-    // Vertical stub rising up
-    draw3DPipe(
-        start       = Offset(stubStartX + bendRadius * 0.5f, floorY - bendRadius * 1.5f),
-        end         = Offset(stubStartX + bendRadius * 0.5f, stubTopY),
-        color       = pipeColor,
-        strokeWidth = sw
-    )
+    // Vertical stub rising up - ensure it goes upward
+    val verticalStartY = adjustedKneeEndY
+    val verticalEndY = stubTopY
+    
+    if (verticalStartY > verticalEndY + sw) {  // Only draw if there's meaningful distance
+        draw3DPipe(
+            start       = Offset(stubStartX + bendRadius * 0.5f, verticalStartY),
+            end         = Offset(stubStartX + bendRadius * 0.5f, verticalEndY),
+            color       = pipeColor,
+            strokeWidth = sw
+        )
+    }
 
     // Mark arrow on the horizontal run
     if (showLabels) {
@@ -1363,7 +1377,10 @@ private fun DrawScope.drawOffset(
     val obstacleLeft  = riseX1 + (riseX2 - riseX1) * 0.25f
     val obstacleWidth = (riseX2 - riseX1) * 0.50f
     val clearance = sw * 2f  // Visible gap between pipe and obstacle
-    val obstacleHeight = floorLevel - raisedLevel - clearance - sw
+    
+    // Guard against negative obstacle height at low densities or small canvas
+    val rawObstacleHeight = floorLevel - raisedLevel - clearance - sw
+    val obstacleHeight = maxOf(sw, rawObstacleHeight)  // Minimum height of one stroke width
     val obstacleTop = floorLevel - obstacleHeight
     
     draw3DObstacle(
@@ -1431,7 +1448,10 @@ private fun DrawScope.drawSaddle3Point(pipeColor: Color, accentColor: Color, sw:
     val obstacleWidth = (x5 - x1) * 0.55f
     val obstacleLeft = x3 - obstacleWidth / 2
     val clearance = sw * 2.5f  // Visible gap between pipe at peak and obstacle
-    val obstacleHeight = baseY - peakY - clearance - sw
+    
+    // Guard against negative obstacle height at low densities or small canvas
+    val rawObstacleHeight = baseY - peakY - clearance - sw
+    val obstacleHeight = maxOf(sw, rawObstacleHeight)  // Minimum height of one stroke width
     val obstacleTop = baseY - obstacleHeight
     
     draw3DObstacle(
@@ -1503,7 +1523,10 @@ private fun DrawScope.drawSaddle4Point(pipeColor: Color, accentColor: Color, sw:
     val obstacleWidth = (x4 - x1) * 0.65f
     val obstacleLeft = ((x1 + x4) / 2) - obstacleWidth / 2
     val clearance = sw * 2.5f  // Visible gap between elevated pipe and obstacle
-    val obstacleHeight = baseY - topY - clearance - sw
+    
+    // Guard against negative obstacle height at low densities or small canvas
+    val rawObstacleHeight = baseY - topY - clearance - sw
+    val obstacleHeight = maxOf(sw, rawObstacleHeight)  // Minimum height of one stroke width
     val obstacleTop = baseY - obstacleHeight
     
     draw3DObstacle(
@@ -1702,9 +1725,11 @@ private fun DrawScope.drawArrowTick(x: Float, y: Float, color: Color, sw: Float)
 private fun PipeWithMark(markFraction: Float, labelText: String) {
     val pipeColor   = MaterialTheme.colorScheme.primary
     val accentColor = MaterialTheme.colorScheme.error
+    val density = LocalDensity.current
+    val sw = with(density) { 8.dp.toPx() }
+    
     Canvas(modifier = Modifier.fillMaxSize()) {
         val midY = size.height / 2f
-        val sw = 8f
         
         // Draw 3D pipe
         draw3DPipe(
@@ -1733,9 +1758,11 @@ private fun PipeWithTwoMarks(
 ) {
     val pipeColor   = MaterialTheme.colorScheme.primary
     val accentColor = MaterialTheme.colorScheme.error
+    val density = LocalDensity.current
+    val sw = with(density) { 8.dp.toPx() }
+    
     Canvas(modifier = Modifier.fillMaxSize()) {
         val midY = size.height / 2f
-        val sw = 8f
         
         // Draw 3D pipe
         draw3DPipe(
