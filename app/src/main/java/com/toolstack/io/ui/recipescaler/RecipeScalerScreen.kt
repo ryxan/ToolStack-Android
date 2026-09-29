@@ -738,8 +738,42 @@ private fun ScaledRecipeCard(
                     )
                 }
 
-                // Scale factor badge (highlighted)
-                if (desiredServingsText.isNotBlank()) {
+                // Scale factor input - single TextField instance with conditional styling
+                val isHighlighted = desiredServingsText.isNotBlank()
+                
+                val textFieldContent = @Composable {
+                    OutlinedTextField(
+                        value = desiredServingsText,
+                        onValueChange = onDesiredServingsChanged,
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.width(if (isHighlighted) 64.dp else 72.dp),
+                        textStyle = if (isHighlighted) {
+                            MaterialTheme.typography.labelMedium.copy(
+                                textAlign = TextAlign.Center,
+                                fontWeight = FontWeight.Bold
+                            )
+                        } else {
+                            MaterialTheme.typography.bodyMedium.copy(
+                                textAlign = TextAlign.Center
+                            )
+                        },
+                        colors = if (isHighlighted) {
+                            OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.1f),
+                                focusedBorderColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.5f),
+                                unfocusedBorderColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.3f),
+                                focusedTextColor = MaterialTheme.colorScheme.onPrimary,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onPrimary
+                            )
+                        } else {
+                            OutlinedTextFieldDefaults.colors()
+                        }
+                    )
+                }
+                
+                if (isHighlighted) {
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = MaterialTheme.colorScheme.primary,
@@ -755,29 +789,10 @@ private fun ScaledRecipeCard(
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold
                             )
-                            OutlinedTextField(
-                                value = desiredServingsText,
-                                onValueChange = onDesiredServingsChanged,
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                modifier = Modifier.width(64.dp),
-                                textStyle = MaterialTheme.typography.labelMedium.copy(
-                                    textAlign = TextAlign.Center,
-                                    fontWeight = FontWeight.Bold
-                                ),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.1f),
-                                    focusedBorderColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.5f),
-                                    unfocusedBorderColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.3f),
-                                    focusedTextColor = MaterialTheme.colorScheme.onPrimary,
-                                    unfocusedTextColor = MaterialTheme.colorScheme.onPrimary
-                                )
-                            )
+                            textFieldContent()
                         }
                     }
                 } else {
-                    // When no servings entered yet, show input field normally
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -787,16 +802,7 @@ private fun ScaledRecipeCard(
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        OutlinedTextField(
-                            value = desiredServingsText,
-                            onValueChange = onDesiredServingsChanged,
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            modifier = Modifier.width(72.dp),
-                            textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                textAlign = TextAlign.Center
-                            )
-                        )
+                        textFieldContent()
                     }
                 }
             }
