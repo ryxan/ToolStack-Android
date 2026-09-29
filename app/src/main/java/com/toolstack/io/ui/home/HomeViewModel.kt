@@ -57,6 +57,13 @@ class HomeViewModel @Inject constructor(
                 _uiState.update { it.copy(modules = applyOrder(DEFAULT_MODULES, savedOrder)) }
             }
         }
+
+        // Load the persisted hidden modules list
+        preferencesRepository.hiddenHomeModules
+            .onEach { hiddenRoutes ->
+                _uiState.update { it.copy(hiddenModules = hiddenRoutes.toSet()) }
+            }
+            .launchIn(viewModelScope)
     }
 
     /**
@@ -101,6 +108,23 @@ class HomeViewModel @Inject constructor(
         _uiState.update { it.copy(purchaseError = null) }
     }
 
+    fun toggleEditMode() {
+        _uiState.update { it.copy(isEditMode = !it.isEditMode) }
+    }
+
+    fun toggleModuleVisibility(route: String) {
+        val current = _uiState.value.hiddenModules.toMutableSet()
+        if (current.contains(route)) {
+            current.remove(route)
+        } else {
+            current.add(route)
+        }
+        _uiState.update { it.copy(hiddenModules = current) }
+        viewModelScope.launch {
+            preferencesRepository.saveHiddenHomeModules(current.toList())
+        }
+    }
+
     companion object {
         /**
          * All implemented modules in their default order. This is the source of truth
@@ -114,7 +138,9 @@ class HomeViewModel @Inject constructor(
             HomeModule("conduit_bends",   R.string.conduit_bends,         HomeModuleIcon.ConduitBends),
             HomeModule("unit_converter",  R.string.unit_converter,        HomeModuleIcon.UnitConverter),
             HomeModule("ratio_mix",       R.string.ratio_mix_title,       HomeModuleIcon.RatioMix),
-            HomeModule("calculator",      R.string.calculator_title,      HomeModuleIcon.Calculator)
+            HomeModule("calculator",      R.string.calculator_title,      HomeModuleIcon.Calculator),
+            HomeModule("sprayer",         R.string.sprayer_title,         HomeModuleIcon.Sprayer),
+            HomeModule("recipe_scaler",   R.string.recipe_scaler_title,   HomeModuleIcon.RecipeScaler)
         )
 
         /**
@@ -137,8 +163,20 @@ data class HomeUiState(
     val availableProducts: List<BillingProduct> = emptyList(),
     val purchaseError: String? = null,
     /** Currently-ordered list of home screen modules. */
-    val modules: List<HomeModule> = HomeViewModel.DEFAULT_MODULES
-)
+    val modules: List<HomeModule> = HomeViewModel.DEFAULT_MODULES,
+    /** Set of hidden module routes. */
+    val hiddenModules: Set<String> = emptySet(),
+    /** Whether the user is in edit mode (showing hide/show toggles). */
+    val isEditMode: Boolean = false
+) {
+    /** Visible modules (excludes hidden ones when not in edit mode). */
+    val visibleModules: List<HomeModule>
+        get() = if (isEditMode) {
+            modules
+        } else {
+            modules.filter { it.route !in hiddenModules }
+        }
+}
 
 /**
  * Lightweight data class representing a single home screen module card.
@@ -164,7 +202,9 @@ enum class HomeModuleIcon {
     ConduitBends,
     UnitConverter,
     RatioMix,
-    Calculator
+    Calculator,
+    Sprayer,
+    RecipeScaler
 }
 
 /** Maps [PurchaseState] to a simple boolean for the UI gate. */

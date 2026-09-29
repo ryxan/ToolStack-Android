@@ -18,9 +18,25 @@ import javax.inject.Inject
 // State
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Represents the three steps in the conduit bend calculation wizard.
+ * SELECTION: user chooses a bend type
+ * INPUT: user provides measurements and parameters
+ * RESULT: calculated values and instructions are shown
+ */
 enum class BendStep { SELECTION, INPUT, RESULT }
+
+/**
+ * Tab selection for the result display screen.
+ * QUICK: shows key measurements in a simple format
+ * DETAILED: shows step-by-step instructions with diagrams
+ */
 enum class ResultTab { QUICK, DETAILED }
 
+/**
+ * UI state for the conduit bends feature.
+ * Tracks the wizard navigation, user inputs, and calculation results.
+ */
 data class ConduitBendsUiState(
     val step: BendStep = BendStep.SELECTION,
 
@@ -43,6 +59,17 @@ data class ConduitBendsUiState(
 // ViewModel
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * ViewModel for the conduit bends calculator feature.
+ * 
+ * Manages a three-step wizard flow:
+ * 1. User selects a bend type (90° corner, stub-up, offset, saddle, back-to-back)
+ * 2. User provides measurements and parameters (conduit size, angle if applicable)
+ * 3. Results are calculated and displayed with quick reference or detailed instructions
+ * 
+ * All calculations are delegated to [ConduitBendCalculator]. This ViewModel handles
+ * only UI state, validation, and navigation between wizard steps.
+ */
 @HiltViewModel
 class ConduitBendsViewModel @Inject constructor() : ViewModel() {
 
@@ -51,7 +78,10 @@ class ConduitBendsViewModel @Inject constructor() : ViewModel() {
 
     // ── Navigation ────────────────────────────────────────────────────────────
 
-    /** User tapped a bend card on the selection screen. */
+    /**
+     * User tapped a bend card on the selection screen.
+     * Transitions to the INPUT step and resets any previous input/result state.
+     */
     fun onBendSelected(bend: BendType) {
         _uiState.update {
             it.copy(
@@ -65,7 +95,10 @@ class ConduitBendsViewModel @Inject constructor() : ViewModel() {
         }
     }
 
-    /** Back pressed on the input screen — return to bend selection. */
+    /**
+     * Back pressed on the input screen — return to bend selection.
+     * Clears the selected bend and any input values.
+     */
     fun onBackFromInput() {
         _uiState.update {
             it.copy(
@@ -77,7 +110,10 @@ class ConduitBendsViewModel @Inject constructor() : ViewModel() {
         }
     }
 
-    /** Back pressed on the result screen — return to input so the user can tweak values. */
+    /**
+     * Back pressed on the result screen — return to input so the user can tweak values.
+     * Preserves the input values and selected bend, only clears the result.
+     */
     fun onBackFromResult() {
         _uiState.update {
             it.copy(
@@ -89,18 +125,33 @@ class ConduitBendsViewModel @Inject constructor() : ViewModel() {
 
     // ── Input field changes ───────────────────────────────────────────────────
 
+    /**
+     * Called when the user types in the measurement input field.
+     * Clears any previous validation error to allow re-submission.
+     */
     fun onInputValueChanged(value: String) {
         _uiState.update { it.copy(inputValue = value, inputError = null) }
     }
 
+    /**
+     * User selected a different conduit size chip.
+     * Clears any previous validation error.
+     */
     fun onConduitSizeChanged(size: ConduitSize) {
         _uiState.update { it.copy(conduitSize = size, inputError = null) }
     }
 
+    /**
+     * User selected a different offset angle chip (only visible for offset bends).
+     * Clears any previous validation error.
+     */
     fun onOffsetAngleChanged(angle: OffsetAngle) {
         _uiState.update { it.copy(offsetAngle = angle, inputError = null) }
     }
 
+    /**
+     * User switched between Quick and Detailed tabs on the result screen.
+     */
     fun onResultTabChanged(tab: ResultTab) {
         _uiState.update { it.copy(resultTab = tab) }
     }

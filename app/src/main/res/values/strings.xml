@@ -5,6 +5,9 @@
     <string name="content_description_back">Back</string>
     <string name="content_description_backspace">Delete last character</string>
     <string name="content_description_drag_handle">Drag to reorder</string>
+    <string name="content_description_edit_modules">Edit modules</string>
+    <string name="content_description_hide_module">Hide module</string>
+    <string name="content_description_show_module">Show module</string>
     <string name="sae_to_metric">SAE to Metric</string>
     <string name="wrench_fastener">Wrench / Fastener Size</string>
     <string name="taps_and_drills">Taps and Drills</string>
@@ -199,6 +202,21 @@
     <!-- Paywall copy shown when a non-premium user taps Add to Home Screen -->
     <string name="shortcut_premium_required_body">Home screen shortcuts are a Pro feature. Upgrade to pin any tool directly to your launcher.</string>
 
+    <!-- Sprayer Calculator -->
+    <string name="sprayer_title">Sprayer Calculator</string>
+    <string name="sprayer_tank_volume">Tank Volume (Gallons)</string>
+    <string name="sprayer_spray_rate">Spray Volume (Gallons/Acre)</string>
+    <string name="sprayer_chem_rate">Chemical Rate (Liters/Acre)</string>
+    <string name="sprayer_acres_per_jug">Acres per Jug</string>
+    <string name="sprayer_mode_rate_per_acre">Rate per Acre</string>
+    <string name="sprayer_mode_acres_per_jug">Acres per Jug</string>
+    <string name="sprayer_results_title">Results</string>
+    <string name="sprayer_acres_covered">Acres Covered</string>
+    <string name="sprayer_total_chem_liters">Total Chemical (L)</string>
+    <string name="sprayer_total_chem_gallons">Total Chemical (Gal)</string>
+    <string name="sprayer_total_jugs">Total Jugs</string>
+    <string name="shortcut_label_sprayer">Sprayer Calc</string>
+
     <!-- Bearings -->
     <string name="bearings_search_label">Find bearing by dimensions</string>
     <string name="bearings_bore_label">Bore (ID)</string>
@@ -214,4 +232,65 @@
     <string name="bearings_tolerance_0_1">±0.1 mm</string>
     <string name="bearings_tolerance_0_5">±0.5 mm</string>
     <string name="bearings_tolerance_1_0">±1.0 mm</string>
+
+    <!-- Recipe Scaler -->
+    <string name="recipe_scaler_title">Recipe Scaler</string>
+    <string name="recipe_scaler_original_recipe">Original Recipe</string>
+    <string name="recipe_scaler_scaled_recipe">Scaled Recipe</string>
+    <string name="recipe_scaler_serves_label">Serves:</string>
+    <string name="recipe_scaler_scale_to_label">Scale To:</string>
+    <string name="recipe_scaler_clear_all">Clear All</string>
+    <string name="recipe_scaler_qty_header">QTY</string>
+    <string name="recipe_scaler_unit_header">UNIT</string>
+    <string name="recipe_scaler_type_header">TYPE</string>
+    <string name="recipe_scaler_ingredient_header">INGREDIENT</string>
+    <string name="recipe_scaler_servings_title">Servings</string>
+    <string name="recipe_scaler_original_servings">Original</string>
+    <string name="recipe_scaler_desired_servings">Desired</string>
+    <string name="recipe_scaler_multiplier">Scale by %1$s×</string>
+    <string name="recipe_scaler_ingredients_label">Ingredients</string>
+    <string name="recipe_scaler_quantity">Qty</string>
+    <string name="recipe_scaler_quantity_hint">e.g. 1 1/2</string>
+    <string name="recipe_scaler_unit">Unit</string>
+    <string name="recipe_scaler_ingredient_name">Ingredient</string>
+    <string name="recipe_scaler_ingredient_name_hint">e.g. flour</string>
+    <string name="recipe_scaler_add_ingredient">Add Ingredient</string>
+    <string name="recipe_scaler_remove_ingredient">Remove ingredient</string>
+    <string name="recipe_scaler_results_title">Scaled Recipe</string>
+    <string name="recipe_scaler_unnamed_ingredient">Unnamed</string>
+    <string name="recipe_scaler_copy_shopping_list">Copy shopping list</string>
+    <string name="recipe_scaler_copy_scaled_recipe">Copy Scaled Recipe</string>
+    <string name="recipe_scaler_empty_scaled_recipe">Enter servings and ingredients to see scaled recipe</string>
+    <string name="recipe_scaler_shopping_list_title">Shopping List</string>
+    <string name="recipe_scaler_no_ingredients">No ingredients to show</string>
+    <string name="recipe_scaler_copy_action">Copy</string>
+    <string name="recipe_scaler_copied_toast">Copied to clipboard</string>
+    <string name="shortcut_label_recipe_scaler">Recipe Scaler</string>
+    
+    <!-- Recipe Scaler - Save/Load Feature -->
+    <string name="recipe_scaler_save_recipe">Save Recipe</string>
+    <string name="recipe_scaler_load_recipe">Load Recipe</string>
+    <string name="recipe_scaler_save_recipe_title">Save Recipe</string>
+    <string name="recipe_scaler_save_recipe_message">Enter a name for this recipe:</string>
+    <string name="recipe_scaler_recipe_name_label">Recipe Name</string>
+    <string name="recipe_scaler_save_action">Save</string>
+    <string name="recipe_scaler_load_recipe_title">Load Recipe</string>
+    <string name="recipe_scaler_no_saved_recipes">No saved recipes yet. Create a recipe and tap Save Recipe.</string>
+    <string name="recipe_scaler_close_action">Close</string>
+    <string name="recipe_scaler_recipe_details">%1$s servings • %2$d ingredients</string>
+    <string name="recipe_scaler_delete_recipe_title">Delete Recipe</string>
+    <string name="recipe_scaler_delete_recipe_message">Are you sure you want to delete "%1$s"? This cannot be undone.</string>
+    <string name="recipe_scaler_delete_action">Delete</string>
+    <string name="recipe_scaler_delete_recipe_content_description">Delete recipe</string>
+    
+    <!-- Recipe Scaler - Enhanced Features -->
+    <string name="recipe_scaler_show_original">Show Original</string>
+    <string name="recipe_scaler_hide_original">Hide Original</string>
+    <string name="recipe_scaler_simplify_fractions">Simplify Fractions</string>
+    <string name="recipe_scaler_select_copy_format">Select Copy Format</string>
+    <string name="recipe_scaler_format_plain">Plain Text</string>
+    <string name="recipe_scaler_format_markdown">Markdown</string>
+    <string name="recipe_scaler_format_shopping_list">Shopping List</string>
+    <string name="recipe_scaler_select_unit">Select Unit</string>
 </resources>
+

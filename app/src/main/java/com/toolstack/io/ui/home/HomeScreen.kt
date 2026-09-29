@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,13 +17,14 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Anchor
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.Construction
 import androidx.compose.material.icons.filled.DragHandle
-import androidx.compose.material.icons.filled.ElectricalServices
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Handyman
 import androidx.compose.material.icons.filled.InsertLink
 import androidx.compose.material.icons.filled.Lock
@@ -38,6 +40,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -55,8 +58,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -83,13 +88,38 @@ fun HomeScreen(
 
     val listState = rememberLazyListState()
     val dragDropState = rememberDragDropState(listState) { from, to ->
-        viewModel.moveModule(from, to)
+        // Only allow reordering in edit mode when the visible list matches the full list.
+        // Outside edit mode, hidden modules create index mismatch between visibleModules
+        // (what's rendered) and modules (what moveModule operates on).
+        if (uiState.isEditMode) {
+            viewModel.moveModule(from, to)
+        }
     }
 
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text(text = stringResource(R.string.home_title)) },
+                actions = {
+                    FilledTonalIconButton(
+                        onClick = { viewModel.toggleEditMode() },
+                        colors = androidx.compose.material3.IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = if (uiState.isEditMode)
+                                MaterialTheme.colorScheme.onPrimary
+                            else
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                            contentColor = if (uiState.isEditMode)
+                                Color(0xFFD32F2F)
+                            else
+                                MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Edit,
+                            contentDescription = stringResource(R.string.content_description_edit_modules)
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary,
@@ -111,12 +141,19 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            itemsIndexed(uiState.modules, key = { _, module -> module.route }) { index, module ->
+            itemsIndexed(uiState.visibleModules, key = { _, module -> module.route }) { index, module ->
                 ModuleCard(
                     module = module,
                     isPremiumUnlocked = uiState.isPremium,
                     isDragging = dragDropState.draggingItemIndex == index,
-                    modifier = Modifier.draggedItem(dragDropState, index, module.route),
+                    isEditMode = uiState.isEditMode,
+                    isHidden = module.route in uiState.hiddenModules,
+                    onToggleVisibility = { viewModel.toggleModuleVisibility(module.route) },
+                    modifier = if (uiState.isEditMode) {
+                        Modifier.draggedItem(dragDropState, index, module.route)
+                    } else {
+                        Modifier
+                    },
                     onClick = {
                         if (module.isPremium && !uiState.isPremium) {
                             pendingPremiumModule = module
@@ -218,6 +255,9 @@ private fun ModuleCard(
     module: HomeModule,
     isPremiumUnlocked: Boolean,
     isDragging: Boolean,
+    isEditMode: Boolean,
+    isHidden: Boolean,
+    onToggleVisibility: () -> Unit,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
@@ -229,6 +269,8 @@ private fun ModuleCard(
         colors = CardDefaults.cardColors(
             containerColor = if (isDragging)
                 MaterialTheme.colorScheme.surfaceVariant
+            else if (isHidden && isEditMode)
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
             else
                 MaterialTheme.colorScheme.surface
         ),
@@ -241,31 +283,55 @@ private fun ModuleCard(
             headlineContent = {
                 Text(
                     text = stringResource(module.titleRes),
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (isHidden && isEditMode)
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    else
+                        MaterialTheme.colorScheme.onSurface
                 )
             },
             leadingContent = {
-                ModuleIcon(icon = module.icon.imageVector, showProBadge = showLock)
+                ModuleIcon(iconEnum = module.icon, showProBadge = showLock)
             },
             trailingContent = {
-                if (showLock) {
-                    Icon(
-                        imageVector = Icons.Filled.Lock,
-                        contentDescription = stringResource(R.string.content_description_premium_lock),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                } else if (isDragging) {
-                    Icon(
-                        imageVector = Icons.Filled.DragHandle,
-                        contentDescription = stringResource(R.string.content_description_drag_handle),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isEditMode) {
+                        FilledTonalIconButton(
+                            onClick = onToggleVisibility
+                        ) {
+                            Icon(
+                                imageVector = if (isHidden) 
+                                    Icons.Filled.VisibilityOff 
+                                else 
+                                    Icons.Filled.Visibility,
+                                contentDescription = if (isHidden)
+                                    stringResource(R.string.content_description_show_module)
+                                else
+                                    stringResource(R.string.content_description_hide_module),
+                                tint = if (isHidden)
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                else
+                                    MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                    
+                    if (showLock) {
+                        Icon(
+                            imageVector = Icons.Filled.Lock,
+                            contentDescription = stringResource(R.string.content_description_premium_lock),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    } else if (isDragging) {
+                        Icon(
+                            imageVector = Icons.Filled.DragHandle,
+                            contentDescription = stringResource(R.string.content_description_drag_handle),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         )
@@ -274,7 +340,7 @@ private fun ModuleCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ModuleIcon(icon: ImageVector, showProBadge: Boolean) {
+private fun ModuleIcon(iconEnum: HomeModuleIcon, showProBadge: Boolean) {
     BadgedBox(
         badge = {
             if (showProBadge) {
@@ -300,11 +366,43 @@ private fun ModuleIcon(icon: ImageVector, showProBadge: Boolean) {
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp)
-                )
+                when (iconEnum) {
+                    HomeModuleIcon.ConduitBends -> {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_conduit_bender),
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    HomeModuleIcon.WrenchFastener -> {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_wrench_fastener),
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    HomeModuleIcon.Sprayer -> {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_sprayer),
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    HomeModuleIcon.RecipeScaler -> {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_chef_hat),
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    else -> {
+                        Icon(
+                            imageVector = iconEnum.imageVector,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
             }
         }
     }
@@ -320,4 +418,7 @@ private val HomeModuleIcon.imageVector: ImageVector
         HomeModuleIcon.UnitConverter  -> Icons.Filled.SwapHoriz
         HomeModuleIcon.RatioMix       -> Icons.Filled.WaterDrop
         HomeModuleIcon.Calculator     -> Icons.Filled.Calculate
+        HomeModuleIcon.Sprayer        -> Icons.Filled.WaterDrop
+        HomeModuleIcon.RecipeScaler   -> Icons.Filled.ViewModule
+
     }
