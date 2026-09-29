@@ -137,7 +137,7 @@ class RecipeScalerViewModel @Inject constructor(
     }
 
     fun onDismissSaveRecipeDialog() {
-        _uiState.update { it.copy(showSaveRecipeDialog = false, recipeNameInput = "") }
+        _uiState.update { it.copy(showSaveRecipeDialog = false, recipeNameInput = "", saveRecipeError = null) }
     }
 
     fun onRecipeNameInputChanged(name: String) {
@@ -164,8 +164,12 @@ class RecipeScalerViewModel @Inject constructor(
         )
 
         viewModelScope.launch {
-            userPreferencesRepository.saveRecipe(recipe)
-            _uiState.update { it.copy(showSaveRecipeDialog = false, recipeNameInput = "") }
+            val result = userPreferencesRepository.saveRecipe(recipe)
+            if (result.isSuccess) {
+                _uiState.update { it.copy(showSaveRecipeDialog = false, recipeNameInput = "", saveRecipeError = null) }
+            } else {
+                _uiState.update { it.copy(saveRecipeError = "Failed to save recipe. Please try again.") }
+            }
         }
     }
 
@@ -240,7 +244,8 @@ data class RecipeScalerUiState(
     val recipeNameInput: String = "",
     val showOriginalValues: Boolean = false,
     val simplifyFractions: Boolean = false,
-    val showCopyFormatDialog: Boolean = false
+    val showCopyFormatDialog: Boolean = false,
+    val saveRecipeError: String? = null
 ) {
     fun recalculate(): RecipeScalerUiState {
         val originalServings = originalServingsText.toDoubleOrNull() ?: 0.0

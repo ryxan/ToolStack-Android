@@ -251,27 +251,37 @@ class UserPreferencesRepository @Inject constructor(
                 ?: emptyList()
         }
 
-    suspend fun saveRecipe(recipe: SavedRecipe) {
-        dataStore.edit { preferences ->
-            val current = preferences[KEY_SAVED_RECIPES]
-                ?.let { decodeSavedRecipes(it) }
-                ?.toMutableList()
-                ?: mutableListOf()
-            // Replace an existing recipe with the same name, otherwise append.
-            val existingIndex = current.indexOfFirst { it.name == recipe.name }
-            if (existingIndex >= 0) current[existingIndex] = recipe else current.add(recipe)
-            preferences[KEY_SAVED_RECIPES] = encodeSavedRecipes(current)
+    suspend fun saveRecipe(recipe: SavedRecipe): Result<Unit> {
+        return try {
+            dataStore.edit { preferences ->
+                val current = preferences[KEY_SAVED_RECIPES]
+                    ?.let { decodeSavedRecipes(it) }
+                    ?.toMutableList()
+                    ?: mutableListOf()
+                // Replace an existing recipe with the same name, otherwise append.
+                val existingIndex = current.indexOfFirst { it.name == recipe.name }
+                if (existingIndex >= 0) current[existingIndex] = recipe else current.add(recipe)
+                preferences[KEY_SAVED_RECIPES] = encodeSavedRecipes(current)
+            }
+            Result.success(Unit)
+        } catch (e: IOException) {
+            Result.failure(e)
         }
     }
 
-    suspend fun deleteRecipe(recipeName: String) {
-        dataStore.edit { preferences ->
-            val current = preferences[KEY_SAVED_RECIPES]
-                ?.let { decodeSavedRecipes(it) }
-                ?.toMutableList()
-                ?: return@edit
-            current.removeAll { it.name == recipeName }
-            preferences[KEY_SAVED_RECIPES] = encodeSavedRecipes(current)
+    suspend fun deleteRecipe(recipeName: String): Result<Unit> {
+        return try {
+            dataStore.edit { preferences ->
+                val current = preferences[KEY_SAVED_RECIPES]
+                    ?.let { decodeSavedRecipes(it) }
+                    ?.toMutableList()
+                    ?: return@edit
+                current.removeAll { it.name == recipeName }
+                preferences[KEY_SAVED_RECIPES] = encodeSavedRecipes(current)
+            }
+            Result.success(Unit)
+        } catch (e: IOException) {
+            Result.failure(e)
         }
     }
 

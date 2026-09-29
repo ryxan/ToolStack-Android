@@ -88,7 +88,12 @@ fun HomeScreen(
 
     val listState = rememberLazyListState()
     val dragDropState = rememberDragDropState(listState) { from, to ->
-        viewModel.moveModule(from, to)
+        // Only allow reordering in edit mode when the visible list matches the full list.
+        // Outside edit mode, hidden modules create index mismatch between visibleModules
+        // (what's rendered) and modules (what moveModule operates on).
+        if (uiState.isEditMode) {
+            viewModel.moveModule(from, to)
+        }
     }
 
     Scaffold(
@@ -144,7 +149,11 @@ fun HomeScreen(
                     isEditMode = uiState.isEditMode,
                     isHidden = module.route in uiState.hiddenModules,
                     onToggleVisibility = { viewModel.toggleModuleVisibility(module.route) },
-                    modifier = Modifier.draggedItem(dragDropState, index, module.route),
+                    modifier = if (uiState.isEditMode) {
+                        Modifier.draggedItem(dragDropState, index, module.route)
+                    } else {
+                        Modifier
+                    },
                     onClick = {
                         if (module.isPremium && !uiState.isPremium) {
                             pendingPremiumModule = module

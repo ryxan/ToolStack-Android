@@ -125,6 +125,7 @@ fun RecipeScalerScreen(
     if (uiState.showSaveRecipeDialog) {
         SaveRecipeDialog(
             recipeNameInput = uiState.recipeNameInput,
+            errorMessage = uiState.saveRecipeError,
             onRecipeNameChanged = viewModel::onRecipeNameInputChanged,
             onSave = viewModel::onSaveRecipe,
             onDismiss = viewModel::onDismissSaveRecipeDialog
@@ -1029,6 +1030,7 @@ private fun ShoppingListDialog(
 @Composable
 private fun SaveRecipeDialog(
     recipeNameInput: String,
+    errorMessage: String?,
     onRecipeNameChanged: (String) -> Unit,
     onSave: () -> Unit,
     onDismiss: () -> Unit
@@ -1048,8 +1050,16 @@ private fun SaveRecipeDialog(
                     label = { Text(text = stringResource(R.string.recipe_scaler_recipe_name_label)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = errorMessage != null
                 )
+                if (errorMessage != null) {
+                    Text(
+                        text = errorMessage,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             }
         },
         confirmButton = {
