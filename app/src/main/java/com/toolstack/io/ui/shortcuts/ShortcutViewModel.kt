@@ -131,7 +131,7 @@ fun shortcutIconForRoute(route: String): Int = when (route) {
     "ratio_mix"       -> R.mipmap.ic_shortcut_ratio_mix
     "calculator"      -> R.mipmap.ic_shortcut_calculator
     "sprayer"         -> R.mipmap.ic_launcher
-    "recipe_scaler"   -> R.mipmap.ic_launcher
+    "recipe_scaler"   -> R.mipmap.ic_shortcut_recipe_scaler
     else              -> R.mipmap.ic_launcher
 }
 

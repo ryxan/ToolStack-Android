@@ -263,4 +263,31 @@
     <string name="recipe_scaler_copy_action">Copy</string>
     <string name="recipe_scaler_copied_toast">Copied to clipboard</string>
     <string name="shortcut_label_recipe_scaler">Recipe Scaler</string>
+    
+    <!-- Recipe Scaler - Save/Load Feature -->
+    <string name="recipe_scaler_save_recipe">Save Recipe</string>
+    <string name="recipe_scaler_load_recipe">Load Recipe</string>
+    <string name="recipe_scaler_save_recipe_title">Save Recipe</string>
+    <string name="recipe_scaler_save_recipe_message">Enter a name for this recipe:</string>
+    <string name="recipe_scaler_recipe_name_label">Recipe Name</string>
+    <string name="recipe_scaler_save_action">Save</string>
+    <string name="recipe_scaler_load_recipe_title">Load Recipe</string>
+    <string name="recipe_scaler_no_saved_recipes">No saved recipes yet. Create a recipe and tap Save Recipe.</string>
+    <string name="recipe_scaler_close_action">Close</string>
+    <string name="recipe_scaler_recipe_details">%1$s servings • %2$d ingredients</string>
+    <string name="recipe_scaler_delete_recipe_title">Delete Recipe</string>
+    <string name="recipe_scaler_delete_recipe_message">Are you sure you want to delete "%1$s"? This cannot be undone.</string>
+    <string name="recipe_scaler_delete_action">Delete</string>
+    <string name="recipe_scaler_delete_recipe_content_description">Delete recipe</string>
+    
+    <!-- Recipe Scaler - Enhanced Features -->
+    <string name="recipe_scaler_show_original">Show Original</string>
+    <string name="recipe_scaler_hide_original">Hide Original</string>
+    <string name="recipe_scaler_simplify_fractions">Simplify Fractions</string>
+    <string name="recipe_scaler_select_copy_format">Select Copy Format</string>
+    <string name="recipe_scaler_format_plain">Plain Text</string>
+    <string name="recipe_scaler_format_markdown">Markdown</string>
+    <string name="recipe_scaler_format_shopping_list">Shopping List</string>
+    <string name="recipe_scaler_select_unit">Select Unit</string>
 </resources>
+

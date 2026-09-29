@@ -324,6 +324,13 @@ private fun ModuleIcon(iconEnum: HomeModuleIcon, showProBadge: Boolean) {
                             modifier = Modifier.size(24.dp)
                         )
                     }
+                    HomeModuleIcon.RecipeScaler -> {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_chef_hat),
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                     else -> {
                         Icon(
                             imageVector = iconEnum.imageVector,
