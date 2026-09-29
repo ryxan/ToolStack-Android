@@ -404,7 +404,8 @@ private fun CompactIngredientRow(
             )
             ExposedDropdownMenu(
                 expanded = unitExpanded,
-                onDismissRequest = { unitExpanded = false }
+                onDismissRequest = { unitExpanded = false },
+                modifier = Modifier.width(160.dp)
             ) {
                 RecipeScalerCalculator.ALL_UNITS.forEach { (value, label) ->
                     DropdownMenuItem(
@@ -438,7 +439,8 @@ private fun CompactIngredientRow(
             )
             ExposedDropdownMenu(
                 expanded = stateExpanded,
-                onDismissRequest = { stateExpanded = false }
+                onDismissRequest = { stateExpanded = false },
+                modifier = Modifier.width(120.dp)
             ) {
                 IngredientState.entries.forEach { state ->
                     DropdownMenuItem(
