@@ -5,6 +5,9 @@
     <string name="content_description_back">Back</string>
     <string name="content_description_backspace">Delete last character</string>
     <string name="content_description_drag_handle">Drag to reorder</string>
+    <string name="content_description_edit_modules">Edit modules</string>
+    <string name="content_description_hide_module">Hide module</string>
+    <string name="content_description_show_module">Show module</string>
     <string name="sae_to_metric">SAE to Metric</string>
     <string name="wrench_fastener">Wrench / Fastener Size</string>
     <string name="taps_and_drills">Taps and Drills</string>

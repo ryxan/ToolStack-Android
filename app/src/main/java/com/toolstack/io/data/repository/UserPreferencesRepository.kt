@@ -7,6 +7,9 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.toolstack.io.domain.model.SavedRecipe
+import com.toolstack.io.domain.model.SavedRecipeIngredient
+import com.toolstack.io.domain.model.IngredientState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -55,6 +58,24 @@ class UserPreferencesRepository @Inject constructor(
     suspend fun saveHomeModuleOrder(orderedRoutes: List<String>) {
         dataStore.edit { preferences ->
             preferences[KEY_HOME_MODULE_ORDER] = orderedRoutes.joinToString(",")
+        }
+    }
+
+    /**
+     * Persisted hidden home screen modules. Stored as a comma-separated
+     * string of route names (e.g. "calculator,sprayer").
+     * An empty/missing value means no modules are hidden.
+     */
+    val hiddenHomeModules: Flow<List<String>> = dataStore.data.map { preferences ->
+        preferences[KEY_HIDDEN_HOME_MODULES]
+            ?.split(",")
+            ?.filter { it.isNotBlank() }
+            ?: emptyList()
+    }
+
+    suspend fun saveHiddenHomeModules(hiddenRoutes: List<String>) {
+        dataStore.edit { preferences ->
+            preferences[KEY_HIDDEN_HOME_MODULES] = hiddenRoutes.joinToString(",")
         }
     }
 
@@ -207,6 +228,53 @@ class UserPreferencesRepository @Inject constructor(
         }
     }
 
+    /**
+     * Persisted saved recipes. Each recipe is stored with its name, servings, and ingredient list.
+     * Stored as newline-separated records; each record has the format:
+     *
+     *   B64(recipeName)\tB64(servings)\tB64(qty1)\uFFFEB64(unit1)\uFFFEB64(state1)\uFFFEB64(name1)\t...
+     *
+     * Every field is Base64-encoded (URL-safe, no padding) so that special characters
+     * cannot collide with the structural delimiters.
+     * '\t' separates the recipe metadata from ingredients, and ingredients from each other.
+     * '\uFFFE' separates an ingredient's fields.
+     *
+     * An empty/missing value means no recipes have been saved.
+     */
+    val savedRecipes: Flow<List<SavedRecipe>> = dataStore.data
+        .catch { e ->
+            if (e is IOException) emit(emptyPreferences()) else throw e
+        }
+        .map { preferences ->
+            preferences[KEY_SAVED_RECIPES]
+                ?.let { decodeSavedRecipes(it) }
+                ?: emptyList()
+        }
+
+    suspend fun saveRecipe(recipe: SavedRecipe) {
+        dataStore.edit { preferences ->
+            val current = preferences[KEY_SAVED_RECIPES]
+                ?.let { decodeSavedRecipes(it) }
+                ?.toMutableList()
+                ?: mutableListOf()
+            // Replace an existing recipe with the same name, otherwise append.
+            val existingIndex = current.indexOfFirst { it.name == recipe.name }
+            if (existingIndex >= 0) current[existingIndex] = recipe else current.add(recipe)
+            preferences[KEY_SAVED_RECIPES] = encodeSavedRecipes(current)
+        }
+    }
+
+    suspend fun deleteRecipe(recipeName: String) {
+        dataStore.edit { preferences ->
+            val current = preferences[KEY_SAVED_RECIPES]
+                ?.let { decodeSavedRecipes(it) }
+                ?.toMutableList()
+                ?: return@edit
+            current.removeAll { it.name == recipeName }
+            preferences[KEY_SAVED_RECIPES] = encodeSavedRecipes(current)
+        }
+    }
+
     companion object {
         private val KEY_SAE_METRIC_MAX_INCHES = intPreferencesKey("sae_metric_max_inches")
         private const val DEFAULT_MAX_INCHES = 1
@@ -215,11 +283,13 @@ class UserPreferencesRepository @Inject constructor(
         private const val DEFAULT_SHOW_ONLY_COMMON = false
 
         private val KEY_HOME_MODULE_ORDER = stringPreferencesKey("home_module_order")
+        private val KEY_HIDDEN_HOME_MODULES = stringPreferencesKey("hidden_home_modules")
         private val KEY_CONVERTER_CATEGORY_ORDER = stringPreferencesKey("converter_category_order")
         private val KEY_RATIO_MIX_PRESETS = stringPreferencesKey("ratio_mix_presets")
         private val KEY_LAST_CONVERTER_CATEGORY = stringPreferencesKey("last_converter_category")
         private val KEY_CONVERTER_UNITS = stringPreferencesKey("converter_units")
         private val KEY_CALCULATOR_HISTORY = stringPreferencesKey("calculator_history")
+        private val KEY_SAVED_RECIPES = stringPreferencesKey("saved_recipes")
 
         /** Separator between a part's label and its ratio value. U+FFFE is a non-character. */
         private const val PART_SEP = "\uFFFE"
@@ -278,6 +348,47 @@ class UserPreferencesRepository @Inject constructor(
                     category to Pair(fromUnit, toUnit)
                 }
                 .toMap()
+
+        private fun encodeSavedRecipes(recipes: List<SavedRecipe>): String =
+            recipes.joinToString("\n") { recipe ->
+                val ingredientsEncoded = recipe.ingredients.joinToString("\t") { ingredient ->
+                    "${b64enc(ingredient.qtyString)}$PART_SEP${b64enc(ingredient.unit)}$PART_SEP${b64enc(ingredient.state.name)}$PART_SEP${b64enc(ingredient.name)}"
+                }
+                "${b64enc(recipe.name)}\t${b64enc(recipe.servings)}\t$ingredientsEncoded"
+            }
+
+        private fun decodeSavedRecipes(encoded: String): List<SavedRecipe> =
+            encoded.split("\n")
+                .filter { it.isNotBlank() }
+                .mapNotNull { record ->
+                    val tokens = record.split("\t")
+                    if (tokens.size < 2) return@mapNotNull null
+                    val name = b64dec(tokens[0]) ?: return@mapNotNull null
+                    val servings = b64dec(tokens[1]) ?: return@mapNotNull null
+                    val ingredients = tokens.drop(2).mapNotNull { ingredientToken ->
+                        val parts = ingredientToken.split(PART_SEP)
+                        if (parts.size < 4) null
+                        else {
+                            val qty = b64dec(parts[0]) ?: return@mapNotNull null
+                            val unit = b64dec(parts[1]) ?: return@mapNotNull null
+                            val stateName = b64dec(parts[2]) ?: return@mapNotNull null
+                            val ingName = b64dec(parts[3]) ?: return@mapNotNull null
+                            val state = try {
+                                IngredientState.valueOf(stateName)
+                            } catch (e: IllegalArgumentException) {
+                                IngredientState.DRY
+                            }
+                            SavedRecipeIngredient(
+                                qtyString = qty,
+                                unit = unit,
+                                state = state,
+                                name = ingName
+                            )
+                        }
+                    }
+                    if (ingredients.isEmpty()) null
+                    else SavedRecipe(name = name, servings = servings, ingredients = ingredients)
+                }
     }
 }
 

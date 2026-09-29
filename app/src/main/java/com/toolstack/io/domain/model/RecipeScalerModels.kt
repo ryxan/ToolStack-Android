@@ -27,3 +27,16 @@ data class ScaledIngredient(
     val name: String,
     val displayText: String
 )
+
+data class SavedRecipe(
+    val name: String,
+    val servings: String,
+    val ingredients: List<SavedRecipeIngredient>
+)
+
+data class SavedRecipeIngredient(
+    val qtyString: String,
+    val unit: String,
+    val state: IngredientState,
+    val name: String
+)

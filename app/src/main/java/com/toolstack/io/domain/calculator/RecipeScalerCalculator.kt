@@ -12,20 +12,60 @@ object RecipeScalerCalculator {
 
     val ALL_UNITS = listOf(
         Pair("none", "-"),
+        // Liquid units
         Pair("tsp", "tsp"),
         Pair("Tbsp", "Tbsp"),
-        Pair("cup", "cup"),
         Pair("fl oz", "fl oz"),
-        Pair("pt", "pint"),
-        Pair("qt", "quart"),
+        Pair("cup", "cup"),
+        Pair("pt", "pt"),
+        Pair("qt", "qt"),
         Pair("gal", "gal"),
-        Pair("ml", "ml"),
-        Pair("l", "liter"),
+        Pair("mL", "mL"),
+        Pair("L", "L"),
+        // Dry/weight units
         Pair("g", "g"),
         Pair("kg", "kg"),
         Pair("oz", "oz"),
         Pair("lb", "lb")
     )
+
+    // Categorized units for display
+    val LIQUID_UNITS = listOf(
+        Pair("tsp", "tsp"),
+        Pair("Tbsp", "Tbsp"),
+        Pair("fl oz", "fl oz"),
+        Pair("cup", "cup"),
+        Pair("pt", "pt"),
+        Pair("qt", "qt"),
+        Pair("gal", "gal"),
+        Pair("mL", "mL"),
+        Pair("L", "L")
+    )
+
+    val DRY_UNITS = listOf(
+        Pair("g", "g"),
+        Pair("kg", "kg"),
+        Pair("oz", "oz"),
+        Pair("lb", "lb")
+    )
+
+    /**
+     * Automatically detects whether a unit is for liquid or dry ingredients.
+     * Volume units (tsp, Tbsp, cup, fl oz, etc.) default to LIQUID.
+     * Weight units (g, kg, oz, lb) default to DRY.
+     * Exception: cup/tsp/Tbsp can be used for both, but we default to LIQUID
+     * and let the conversion logic handle appropriately.
+     */
+    fun detectIngredientState(unit: String): IngredientState {
+        return when (unit) {
+            // Weight units are always DRY
+            "g", "kg", "oz", "lb" -> IngredientState.DRY
+            // Volume units default to LIQUID
+            "tsp", "Tbsp", "fl oz", "cup", "pt", "qt", "gal", "mL", "L" -> IngredientState.LIQUID
+            // No unit selected
+            else -> IngredientState.DRY
+        }
+    }
 
     private val VOL_MAP = mapOf(
         "tsp" to 1.0, "Tbsp" to 3.0, "fl oz" to 6.0, "cup" to 48.0,
@@ -35,7 +75,7 @@ object RecipeScalerCalculator {
     private val SOLID_VOL_UNITS = setOf("tsp", "Tbsp", "cup")
     private val IMP_WEIGHT_MAP = mapOf("oz" to 1.0, "lb" to 16.0)
     private val MET_SOLID_MAP = mapOf("g" to 1.0, "kg" to 1000.0)
-    private val MET_LIQUID_MAP = mapOf("ml" to 1.0, "l" to 1000.0)
+    private val MET_LIQUID_MAP = mapOf("mL" to 1.0, "L" to 1000.0)
 
     /**
      * Parses a quantity string supporting:
@@ -124,40 +164,60 @@ object RecipeScalerCalculator {
     }
 
     /**
-     * Attempts to convert a quantity to a larger unit if appropriate.
+     * Attempts to convert a quantity to a more appropriate unit based on:
+     * - Ingredient state (DRY vs LIQUID)
+     * - Magnitude (prefer readable quantities)
+     * - Culinary conventions (cups for dry, not gallons)
+     * 
      * Returns (convertedValue, newUnit) or (originalValue, originalUnit) if no conversion.
      */
     private fun tryConvertLargerUnits(qty: Double, unit: String, state: IngredientState): Pair<Double, String> {
-        // Volume conversions (liquid or dry cup/tsp/Tbsp)
-        if (VOL_MAP.containsKey(unit) && (state == IngredientState.LIQUID || unit in SOLID_VOL_UNITS)) {
+        // ── DRY INGREDIENTS using volume units (tsp, Tbsp, cup) ────────────────
+        // For dry ingredients, we STOP at cups — nobody measures dry ingredients in gallons.
+        if (VOL_MAP.containsKey(unit) && state == IngredientState.DRY && unit in SOLID_VOL_UNITS) {
             val tspValue = qty * (VOL_MAP[unit] ?: 1.0)
             return when {
-                tspValue >= 768.0 -> Pair(tspValue / 768.0, "gal")
-                tspValue >= 192.0 -> Pair(tspValue / 192.0, "qt")
-                tspValue >= 96.0 -> Pair(tspValue / 96.0, "pt")
+                // Stop at cups for dry ingredients (48 tsp = 1 cup)
                 tspValue >= 48.0 -> Pair(tspValue / 48.0, "cup")
-                tspValue >= 6.0 -> Pair(tspValue / 6.0, "fl oz")
                 tspValue >= 3.0 -> Pair(tspValue / 3.0, "Tbsp")
                 else -> Pair(qty, unit)
             }
         }
 
-        // Imperial weight
+        // ── LIQUID INGREDIENTS using volume units ──────────────────────────────
+        // For liquids, convert through the full scale, but with sensible thresholds.
+        // Most recipes don't exceed quarts, so gallons only for very large batches.
+        if (VOL_MAP.containsKey(unit) && state == IngredientState.LIQUID) {
+            val tspValue = qty * (VOL_MAP[unit] ?: 1.0)
+            return when {
+                // Use quarts/gallons only for very large quantities
+                tspValue >= 1536.0 -> Pair(tspValue / 768.0, "gal")  // 2+ gallons
+                tspValue >= 384.0 -> Pair(tspValue / 192.0, "qt")     // 2+ quarts
+                tspValue >= 192.0 -> Pair(tspValue / 96.0, "pt")      // 2+ pints
+                tspValue >= 96.0 -> Pair(tspValue / 48.0, "cup")      // 2+ cups
+                tspValue >= 12.0 -> Pair(tspValue / 6.0, "fl oz")     // 2+ fl oz
+                tspValue >= 3.0 -> Pair(tspValue / 3.0, "Tbsp")
+                else -> Pair(qty, unit)
+            }
+        }
+
+        // ── Imperial weight (oz, lb) ────────────────────────────────────────────
+        // Convert to pounds only when we have at least 1 lb
         if (IMP_WEIGHT_MAP.containsKey(unit)) {
             val ozValue = qty * (IMP_WEIGHT_MAP[unit] ?: 1.0)
             return if (ozValue >= 16.0) Pair(ozValue / 16.0, "lb") else Pair(qty, unit)
         }
 
-        // Metric solid weight
+        // ── Metric weight for DRY ingredients (g, kg) ───────────────────────────
         if (state == IngredientState.DRY && MET_SOLID_MAP.containsKey(unit)) {
             val gValue = qty * (MET_SOLID_MAP[unit] ?: 1.0)
             return if (gValue >= 1000.0) Pair(gValue / 1000.0, "kg") else Pair(qty, unit)
         }
 
-        // Metric liquid volume
+        // ── Metric volume for LIQUID ingredients (mL, L) ────────────────────────
         if (state == IngredientState.LIQUID && MET_LIQUID_MAP.containsKey(unit)) {
             val mlValue = qty * (MET_LIQUID_MAP[unit] ?: 1.0)
-            return if (mlValue >= 1000.0) Pair(mlValue / 1000.0, "l") else Pair(qty, unit)
+            return if (mlValue >= 1000.0) Pair(mlValue / 1000.0, "L") else Pair(qty, unit)
         }
 
         return Pair(qty, unit)
@@ -202,10 +262,94 @@ object RecipeScalerCalculator {
     }
 
     /**
+     * Formats quantity as a simplified decimal (no fractions).
+     */
+    fun formatQuantitySimplified(qty: Double, unit: String, state: IngredientState): String {
+        if (qty == 0.0) return "0"
+
+        val converted = tryConvertLargerUnits(qty, unit, state)
+        val value = converted.first
+        val finalUnit = converted.second
+
+        val unitLabel = if (finalUnit == "none") "" else " $finalUnit"
+        
+        // Format with up to 2 decimal places, but strip unnecessary trailing zeros
+        val formatted = String.format(Locale.US, "%.2f", value)
+            .trimEnd('0')  // Remove trailing zeros
+            .trimEnd('.')  // Remove trailing decimal point if no decimals left
+        
+        return "$formatted$unitLabel"
+    }
+
+    /**
+     * Generates a markdown-formatted recipe.
+     */
+    fun generateMarkdownRecipe(scaledIngredients: List<ScaledIngredient>, servings: String): String {
+        if (scaledIngredients.isEmpty()) return ""
+        val header = "## Recipe (Serves $servings)\n\n### Ingredients\n\n"
+        val items = scaledIngredients.joinToString("\n") { ingredient ->
+            "- **${ingredient.displayText}** ${ingredient.name}"
+        }
+        return header + items
+    }
+
+    /**
+     * Generates a recipe with selected format (plain, markdown, shopping list).
+     */
+    fun generateFormattedRecipe(
+        scaledIngredients: List<ScaledIngredient>,
+        servings: String,
+        format: CopyFormat,
+        simplifyFractions: Boolean
+    ): String {
+        if (scaledIngredients.isEmpty()) return ""
+        
+        val ingredientsWithFormat = if (simplifyFractions) {
+            scaledIngredients.map { ingredient ->
+                ingredient.copy(
+                    displayText = formatQuantitySimplified(
+                        ingredient.scaledQty,
+                        ingredient.unit,
+                        ingredient.state
+                    )
+                )
+            }
+        } else {
+            scaledIngredients
+        }
+
+        return when (format) {
+            CopyFormat.PLAIN -> {
+                "Scaled Recipe (Serves $servings)\n\n" +
+                ingredientsWithFormat.joinToString("\n") { ingredient ->
+                    "${ingredient.displayText} ${ingredient.name}"
+                }
+            }
+            CopyFormat.MARKDOWN -> {
+                "## Recipe (Serves $servings)\n\n### Ingredients\n\n" +
+                ingredientsWithFormat.joinToString("\n") { ingredient ->
+                    "- **${ingredient.displayText}** ${ingredient.name}"
+                }
+            }
+            CopyFormat.SHOPPING_LIST -> {
+                ingredientsWithFormat.joinToString("\n") { ingredient ->
+                    "☐ ${ingredient.displayText} ${ingredient.name}"
+                }
+            }
+        }
+    }
+
+    /**
      * Calculates the multiplier needed to scale a recipe.
      */
     fun calculateMultiplier(originalServings: Double, desiredServings: Double): Double {
         if (originalServings <= 0.0) return 1.0
         return desiredServings / originalServings
     }
+}
+
+enum class CopyFormat {
+    PLAIN,
+    MARKDOWN,
+    SHOPPING_LIST
 }

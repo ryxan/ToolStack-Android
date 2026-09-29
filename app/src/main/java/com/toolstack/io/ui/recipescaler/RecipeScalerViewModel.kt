@@ -1,21 +1,30 @@
 package com.toolstack.io.ui.recipescaler
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.toolstack.io.data.repository.UserPreferencesRepository
 import com.toolstack.io.domain.calculator.RecipeScalerCalculator
 import com.toolstack.io.domain.model.IngredientItem
 import com.toolstack.io.domain.model.IngredientState
+import com.toolstack.io.domain.model.SavedRecipe
+import com.toolstack.io.domain.model.SavedRecipeIngredient
 import com.toolstack.io.domain.model.ScaledIngredient
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import java.util.Locale
 import java.util.UUID
 import javax.inject.Inject
 
 @HiltViewModel
-class RecipeScalerViewModel @Inject constructor() : ViewModel() {
+class RecipeScalerViewModel @Inject constructor(
+    private val userPreferencesRepository: UserPreferencesRepository
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RecipeScalerUiState())
     val uiState: StateFlow<RecipeScalerUiState> = _uiState.asStateFlow()
@@ -23,6 +32,13 @@ class RecipeScalerViewModel @Inject constructor() : ViewModel() {
     init {
         // Start with one empty ingredient
         addIngredient()
+        
+        // Observe saved recipes
+        userPreferencesRepository.savedRecipes
+            .onEach { recipes ->
+                _uiState.update { it.copy(savedRecipes = recipes) }
+            }
+            .launchIn(viewModelScope)
     }
 
     // ── Servings ──────────────────────────────────────────────────────────────
@@ -68,7 +84,13 @@ class RecipeScalerViewModel @Inject constructor() : ViewModel() {
     fun onIngredientUnitChanged(id: String, unit: String) {
         _uiState.update { state ->
             val updated = state.ingredients.map { ingredient ->
-                if (ingredient.id == id) ingredient.copy(unit = unit) else ingredient
+                if (ingredient.id == id) {
+                    // Auto-detect ingredient state from unit
+                    val detectedState = RecipeScalerCalculator.detectIngredientState(unit)
+                    ingredient.copy(unit = unit, state = detectedState)
+                } else {
+                    ingredient
+                }
             }
             state.copy(ingredients = updated).recalculate()
         }
@@ -108,6 +130,97 @@ class RecipeScalerViewModel @Inject constructor() : ViewModel() {
         addIngredient()
     }
 
+    // ── Recipe Management ─────────────────────────────────────────────────────
+
+    fun onShowSaveRecipeDialog() {
+        _uiState.update { it.copy(showSaveRecipeDialog = true, recipeNameInput = "") }
+    }
+
+    fun onDismissSaveRecipeDialog() {
+        _uiState.update { it.copy(showSaveRecipeDialog = false, recipeNameInput = "") }
+    }
+
+    fun onRecipeNameInputChanged(name: String) {
+        _uiState.update { it.copy(recipeNameInput = name) }
+    }
+
+    fun onSaveRecipe() {
+        val state = _uiState.value
+        val recipeName = state.recipeNameInput.trim()
+        if (recipeName.isEmpty()) return
+        if (state.ingredients.isEmpty()) return
+
+        val recipe = SavedRecipe(
+            name = recipeName,
+            servings = state.originalServingsText,
+            ingredients = state.ingredients.map { ingredient ->
+                SavedRecipeIngredient(
+                    qtyString = ingredient.qtyString,
+                    unit = ingredient.unit,
+                    state = ingredient.state,
+                    name = ingredient.name
+                )
+            }
+        )
+
+        viewModelScope.launch {
+            userPreferencesRepository.saveRecipe(recipe)
+            _uiState.update { it.copy(showSaveRecipeDialog = false, recipeNameInput = "") }
+        }
+    }
+
+    fun onShowLoadRecipeDialog() {
+        _uiState.update { it.copy(showLoadRecipeDialog = true) }
+    }
+
+    fun onDismissLoadRecipeDialog() {
+        _uiState.update { it.copy(showLoadRecipeDialog = false) }
+    }
+
+    fun onLoadRecipe(recipe: SavedRecipe) {
+        val loadedIngredients = recipe.ingredients.map { savedIngredient ->
+            IngredientItem(
+                id = UUID.randomUUID().toString(),
+                qtyString = savedIngredient.qtyString,
+                unit = savedIngredient.unit,
+                state = savedIngredient.state,
+                name = savedIngredient.name
+            )
+        }
+
+        _uiState.update {
+            it.copy(
+                ingredients = loadedIngredients,
+                originalServingsText = recipe.servings,
+                showLoadRecipeDialog = false
+            ).recalculate()
+        }
+    }
+
+    fun onDeleteRecipe(recipeName: String) {
+        viewModelScope.launch {
+            userPreferencesRepository.deleteRecipe(recipeName)
+        }
+    }
+
+    // ── Enhanced Features ─────────────────────────────────────────────────────
+
+    fun toggleShowOriginalValues() {
+        _uiState.update { it.copy(showOriginalValues = !it.showOriginalValues) }
+    }
+
+    fun toggleSimplifyFractions() {
+        _uiState.update { it.copy(simplifyFractions = !it.simplifyFractions).recalculate() }
+    }
+
+    fun onShowCopyFormatDialog() {
+        _uiState.update { it.copy(showCopyFormatDialog = true) }
+    }
+
+    fun onDismissCopyFormatDialog() {
+        _uiState.update { it.copy(showCopyFormatDialog = false) }
+    }
+
     companion object {
         const val MAX_INGREDIENTS = 50
     }
@@ -120,7 +233,14 @@ data class RecipeScalerUiState(
     val scaledIngredients: List<ScaledIngredient> = emptyList(),
     val multiplierText: String = "",
     val shoppingListText: String = "",
-    val showShoppingListDialog: Boolean = false
+    val showShoppingListDialog: Boolean = false,
+    val savedRecipes: List<SavedRecipe> = emptyList(),
+    val showSaveRecipeDialog: Boolean = false,
+    val showLoadRecipeDialog: Boolean = false,
+    val recipeNameInput: String = "",
+    val showOriginalValues: Boolean = false,
+    val simplifyFractions: Boolean = false,
+    val showCopyFormatDialog: Boolean = false
 ) {
     fun recalculate(): RecipeScalerUiState {
         val originalServings = originalServingsText.toDoubleOrNull() ?: 0.0
@@ -136,13 +256,29 @@ data class RecipeScalerUiState(
 
         val multiplier = RecipeScalerCalculator.calculateMultiplier(originalServings, desiredServings)
         val scaled = RecipeScalerCalculator.scaleIngredients(ingredients, multiplier)
-        val shoppingList = RecipeScalerCalculator.generateShoppingList(scaled)
+        
+        // Apply simplified format if enabled
+        val finalScaled = if (simplifyFractions) {
+            scaled.map { ingredient ->
+                ingredient.copy(
+                    displayText = RecipeScalerCalculator.formatQuantitySimplified(
+                        ingredient.scaledQty,
+                        ingredient.unit,
+                        ingredient.state
+                    )
+                )
+            }
+        } else {
+            scaled
+        }
+        
+        val shoppingList = RecipeScalerCalculator.generateShoppingList(finalScaled)
 
         val multiplierFormatted = String.format(Locale.US, "%.2f", multiplier)
             .replace(Regex("\\.?0+$"), "")
 
         return copy(
-            scaledIngredients = scaled,
+            scaledIngredients = finalScaled,
             multiplierText = multiplierFormatted,
             shoppingListText = shoppingList
         )
