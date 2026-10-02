@@ -484,15 +484,24 @@ private fun CompactIngredientRow(
     val scope = rememberCoroutineScope()
 
     // Local TextFieldValue for qty so we control cursor position.
-    // When qtyString changes externally (e.g. fraction insert), reinitialize
-    // with cursor placed at end-of-text rather than position 0.
-    var qtyFieldValue by remember(ingredient.qtyString) {
+    // Initialized once; kept stable so local edits preserve the cursor.
+    // When qtyString changes externally (e.g. fraction insert), we detect the
+    // divergence in a LaunchedEffect and reinitialize with the cursor at end-of-text.
+    var qtyFieldValue by remember {
         mutableStateOf(
             TextFieldValue(
                 text = ingredient.qtyString,
                 selection = TextRange(ingredient.qtyString.length)
             )
         )
+    }
+    LaunchedEffect(ingredient.qtyString) {
+        if (ingredient.qtyString != qtyFieldValue.text) {
+            qtyFieldValue = TextFieldValue(
+                text = ingredient.qtyString,
+                selection = TextRange(ingredient.qtyString.length)
+            )
+        }
     }
 
     val fieldColors = OutlinedTextFieldDefaults.colors(

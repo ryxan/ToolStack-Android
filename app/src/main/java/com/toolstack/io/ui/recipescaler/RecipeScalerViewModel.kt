@@ -62,13 +62,17 @@ class RecipeScalerViewModel @Inject constructor(
             val updated = state.ingredients.map { ingredient ->
                 if (ingredient.id == ingredientId) {
                     val current = ingredient.qtyString.trim()
+                    // Unicode fractions: ½ ⅓ ¼ ¾ ⅛ ⅔ ⅜ (and others in the Vulgar Fractions block)
+                    val unicodeFractionRegex = Regex("[\\u00BC-\\u00BE\\u2150-\\u215E]")
                     val newQuantity = when {
                         current.isEmpty() -> fraction
-                        current.last().isDigit() && !current.contains(" ") -> "$current$fraction"
-                        current.contains("½") || current.contains("⅓") ||
-                        current.contains("¼") || current.contains("¾") ||
-                        current.contains("⅛") || current.contains("⅔") ||
-                        current.contains("⅜") -> fraction // Replace existing fraction
+                        // Append "/" directly so "1" + "/" → "1/" (enables "1/2" entry)
+                        fraction == "/" -> "$current$fraction"
+                        // Replace an existing Unicode fraction, preserving any whole-number prefix
+                        unicodeFractionRegex.containsMatchIn(current) -> {
+                            val wholePart = current.replace(unicodeFractionRegex, "").trim()
+                            if (wholePart.isEmpty()) fraction else "$wholePart $fraction"
+                        }
                         else -> "$current $fraction"
                     }
                     ingredient.copy(qtyString = newQuantity.trim())
