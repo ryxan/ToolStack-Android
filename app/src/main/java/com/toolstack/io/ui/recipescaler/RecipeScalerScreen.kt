@@ -15,9 +15,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.relocation.BringIntoViewRequester
@@ -69,6 +71,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
@@ -134,9 +137,19 @@ fun RecipeScalerScreen(
         )
     }
 
+    if (uiState.showSaveListDialog) {
+        SaveListDialog(
+            savedRecipes = uiState.savedRecipes,
+            onSelectOverwrite = viewModel::onSelectOverwriteRecipe,
+            onSaveAsNew = viewModel::onChooseSaveAsNew,
+            onDismiss = viewModel::onDismissSaveListDialog
+        )
+    }
+
     if (uiState.showSaveRecipeDialog) {
         SaveRecipeDialog(
             recipeNameInput = uiState.recipeNameInput,
+            overwritingRecipeName = uiState.selectedRecipeForOverwrite,
             errorMessage = uiState.saveRecipeError,
             onRecipeNameChanged = viewModel::onRecipeNameInputChanged,
             onSave = viewModel::onSaveRecipe,
@@ -190,12 +203,14 @@ fun RecipeScalerScreen(
                 )
             )
         },
+        contentWindowInsets = WindowInsets(0),
         modifier = modifier.fillMaxSize()
     ) { padding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .imePadding()
         ) {
             LazyColumn(
                 contentPadding = PaddingValues(
@@ -210,10 +225,12 @@ fun RecipeScalerScreen(
                 item {
                     OriginalRecipeCard(
                         originalServingsText = uiState.originalServingsText,
+                        desiredServingsText = uiState.desiredServingsText,
                         ingredients = uiState.ingredients,
                         focusedIngredientId = uiState.focusedIngredientId,
                         focusedField = uiState.focusedField,
                         onOriginalServingsChanged = viewModel::onOriginalServingsChanged,
+                        onDesiredServingsChanged = viewModel::onDesiredServingsChanged,
                         onClearAll = viewModel::clearAllIngredients,
                         onIngredientQuantityChanged = viewModel::onIngredientQuantityChanged,
                         onIngredientNameChanged = viewModel::onIngredientNameChanged,
@@ -233,12 +250,10 @@ fun RecipeScalerScreen(
 
                 item {
                     ScaledRecipeCard(
-                        desiredServingsText = uiState.desiredServingsText,
                         scaledIngredients = uiState.scaledIngredients,
                         multiplierText = uiState.multiplierText,
                         showOriginalValues = uiState.showOriginalValues,
                         simplifyFractions = uiState.simplifyFractions,
-                        onDesiredServingsChanged = viewModel::onDesiredServingsChanged,
                         onCopyRecipe = viewModel::onShowCopyFormatDialog,
                         onToggleOriginalValues = viewModel::toggleShowOriginalValues,
                         onToggleSimplifyFractions = viewModel::toggleSimplifyFractions
@@ -274,10 +289,14 @@ fun RecipeScalerScreen(
                             viewModel.setFocusedIngredient(id, FocusedIngredientField.NAME)
                         }
                     },
+                    onNextClick = {
+                        uiState.focusedIngredientId?.let { id ->
+                            viewModel.setFocusedIngredient(id, FocusedIngredientField.NAME)
+                        }
+                    },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .imePadding()
                 )
             }
         }
@@ -287,10 +306,12 @@ fun RecipeScalerScreen(
 @Composable
 private fun OriginalRecipeCard(
     originalServingsText: String,
+    desiredServingsText: String,
     ingredients: List<IngredientItem>,
     focusedIngredientId: String?,
     focusedField: FocusedIngredientField?,
     onOriginalServingsChanged: (String) -> Unit,
+    onDesiredServingsChanged: (String) -> Unit,
     onClearAll: () -> Unit,
     onIngredientQuantityChanged: (String, String) -> Unit,
     onIngredientNameChanged: (String, String) -> Unit,
@@ -352,20 +373,66 @@ private fun OriginalRecipeCard(
                 }
             }
 
-            Row(
+            Surface(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
             ) {
-                Text(
-                    text = stringResource(R.string.recipe_scaler_serves_label),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                ServingsField(
-                    value = originalServingsText,
-                    onValueChange = onOriginalServingsChanged
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(0.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // "Serves" column
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.recipe_scaler_serves_label),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        ServingsField(
+                            value = originalServingsText,
+                            onValueChange = onOriginalServingsChanged
+                        )
+                    }
+
+                    // Arrow divider
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .padding(horizontal = 8.dp)
+                            .size(20.dp)
+                            // mirror to point right
+                            .then(
+                                Modifier.graphicsLayer { rotationZ = 180f }
+                            )
+                    )
+
+                    // "Scale to" column
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.recipe_scaler_scale_to_label),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        ServingsField(
+                            value = desiredServingsText,
+                            onValueChange = onDesiredServingsChanged
+                        )
+                    }
+                }
             }
 
             Surface(
@@ -652,12 +719,10 @@ private fun CompactIngredientRow(
 
 @Composable
 private fun ScaledRecipeCard(
-    desiredServingsText: String,
     scaledIngredients: List<ScaledIngredient>,
     multiplierText: String,
     showOriginalValues: Boolean,
     simplifyFractions: Boolean,
-    onDesiredServingsChanged: (String) -> Unit,
     onCopyRecipe: () -> Unit,
     onToggleOriginalValues: () -> Unit,
     onToggleSimplifyFractions: () -> Unit
@@ -702,22 +767,6 @@ private fun ScaledRecipeCard(
                         )
                     }
                 }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(R.string.recipe_scaler_scale_to_label),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                ServingsField(
-                    value = desiredServingsText,
-                    onValueChange = onDesiredServingsChanged
-                )
             }
 
             if (scaledIngredients.isNotEmpty()) {
@@ -971,6 +1020,7 @@ private fun ShoppingListDialog(
 @Composable
 private fun SaveRecipeDialog(
     recipeNameInput: String,
+    overwritingRecipeName: String?,
     errorMessage: String?,
     onRecipeNameChanged: (String) -> Unit,
     onSave: () -> Unit,
@@ -978,13 +1028,31 @@ private fun SaveRecipeDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(text = stringResource(R.string.recipe_scaler_save_recipe_title)) },
+        title = {
+            Text(
+                text = if (overwritingRecipeName != null) {
+                    stringResource(R.string.recipe_scaler_overwrite_recipe_title)
+                } else {
+                    stringResource(R.string.recipe_scaler_save_recipe_title)
+                }
+            )
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = stringResource(R.string.recipe_scaler_save_recipe_message),
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                if (overwritingRecipeName != null) {
+                    Text(
+                        text = stringResource(
+                            R.string.recipe_scaler_overwrite_recipe_message,
+                            overwritingRecipeName
+                        ),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                } else {
+                    Text(
+                        text = stringResource(R.string.recipe_scaler_save_recipe_message),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
                 OutlinedTextField(
                     value = recipeNameInput,
                     onValueChange = onRecipeNameChanged,
@@ -1008,9 +1076,111 @@ private fun SaveRecipeDialog(
                 onClick = onSave,
                 enabled = recipeNameInput.trim().isNotBlank()
             ) {
-                Text(text = stringResource(R.string.recipe_scaler_save_action))
+                Text(
+                    text = if (overwritingRecipeName != null) {
+                        stringResource(R.string.recipe_scaler_overwrite_action)
+                    } else {
+                        stringResource(R.string.recipe_scaler_save_action)
+                    }
+                )
             }
         },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(android.R.string.cancel))
+            }
+        }
+    )
+}
+
+@Composable
+private fun SaveListDialog(
+    savedRecipes: List<SavedRecipe>,
+    onSelectOverwrite: (SavedRecipe) -> Unit,
+    onSaveAsNew: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = stringResource(R.string.recipe_scaler_save_list_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = stringResource(R.string.recipe_scaler_save_list_message),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                // "Save as New" always at the top
+                OutlinedButton(
+                    onClick = onSaveAsNew,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.BookmarkAdd,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = stringResource(R.string.recipe_scaler_save_as_new))
+                }
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
+                Text(
+                    text = stringResource(R.string.recipe_scaler_or_overwrite),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    itemsIndexed(savedRecipes, key = { _, recipe -> recipe.name }) { _, recipe ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = { onSelectOverwrite(recipe) },
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = recipe.name,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = stringResource(
+                                            R.string.recipe_scaler_recipe_details,
+                                            recipe.servings,
+                                            recipe.ingredients.size
+                                        ),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Icon(
+                                    imageVector = Icons.Filled.BookmarkAdd,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text(text = stringResource(android.R.string.cancel))

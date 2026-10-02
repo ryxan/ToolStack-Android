@@ -4,31 +4,23 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -38,8 +30,12 @@ import androidx.compose.ui.unit.dp
 import com.toolstack.io.R
 
 /**
- * Input accessory bar that appears above the keyboard, changing content based on
- * which ingredient field is focused (Quantity or Unit).
+ * Input accessory bar that appears at the bottom of the screen, changing content based
+ * on which ingredient field is focused (fraction chips for QUANTITY, unit picker for UNIT).
+ *
+ * IME inset handling is owned by the parent [Box] in RecipeScalerScreen via
+ * [Modifier.imePadding], so this composable does not apply any window-inset padding itself,
+ * preventing double-counting.
  */
 @Composable
 fun IngredientInputAccessoryBar(
@@ -48,11 +44,10 @@ fun IngredientInputAccessoryBar(
     currentUnit: String?,
     onFractionClick: (String) -> Unit,
     onUnitClick: (String) -> Unit,
+    onNextClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (focusedIngredientId == null) {
-        return
-    }
+    if (focusedIngredientId == null) return
     when (focusedField) {
         FocusedIngredientField.QUANTITY,
         FocusedIngredientField.UNIT -> Unit
@@ -60,17 +55,18 @@ fun IngredientInputAccessoryBar(
         FocusedIngredientField.NONE -> return
     }
 
+    // surfaceContainerHigh gives clear visual separation from the card content below
     Surface(
         modifier = modifier,
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 6.dp,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shadowElevation = 8.dp
     ) {
         when (focusedField) {
             FocusedIngredientField.QUANTITY -> QuantityAccessoryContent(onFractionClick)
             FocusedIngredientField.UNIT -> UnitAccessoryContent(
                 currentUnit = currentUnit,
-                onUnitClick = onUnitClick
+                onUnitClick = onUnitClick,
+                onNextClick = onNextClick
             )
             else -> Unit
         }
@@ -84,7 +80,7 @@ private fun QuantityAccessoryContent(
     LazyRow(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         val fractions = listOf("½", "⅓", "¼", "¾", "⅛", "⅔", "⅜", "/")
@@ -94,63 +90,109 @@ private fun QuantityAccessoryContent(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun UnitAccessoryContent(
     currentUnit: String?,
-    onUnitClick: (String) -> Unit
+    onUnitClick: (String) -> Unit,
+    onNextClick: () -> Unit
 ) {
-    var showMoreUnits by remember { mutableStateOf(false) }
+    val volumeUnits = listOf(
+        "tsp" to "tsp", "Tbsp" to "Tbsp", "cup" to "cup",
+        "pt" to "pt", "qt" to "qt", "gal" to "gal",
+        "mL" to "mL", "L" to "L", "fl oz" to "fl oz"
+    )
+    val weightUnits = listOf(
+        "oz" to "oz", "lb" to "lb", "g" to "g", "kg" to "kg", "mg" to "mg"
+    )
+    val otherUnits = listOf(
+        "pinch" to "pinch", "dash" to "dash", "whole" to "whole",
+        "clove" to "clove", "can" to "can", "pkg" to "pkg", "none" to "-"
+    )
 
-    LazyRow(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        val primaryUnits = listOf(
-            "tsp" to "tsp",
-            "Tbsp" to "Tbsp",
-            "cup" to "cup",
-            "oz" to "oz",
-            "g" to "g",
-            "mL" to "mL",
-            "lb" to "lb"
+        InlineUnitSection(
+            label = stringResource(R.string.recipe_scaler_volume),
+            units = volumeUnits,
+            currentUnit = currentUnit,
+            onUnitClick = onUnitClick
+        )
+        InlineUnitSection(
+            label = stringResource(R.string.recipe_scaler_weight),
+            units = weightUnits,
+            currentUnit = currentUnit,
+            onUnitClick = onUnitClick
+        )
+        InlineUnitSection(
+            label = stringResource(R.string.recipe_scaler_other_units),
+            units = otherUnits,
+            currentUnit = currentUnit,
+            onUnitClick = onUnitClick
         )
 
-        items(primaryUnits.size) { index ->
-            val (value, label) = primaryUnits[index]
-            UnitChip(
-                label = label,
-                selected = currentUnit == value,
-                onClick = { onUnitClick(value) }
-            )
-        }
-
-        item {
-            FilterChip(
-                selected = showMoreUnits,
-                onClick = { showMoreUnits = !showMoreUnits },
-                label = { Text(stringResource(R.string.recipe_scaler_more_units)) },
-                leadingIcon = {
-                    Icon(
-                        imageVector = if (showMoreUnits) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            )
+        // Next button — always visible so user can advance without picking a unit
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Button(
+                onClick = onNextClick,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Text(
+                    text = stringResource(R.string.recipe_scaler_next),
+                    style = MaterialTheme.typography.labelLarge
+                )
+                Spacer(modifier = Modifier.size(4.dp))
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
         }
     }
+}
 
-    if (showMoreUnits) {
-        MoreUnitsBottomSheet(
-            currentUnit = currentUnit,
-            onUnitSelect = {
-                onUnitClick(it)
-                showMoreUnits = false
-            },
-            onDismiss = { showMoreUnits = false }
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun InlineUnitSection(
+    label: String,
+    units: List<Pair<String, String>>,
+    currentUnit: String?,
+    onUnitClick: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
         )
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            units.forEach { (value, display) ->
+                UnitChip(
+                    label = display,
+                    selected = currentUnit == value,
+                    onClick = { onUnitClick(value) }
+                )
+            }
+        }
     }
 }
 
@@ -184,102 +226,4 @@ private fun UnitChip(
         onClick = onClick,
         label = { Text(label) }
     )
-}
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
-@Composable
-private fun MoreUnitsBottomSheet(
-    currentUnit: String?,
-    onUnitSelect: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val sheetState = rememberModalBottomSheetState()
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.recipe_scaler_select_unit),
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-
-            val volumeUnits = listOf(
-                "tsp" to "tsp", "Tbsp" to "Tbsp", "cup" to "cup",
-                "pt" to "pt", "qt" to "qt", "gal" to "gal",
-                "mL" to "mL", "L" to "L", "fl oz" to "fl oz"
-            )
-            val weightUnits = listOf(
-                "oz" to "oz", "lb" to "lb", "g" to "g", "kg" to "kg", "mg" to "mg"
-            )
-            val otherUnits = listOf(
-                "pinch" to "pinch", "dash" to "dash", "whole" to "whole",
-                "clove" to "clove", "can" to "can", "pkg" to "pkg", "none" to "-"
-            )
-
-            UnitCategorySection(
-                category = stringResource(R.string.recipe_scaler_volume),
-                units = volumeUnits,
-                currentUnit = currentUnit,
-                onUnitSelect = onUnitSelect
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            UnitCategorySection(
-                category = stringResource(R.string.recipe_scaler_weight),
-                units = weightUnits,
-                currentUnit = currentUnit,
-                onUnitSelect = onUnitSelect
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            UnitCategorySection(
-                category = stringResource(R.string.recipe_scaler_other_units),
-                units = otherUnits,
-                currentUnit = currentUnit,
-                onUnitSelect = onUnitSelect
-            )
-
-            Spacer(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun UnitCategorySection(
-    category: String,
-    units: List<Pair<String, String>>,
-    currentUnit: String?,
-    onUnitSelect: (String) -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text(
-            text = category,
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            units.forEach { (value, label) ->
-                FilterChip(
-                    selected = currentUnit == value,
-                    onClick = { onUnitSelect(value) },
-                    label = { Text(label) }
-                )
-            }
-        }
-    }
 }

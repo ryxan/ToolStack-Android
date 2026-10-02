@@ -175,12 +175,61 @@ class RecipeScalerViewModel @Inject constructor(
 
     // ── Recipe Management ─────────────────────────────────────────────────────
 
+    /**
+     * Tap on "Save Recipe". If there are already saved recipes, show the list
+     * so the user can choose to overwrite one or save as new. If there are none,
+     * skip straight to the name-entry dialog.
+     */
     fun onShowSaveRecipeDialog() {
-        _uiState.update { it.copy(showSaveRecipeDialog = true, recipeNameInput = "") }
+        val hasSaved = _uiState.value.savedRecipes.isNotEmpty()
+        if (hasSaved) {
+            _uiState.update { it.copy(showSaveListDialog = true) }
+        } else {
+            _uiState.update { it.copy(showSaveRecipeDialog = true, recipeNameInput = "") }
+        }
     }
 
     fun onDismissSaveRecipeDialog() {
-        _uiState.update { it.copy(showSaveRecipeDialog = false, recipeNameInput = "", saveRecipeError = null) }
+        _uiState.update {
+            it.copy(
+                showSaveRecipeDialog = false,
+                showSaveListDialog = false,
+                recipeNameInput = "",
+                saveRecipeError = null,
+                selectedRecipeForOverwrite = null
+            )
+        }
+    }
+
+    /** User dismissed the "pick a recipe to overwrite" list without choosing anything. */
+    fun onDismissSaveListDialog() {
+        _uiState.update { it.copy(showSaveListDialog = false) }
+    }
+
+    /** User tapped an existing recipe in the list — pre-fill the name and open the name dialog. */
+    fun onSelectOverwriteRecipe(recipe: SavedRecipe) {
+        _uiState.update {
+            it.copy(
+                showSaveListDialog = false,
+                showSaveRecipeDialog = true,
+                recipeNameInput = recipe.name,
+                selectedRecipeForOverwrite = recipe.name,
+                saveRecipeError = null
+            )
+        }
+    }
+
+    /** User tapped "Save as New" in the list — open the name dialog with a blank name. */
+    fun onChooseSaveAsNew() {
+        _uiState.update {
+            it.copy(
+                showSaveListDialog = false,
+                showSaveRecipeDialog = true,
+                recipeNameInput = "",
+                selectedRecipeForOverwrite = null,
+                saveRecipeError = null
+            )
+        }
     }
 
     fun onRecipeNameInputChanged(name: String) {
@@ -209,7 +258,14 @@ class RecipeScalerViewModel @Inject constructor(
         viewModelScope.launch {
             val result = userPreferencesRepository.saveRecipe(recipe)
             if (result.isSuccess) {
-                _uiState.update { it.copy(showSaveRecipeDialog = false, recipeNameInput = "", saveRecipeError = null) }
+                _uiState.update {
+                    it.copy(
+                        showSaveRecipeDialog = false,
+                        recipeNameInput = "",
+                        saveRecipeError = null,
+                        selectedRecipeForOverwrite = null
+                    )
+                }
             } else {
                 _uiState.update { it.copy(saveRecipeError = "Failed to save recipe. Please try again.") }
             }
@@ -274,7 +330,7 @@ class RecipeScalerViewModel @Inject constructor(
 }
 
 data class RecipeScalerUiState(
-    val originalServingsText: String = "",
+    val originalServingsText: String = "1",
     val desiredServingsText: String = "",
     val ingredients: List<IngredientItem> = emptyList(),
     val scaledIngredients: List<ScaledIngredient> = emptyList(),
@@ -282,9 +338,13 @@ data class RecipeScalerUiState(
     val shoppingListText: String = "",
     val showShoppingListDialog: Boolean = false,
     val savedRecipes: List<SavedRecipe> = emptyList(),
+    /** True when the "pick a saved recipe to overwrite (or save as new)" sheet is visible. */
+    val showSaveListDialog: Boolean = false,
     val showSaveRecipeDialog: Boolean = false,
     val showLoadRecipeDialog: Boolean = false,
     val recipeNameInput: String = "",
+    /** The name of the recipe the user chose to overwrite, or null when saving as new. */
+    val selectedRecipeForOverwrite: String? = null,
     val showOriginalValues: Boolean = false,
     val simplifyFractions: Boolean = false,
     val showCopyFormatDialog: Boolean = false,
