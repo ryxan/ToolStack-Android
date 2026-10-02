@@ -292,5 +292,11 @@
     <string name="recipe_scaler_format_markdown">Markdown</string>
     <string name="recipe_scaler_format_shopping_list">Shopping List</string>
     <string name="recipe_scaler_select_unit">Select Unit</string>
+    <string name="recipe_scaler_was_original">was: %1$s</string>
+    <string name="recipe_scaler_more_units">More</string>
+    <string name="recipe_scaler_volume">Volume</string>
+    <string name="recipe_scaler_weight">Weight</string>
+    <string name="recipe_scaler_other_units">Other</string>
+    <string name="recipe_scaler_insert_fraction">Insert %1$s</string>
 </resources>
 

@@ -41,6 +41,45 @@ class RecipeScalerViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
+    // ── Focus Management ──────────────────────────────────────────────────────
+
+    fun setFocusedIngredient(ingredientId: String?, field: FocusedIngredientField) {
+        _uiState.update { it.copy(focusedIngredientId = ingredientId, focusedField = field) }
+    }
+
+    fun clearFocusedIngredient(ingredientId: String, field: FocusedIngredientField) {
+        _uiState.update { state ->
+            if (state.focusedIngredientId == ingredientId && state.focusedField == field) {
+                state.copy(focusedIngredientId = null, focusedField = FocusedIngredientField.NONE)
+            } else {
+                state
+            }
+        }
+    }
+
+    fun appendFractionToIngredient(ingredientId: String, fraction: String) {
+        _uiState.update { state ->
+            val updated = state.ingredients.map { ingredient ->
+                if (ingredient.id == ingredientId) {
+                    val current = ingredient.qtyString.trim()
+                    val newQuantity = when {
+                        current.isEmpty() -> fraction
+                        current.last().isDigit() && !current.contains(" ") -> "$current$fraction"
+                        current.contains("½") || current.contains("⅓") ||
+                        current.contains("¼") || current.contains("¾") ||
+                        current.contains("⅛") || current.contains("⅔") ||
+                        current.contains("⅜") -> fraction // Replace existing fraction
+                        else -> "$current $fraction"
+                    }
+                    ingredient.copy(qtyString = newQuantity.trim())
+                } else {
+                    ingredient
+                }
+            }
+            state.copy(ingredients = updated).recalculate()
+        }
+    }
+
     // ── Servings ──────────────────────────────────────────────────────────────
 
     fun onOriginalServingsChanged(text: String) {
@@ -245,7 +284,9 @@ data class RecipeScalerUiState(
     val showOriginalValues: Boolean = false,
     val simplifyFractions: Boolean = false,
     val showCopyFormatDialog: Boolean = false,
-    val saveRecipeError: String? = null
+    val saveRecipeError: String? = null,
+    val focusedIngredientId: String? = null,
+    val focusedField: FocusedIngredientField = FocusedIngredientField.NONE
 ) {
     fun recalculate(): RecipeScalerUiState {
         val originalServings = originalServingsText.toDoubleOrNull() ?: 0.0
@@ -288,4 +329,8 @@ data class RecipeScalerUiState(
             shoppingListText = shoppingList
         )
     }
+}
+
+enum class FocusedIngredientField {
+    QUANTITY, UNIT, NAME, NONE
 }
