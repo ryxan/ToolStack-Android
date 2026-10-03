@@ -67,14 +67,12 @@ object RecipeScalerCalculator {
         }
     }
 
+    // US volume family conversion factors (base: tsp)
     private val VOL_MAP = mapOf(
-        "tsp" to 1.0, "Tbsp" to 3.0, "fl oz" to 6.0, "cup" to 48.0,
-        "pt" to 96.0, "qt" to 192.0, "gal" to 768.0
+        "tsp" to 1.0, "Tbsp" to 3.0, "cup" to 48.0
     )
 
-    private val SOLID_VOL_UNITS = setOf("tsp", "Tbsp", "cup")
-    private val IMP_WEIGHT_MAP = mapOf("oz" to 1.0, "lb" to 16.0)
-    private val MET_SOLID_MAP = mapOf("g" to 1.0, "kg" to 1000.0)
+    // Metric volume family conversion factors (base: mL)
     private val MET_LIQUID_MAP = mapOf("mL" to 1.0, "L" to 1000.0)
 
     /**
@@ -145,103 +143,125 @@ object RecipeScalerCalculator {
 
     /**
      * Formats a scaled quantity with optional unit conversion and fractional display.
+     *
+     * Rounding by unit family (spec):
+     * - tsp / Tbsp  → kitchen fractions (1/8, 1/4, 1/2, 3/4, …)
+     * - cup         → kitchen fractions (1/4, 1/3, 1/2, 2/3, 3/4, …)
+     * - mL          → nearest 5 (nearest 1 when < 100 mL)
+     * - L           → nearest 0.05
+     * - everything else → fractions where possible, else 2 dp
      */
     private fun formatQuantity(qty: Double, unit: String, state: IngredientState): String {
         if (qty == 0.0) return "0"
 
-        val converted = tryConvertLargerUnits(qty, unit, state)
-        val value = converted.first
-        val finalUnit = converted.second
+        val (value, finalUnit) = tryConvertLargerUnits(qty, unit, state)
 
-        val frac = toFraction(value)
         val unitLabel = if (finalUnit == "none") "" else " $finalUnit"
 
-        return if (frac != null) {
-            "$frac$unitLabel"
-        } else {
-            String.format(Locale.US, "%.2f%s", value, unitLabel).replace(Regex("\\.?0+$"), "")
+        return when (finalUnit) {
+            "mL" -> {
+                val rounded = roundMl(value)
+                "$rounded$unitLabel"
+            }
+            "L" -> {
+                val rounded = roundL(value)
+                // Show at most 2 decimal places, strip trailing zeros
+                val formatted = String.format(Locale.US, "%.2f", rounded)
+                    .trimEnd('0').trimEnd('.')
+                "$formatted$unitLabel"
+            }
+            else -> {
+                val frac = toFraction(value, finalUnit)
+                if (frac != null) {
+                    "$frac$unitLabel"
+                } else {
+                    String.format(Locale.US, "%.2f%s", value, unitLabel)
+                        .replace(Regex("\\.?0+$"), "")
+                }
+            }
         }
     }
 
+    /** Round millilitres: nearest 1 when < 100, nearest 5 otherwise. */
+    private fun roundMl(ml: Double): Int {
+        return if (ml < 100.0) {
+            ml.roundToInt()
+        } else {
+            (ml / 5.0).roundToInt() * 5
+        }
+    }
+
+    /** Round litres to nearest 0.05. */
+    private fun roundL(litres: Double): Double {
+        return (litres / 0.05).roundToInt() * 0.05
+    }
+
     /**
-     * Attempts to convert a quantity to a more appropriate unit based on:
-     * - Ingredient state (DRY vs LIQUID)
-     * - Magnitude (prefer readable quantities)
-     * - Culinary conventions (cups for dry, not gallons)
-     * 
-     * Returns (convertedValue, newUnit) or (originalValue, originalUnit) if no conversion.
+     * Promotes a quantity to the most readable unit within its family.
+     *
+     * Unit families (spec):
+     * - US volume   : tsp / Tbsp / cup only
+     *     < 3 tsp          → tsp
+     *     3 tsp – < 12 tsp → Tbsp
+     *     ≥ 12 tsp (4 Tbsp)→ cup (+ remainder shown via fractions)
+     * - Metric volume: mL / L
+     *     < 1000 mL        → mL
+     *     ≥ 1000 mL        → L
+     * - Everything else (fl oz, pt, qt, gal, oz, lb, g, kg, each, none, …):
+     *     no promotion — scale and display in the original unit.
      */
     private fun tryConvertLargerUnits(qty: Double, unit: String, state: IngredientState): Pair<Double, String> {
-        // ── DRY INGREDIENTS using volume units (tsp, Tbsp, cup) ────────────────
-        // For dry ingredients, we STOP at cups — nobody measures dry ingredients in gallons.
-        if (VOL_MAP.containsKey(unit) && state == IngredientState.DRY && unit in SOLID_VOL_UNITS) {
-            val tspValue = qty * (VOL_MAP[unit] ?: 1.0)
+        // ── US volume family: tsp / Tbsp / cup ────────────────────────────────
+        if (unit == "tsp" || unit == "Tbsp" || unit == "cup") {
+            val tsp = qty * (VOL_MAP[unit] ?: 1.0)   // VOL_MAP: tsp=1, Tbsp=3, cup=48
             return when {
-                // Stop at cups for dry ingredients (48 tsp = 1 cup)
-                tspValue >= 48.0 -> Pair(tspValue / 48.0, "cup")
-                tspValue >= 3.0 -> Pair(tspValue / 3.0, "Tbsp")
-                else -> Pair(qty, unit)
+                tsp >= 12.0 -> Pair(tsp / 48.0, "cup")   // ≥ 4 Tbsp → cups
+                tsp >= 3.0  -> Pair(tsp / 3.0,  "Tbsp")  // ≥ 3 tsp  → Tbsp
+                else        -> Pair(tsp,         "tsp")
             }
         }
 
-        // ── LIQUID INGREDIENTS using volume units ──────────────────────────────
-        // For liquids, convert through the full scale, but with sensible thresholds.
-        // Most recipes don't exceed quarts, so gallons only for very large batches.
-        if (VOL_MAP.containsKey(unit) && state == IngredientState.LIQUID) {
-            val tspValue = qty * (VOL_MAP[unit] ?: 1.0)
-            return when {
-                // Use quarts/gallons only for very large quantities
-                tspValue >= 1536.0 -> Pair(tspValue / 768.0, "gal")  // 2+ gallons
-                tspValue >= 384.0 -> Pair(tspValue / 192.0, "qt")     // 2+ quarts
-                tspValue >= 192.0 -> Pair(tspValue / 96.0, "pt")      // 2+ pints
-                tspValue >= 96.0 -> Pair(tspValue / 48.0, "cup")      // 2+ cups
-                tspValue >= 12.0 -> Pair(tspValue / 6.0, "fl oz")     // 2+ fl oz
-                tspValue >= 3.0 -> Pair(tspValue / 3.0, "Tbsp")
-                else -> Pair(qty, unit)
-            }
+        // ── Metric volume family: mL / L ──────────────────────────────────────
+        if (unit == "mL" || unit == "L") {
+            val ml = qty * (MET_LIQUID_MAP[unit] ?: 1.0)  // MET_LIQUID_MAP: mL=1, L=1000
+            return if (ml >= 1000.0) Pair(ml / 1000.0, "L") else Pair(ml, "mL")
         }
 
-        // ── Imperial weight (oz, lb) ────────────────────────────────────────────
-        // Convert to pounds only when we have at least 1 lb
-        if (IMP_WEIGHT_MAP.containsKey(unit)) {
-            val ozValue = qty * (IMP_WEIGHT_MAP[unit] ?: 1.0)
-            return if (ozValue >= 16.0) Pair(ozValue / 16.0, "lb") else Pair(qty, unit)
-        }
-
-        // ── Metric weight for DRY ingredients (g, kg) ───────────────────────────
-        if (state == IngredientState.DRY && MET_SOLID_MAP.containsKey(unit)) {
-            val gValue = qty * (MET_SOLID_MAP[unit] ?: 1.0)
-            return if (gValue >= 1000.0) Pair(gValue / 1000.0, "kg") else Pair(qty, unit)
-        }
-
-        // ── Metric volume for LIQUID ingredients (mL, L) ────────────────────────
-        if (state == IngredientState.LIQUID && MET_LIQUID_MAP.containsKey(unit)) {
-            val mlValue = qty * (MET_LIQUID_MAP[unit] ?: 1.0)
-            return if (mlValue >= 1000.0) Pair(mlValue / 1000.0, "L") else Pair(qty, unit)
-        }
-
+        // ── All other units: no auto-promotion ───────────────────────────────
+        // fl oz, pt, qt, gal, oz, lb, g, kg, each, none, etc.
+        // Scale as-is; future spec can add promotion for these.
         return Pair(qty, unit)
     }
 
     /**
-     * Converts a decimal to a fractional string if it's close to a common fraction.
-     * Returns null if no suitable fraction is found.
+     * Converts a decimal to a fractional string using the allowed fractions for the given unit.
+     *
+     * Fraction sets (spec):
+     * - tsp / Tbsp : 1/8, 1/4, 1/2, 3/4  (eighth-steps — practical kitchen measures)
+     * - cup        : 1/4, 1/3, 1/2, 2/3, 3/4
+     * - everything else: same as tsp/Tbsp (1/8 steps)
+     *
+     * Returns null if no fraction is close enough (falls back to decimal in the caller).
      */
-    private fun toFraction(value: Double): String? {
+    private fun toFraction(value: Double, unit: String = ""): String? {
         if (value < 0.0) return null
         val whole = floor(value).toInt()
         val frac = value - whole
 
         if (frac < 0.001) return if (whole == 0) null else whole.toString()
 
-        val commonFractions = listOf(
-            Pair(1, 2), Pair(1, 3), Pair(2, 3), Pair(1, 4), Pair(3, 4),
-            Pair(1, 8), Pair(3, 8), Pair(5, 8), Pair(7, 8),
-            Pair(1, 16), Pair(3, 16), Pair(5, 16), Pair(7, 16),
-            Pair(9, 16), Pair(11, 16), Pair(13, 16), Pair(15, 16)
-        )
+        val fractions = when (unit) {
+            "cup" -> listOf(
+                Pair(1, 4), Pair(1, 3), Pair(1, 2), Pair(2, 3), Pair(3, 4)
+            )
+            else -> listOf(
+                // tsp, Tbsp, and all other units: eighth-steps
+                Pair(1, 8), Pair(1, 4), Pair(3, 8), Pair(1, 2),
+                Pair(5, 8), Pair(3, 4), Pair(7, 8)
+            )
+        }
 
-        for ((num, den) in commonFractions) {
+        for ((num, den) in fractions) {
             val testVal = num.toDouble() / den.toDouble()
             if (abs(frac - testVal) < 0.02) {
                 return if (whole > 0) "$whole $num/$den" else "$num/$den"
@@ -267,18 +287,24 @@ object RecipeScalerCalculator {
     fun formatQuantitySimplified(qty: Double, unit: String, state: IngredientState): String {
         if (qty == 0.0) return "0"
 
-        val converted = tryConvertLargerUnits(qty, unit, state)
-        val value = converted.first
-        val finalUnit = converted.second
-
+        val (value, finalUnit) = tryConvertLargerUnits(qty, unit, state)
         val unitLabel = if (finalUnit == "none") "" else " $finalUnit"
-        
-        // Format with up to 2 decimal places, but strip unnecessary trailing zeros
-        val formatted = String.format(Locale.US, "%.2f", value)
-            .trimEnd('0')  // Remove trailing zeros
-            .trimEnd('.')  // Remove trailing decimal point if no decimals left
-        
-        return "$formatted$unitLabel"
+
+        // Apply the same ml/L rounding as the fraction path for consistency.
+        return when (finalUnit) {
+            "mL" -> "${roundMl(value)}$unitLabel"
+            "L"  -> {
+                val rounded = roundL(value)
+                val formatted = String.format(Locale.US, "%.2f", rounded)
+                    .trimEnd('0').trimEnd('.')
+                "$formatted$unitLabel"
+            }
+            else -> {
+                val formatted = String.format(Locale.US, "%.2f", value)
+                    .trimEnd('0').trimEnd('.')
+                "$formatted$unitLabel"
+            }
+        }
     }
 
     /**
