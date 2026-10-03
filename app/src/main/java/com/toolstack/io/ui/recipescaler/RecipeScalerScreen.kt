@@ -72,7 +72,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -109,6 +111,8 @@ fun RecipeScalerScreen(
     val showAccessory = uiState.focusedIngredientId != null &&
         (uiState.focusedField == FocusedIngredientField.QUANTITY ||
             uiState.focusedField == FocusedIngredientField.UNIT)
+    var accessoryBarHeightPx by remember { mutableStateOf(0) }
+    val density = LocalDensity.current
 
     if (uiState.showShoppingListDialog) {
         ShoppingListDialog(
@@ -215,7 +219,11 @@ fun RecipeScalerScreen(
             LazyColumn(
                 contentPadding = PaddingValues(
                     top = 16.dp,
-                    bottom = if (showAccessory) 80.dp else 24.dp,
+                    bottom = if (showAccessory) {
+                        with(density) { accessoryBarHeightPx.toDp() }
+                    } else {
+                        24.dp
+                    },
                     start = 16.dp,
                     end = 16.dp
                 ),
@@ -244,6 +252,16 @@ fun RecipeScalerScreen(
                         onIngredientFocusChanged = viewModel::setFocusedIngredient,
                         onIngredientFocusCleared = { id, field ->
                             viewModel.clearFocusedIngredient(id, field)
+                        },
+                        onIngredientNameDone = { id ->
+                            val ingredients = uiState.ingredients
+                            val currentIndex = ingredients.indexOfFirst { it.id == id }
+                            val nextIngredient = ingredients.getOrNull(currentIndex + 1)
+                            if (nextIngredient != null) {
+                                viewModel.setFocusedIngredient(nextIngredient.id, FocusedIngredientField.QUANTITY)
+                            } else if (ingredients.size < RecipeScalerViewModel.MAX_INGREDIENTS) {
+                                viewModel.addIngredientAndFocusName()
+                            }
                         }
                     )
                 }
@@ -290,13 +308,23 @@ fun RecipeScalerScreen(
                         }
                     },
                     onNextClick = {
-                        uiState.focusedIngredientId?.let { id ->
-                            viewModel.setFocusedIngredient(id, FocusedIngredientField.NAME)
+                        val ingredients = uiState.ingredients
+                        val currentId = uiState.focusedIngredientId
+                        val currentIndex = ingredients.indexOfFirst { it.id == currentId }
+                        val nextIngredient = ingredients.getOrNull(currentIndex + 1)
+                        if (nextIngredient != null) {
+                            // Advance focus to the next ingredient's quantity field.
+                            viewModel.setFocusedIngredient(nextIngredient.id, FocusedIngredientField.QUANTITY)
+                        } else if (ingredients.size < RecipeScalerViewModel.MAX_INGREDIENTS) {
+                            // No next ingredient — add a new row and focus its quantity field.
+                            viewModel.addIngredientAndFocusName()
                         }
                     },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .onSizeChanged { accessoryBarHeightPx = it.height }
                 )
             }
         }
@@ -323,7 +351,8 @@ private fun OriginalRecipeCard(
     canLoad: Boolean,
     canSave: Boolean,
     onIngredientFocusChanged: (String, FocusedIngredientField) -> Unit,
-    onIngredientFocusCleared: (String, FocusedIngredientField) -> Unit
+    onIngredientFocusCleared: (String, FocusedIngredientField) -> Unit,
+    onIngredientNameDone: (String) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -475,6 +504,7 @@ private fun OriginalRecipeCard(
                         onQuantityChanged = { onIngredientQuantityChanged(ingredient.id, it) },
                         onNameChanged = { onIngredientNameChanged(ingredient.id, it) },
                         onRemove = { onRemoveIngredient(ingredient.id) },
+                        onDone = { onIngredientNameDone(ingredient.id) },
                         onFocusChanged = { field -> onIngredientFocusChanged(ingredient.id, field) },
                         onFocusCleared = { field -> onIngredientFocusCleared(ingredient.id, field) },
                         focusedField = if (focusedIngredientId == ingredient.id) focusedField else null
@@ -539,6 +569,7 @@ private fun CompactIngredientRow(
     onQuantityChanged: (String) -> Unit,
     onNameChanged: (String) -> Unit,
     onRemove: () -> Unit,
+    onDone: () -> Unit,
     onFocusChanged: (FocusedIngredientField) -> Unit,
     onFocusCleared: (FocusedIngredientField) -> Unit,
     focusedField: FocusedIngredientField?
@@ -583,12 +614,41 @@ private fun CompactIngredientRow(
         }
     }
 
-    // When focusedField becomes NAME, request focus on name field
-    LaunchedEffect(focusedField) {
-        if (focusedField == FocusedIngredientField.NAME) {
-            delay(100) // Small delay to ensure layout is ready
-            nameFocusRequester.requestFocus()
+    // Case 1 — NEW row: focusedField is already set to the desired value on first
+    // composition (the ViewModel sets it atomically with the new ingredient). We use
+    // LaunchedEffect(Unit) so it runs exactly once, after the first layout pass, giving
+    // the FocusRequester time to be attached to the layout tree. A 150 ms delay covers
+    // both the layout pass and the soft-keyboard animation settling.
+    LaunchedEffect(Unit) {
+        val initialField = focusedField
+        if (initialField == FocusedIngredientField.QUANTITY ||
+            initialField == FocusedIngredientField.NAME) {
+            delay(150)
+            when (initialField) {
+                FocusedIngredientField.QUANTITY -> quantityFocusRequester.requestFocus()
+                FocusedIngredientField.NAME -> nameFocusRequester.requestFocus()
+                else -> Unit
+            }
             bringRowIntoView()
+        }
+    }
+
+    // Case 2 — EXISTING row: focusedField changes after the row is already fully laid
+    // out (e.g. advancing from a previous row via the IME Next action). The row's
+    // FocusRequester is already attached, so a short delay is sufficient.
+    LaunchedEffect(focusedField) {
+        when (focusedField) {
+            FocusedIngredientField.NAME -> {
+                delay(50)
+                nameFocusRequester.requestFocus()
+                bringRowIntoView()
+            }
+            FocusedIngredientField.QUANTITY -> {
+                delay(50)
+                quantityFocusRequester.requestFocus()
+                bringRowIntoView()
+            }
+            else -> Unit
         }
     }
 
@@ -690,7 +750,10 @@ private fun CompactIngredientRow(
             },
             keyboardOptions = KeyboardOptions(
                 capitalization = KeyboardCapitalization.Words,
-                imeAction = ImeAction.Done
+                imeAction = ImeAction.Next
+            ),
+            keyboardActions = KeyboardActions(
+                onNext = { onDone() }
             ),
             colors = fieldColors,
             modifier = Modifier

@@ -109,6 +109,30 @@ class RecipeScalerViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Adds a new empty ingredient at the end of the list and immediately
+     * focuses its quantity field. The ID is generated and committed in a single
+     * [_uiState] update so the LaunchedEffect in the row composable sees the
+     * correct [FocusedIngredientField.QUANTITY] signal as soon as composition runs.
+     */
+    fun addIngredientAndFocusName() {
+        _uiState.update { state ->
+            if (state.ingredients.size >= MAX_INGREDIENTS) return@update state
+            val newIngredient = IngredientItem(
+                id = UUID.randomUUID().toString(),
+                qtyString = "",
+                unit = "none",
+                state = IngredientState.DRY,
+                name = ""
+            )
+            state.copy(
+                ingredients = state.ingredients + newIngredient,
+                focusedIngredientId = newIngredient.id,
+                focusedField = FocusedIngredientField.QUANTITY
+            ).recalculate()
+        }
+    }
+
     fun removeIngredient(id: String) {
         _uiState.update { state ->
             state.copy(ingredients = state.ingredients.filter { it.id != id }).recalculate()
@@ -242,6 +266,28 @@ class RecipeScalerViewModel @Inject constructor(
         if (recipeName.isEmpty()) return
         if (state.ingredients.isEmpty()) return
 
+        val originalKey = state.selectedRecipeForOverwrite
+        val isRename = originalKey != null && recipeName != originalKey
+        val isSaveAsNew = originalKey == null
+
+        // When saving as new, reject the save if a recipe with the given name already
+        // exists — do not silently overwrite an unrelated saved recipe.
+        if (isSaveAsNew && state.savedRecipes.any { it.name == recipeName }) {
+            _uiState.update {
+                it.copy(saveRecipeError = "A recipe named \"$recipeName\" already exists. Choose a different name or select it from the list to overwrite.")
+            }
+            return
+        }
+
+        // When renaming a saved recipe, reject the save if another recipe already
+        // uses the new name (would silently overwrite an unrelated recipe otherwise).
+        if (isRename && state.savedRecipes.any { it.name == recipeName }) {
+            _uiState.update {
+                it.copy(saveRecipeError = "A recipe named \"$recipeName\" already exists.")
+            }
+            return
+        }
+
         val recipe = SavedRecipe(
             name = recipeName,
             servings = state.originalServingsText,
@@ -256,6 +302,12 @@ class RecipeScalerViewModel @Inject constructor(
         )
 
         viewModelScope.launch {
+            // If the user renamed an overwrite target, remove the old entry first so the
+            // original recipe is not retained alongside the newly named one.
+            if (isRename) {
+                userPreferencesRepository.deleteRecipe(originalKey!!)
+            }
+
             val result = userPreferencesRepository.saveRecipe(recipe)
             if (result.isSuccess) {
                 _uiState.update {
