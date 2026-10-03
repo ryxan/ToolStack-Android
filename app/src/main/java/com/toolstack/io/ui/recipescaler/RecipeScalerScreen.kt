@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.relocation.BringIntoViewRequester
@@ -113,6 +115,7 @@ fun RecipeScalerScreen(
             uiState.focusedField == FocusedIngredientField.UNIT)
     var accessoryBarHeightPx by remember { mutableStateOf(0) }
     val density = LocalDensity.current
+    val navBarBottomDp = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     if (uiState.showShoppingListDialog) {
         ShoppingListDialog(
@@ -222,7 +225,7 @@ fun RecipeScalerScreen(
                     bottom = if (showAccessory) {
                         with(density) { accessoryBarHeightPx.toDp() }
                     } else {
-                        24.dp
+                        24.dp + navBarBottomDp
                     },
                     start = 16.dp,
                     end = 16.dp
@@ -615,16 +618,17 @@ private fun CompactIngredientRow(
     }
 
     // Case 1 — NEW row: focusedField is already set to the desired value on first
-    // composition (the ViewModel sets it atomically with the new ingredient). We use
-    // LaunchedEffect(Unit) so it runs exactly once, after the first layout pass, giving
-    // the FocusRequester time to be attached to the layout tree. A 150 ms delay covers
-    // both the layout pass and the soft-keyboard animation settling.
-    LaunchedEffect(Unit) {
-        val initialField = focusedField
-        if (initialField == FocusedIngredientField.QUANTITY ||
-            initialField == FocusedIngredientField.NAME) {
+    // composition (the ViewModel sets it atomically with the new ingredient). Keyed on
+    // ingredient.id so it runs exactly once per row lifetime, after the first layout
+    // pass, giving the FocusRequester time to attach to the layout tree. A 150 ms delay
+    // covers both the layout pass and the soft-keyboard animation settling.
+    // Keying on id (not Unit) means the effect is also cancelled if the row is ever
+    // removed and re-added with a different id.
+    LaunchedEffect(ingredient.id) {
+        if (focusedField == FocusedIngredientField.QUANTITY ||
+            focusedField == FocusedIngredientField.NAME) {
             delay(150)
-            when (initialField) {
+            when (focusedField) {
                 FocusedIngredientField.QUANTITY -> quantityFocusRequester.requestFocus()
                 FocusedIngredientField.NAME -> nameFocusRequester.requestFocus()
                 else -> Unit
