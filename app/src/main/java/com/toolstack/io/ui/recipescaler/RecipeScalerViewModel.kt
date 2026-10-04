@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.File
 import java.util.Locale
@@ -397,6 +398,8 @@ class RecipeScalerViewModel @Inject constructor(
                         ).recalculate()
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
@@ -431,13 +434,18 @@ class RecipeScalerViewModel @Inject constructor(
     private suspend fun runTextRecognition(image: InputImage): String =
         suspendCancellableCoroutine { cont ->
             val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+            val closed = java.util.concurrent.atomic.AtomicBoolean(false)
+            fun closeOnce() { if (closed.compareAndSet(false, true)) recognizer.close() }
+
+            cont.invokeOnCancellation { closeOnce() }
+
             recognizer.process(image)
                 .addOnSuccessListener { visionText ->
-                    recognizer.close()
+                    closeOnce()
                     cont.resume(visionText.text)
                 }
                 .addOnFailureListener { e ->
-                    recognizer.close()
+                    closeOnce()
                     if (cont.isActive) cont.cancel(e)
                 }
         }
