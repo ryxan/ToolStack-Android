@@ -3,6 +3,10 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- Camera is used for the recipe scan feature but is not required to run the app -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
         android:name=".IndustrialUtilityApplication"
@@ -35,6 +39,21 @@
                     android:host="screen" />
             </intent-filter>
         </activity>
+
+        <!--
+            FileProvider supplies a content:// URI for the camera photo created by
+            TakePicture. The authority must be unique to the app; we qualify it with
+            the applicationId so debug (.debug suffix) and release don't collide.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
     </application>
 

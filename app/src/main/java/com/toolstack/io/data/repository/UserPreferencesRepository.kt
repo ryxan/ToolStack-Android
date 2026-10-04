@@ -9,7 +9,6 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.toolstack.io.domain.model.SavedRecipe
 import com.toolstack.io.domain.model.SavedRecipeIngredient
-import com.toolstack.io.domain.model.IngredientState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -361,8 +360,10 @@ class UserPreferencesRepository @Inject constructor(
 
         private fun encodeSavedRecipes(recipes: List<SavedRecipe>): String =
             recipes.joinToString("\n") { recipe ->
+                // Slot [2] is kept as an empty placeholder for backwards-compat with
+                // older data that stored IngredientState.name there.
                 val ingredientsEncoded = recipe.ingredients.joinToString("\t") { ingredient ->
-                    "${b64enc(ingredient.qtyString)}$PART_SEP${b64enc(ingredient.unit)}$PART_SEP${b64enc(ingredient.state.name)}$PART_SEP${b64enc(ingredient.name)}"
+                    "${b64enc(ingredient.qtyString)}$PART_SEP${b64enc(ingredient.unit)}$PART_SEP${b64enc("")}$PART_SEP${b64enc(ingredient.name)}"
                 }
                 "${b64enc(recipe.name)}\t${b64enc(recipe.servings)}\t$ingredientsEncoded"
             }
@@ -377,22 +378,18 @@ class UserPreferencesRepository @Inject constructor(
                     val servings = b64dec(tokens[1]) ?: return@mapNotNull null
                     val ingredients = tokens.drop(2).mapNotNull { ingredientToken ->
                         val parts = ingredientToken.split(PART_SEP)
+                        // parts[2] was IngredientState; we ignore it now but still require
+                        // 4 slots so old records (which always had 4) continue to decode.
                         if (parts.size < 4) null
                         else {
-                            val qty = b64dec(parts[0]) ?: return@mapNotNull null
-                            val unit = b64dec(parts[1]) ?: return@mapNotNull null
-                            val stateName = b64dec(parts[2]) ?: return@mapNotNull null
+                            val qty     = b64dec(parts[0]) ?: return@mapNotNull null
+                            val unit    = b64dec(parts[1]) ?: return@mapNotNull null
+                            // parts[2] intentionally ignored (legacy IngredientState slot)
                             val ingName = b64dec(parts[3]) ?: return@mapNotNull null
-                            val state = try {
-                                IngredientState.valueOf(stateName)
-                            } catch (e: IllegalArgumentException) {
-                                IngredientState.DRY
-                            }
                             SavedRecipeIngredient(
                                 qtyString = qty,
-                                unit = unit,
-                                state = state,
-                                name = ingName
+                                unit      = unit,
+                                name      = ingName
                             )
                         }
                     }

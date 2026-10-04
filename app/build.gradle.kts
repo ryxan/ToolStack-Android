@@ -126,6 +126,9 @@ dependencies {
     implementation(libs.okhttp.logging.interceptor)
     implementation(libs.gson)
 
+    // ML Kit — on-device text recognition (used by recipe scan feature)
+    implementation(libs.mlkit.text.recognition)
+
     val composeBom = platform(libs.compose.bom)
     implementation(composeBom)
     androidTestImplementation(composeBom)
