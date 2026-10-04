@@ -86,17 +86,13 @@ object RecipeScalerCalculator {
 
     /**
      * Format a non-volume unit (g, oz, lb, each, etc.).
-     * Formats to two decimal places, strips trailing zeros and a trailing decimal
-     * point, then appends the unit label; anything that rounds to 0 shows as 1.
+     * Rounds [scaledQty] to the nearest whole number; positive quantities are
+     * floored at 1, zero or negative quantities are floored at 0.
      */
     private fun formatOther(scaledQty: Double, unit: String): String {
-        val qty = scaledQty.coerceAtLeast(if (scaledQty > 0.0) 0.01 else 0.0)
-        val formatted = String.format(java.util.Locale.US, "%.2f", qty)
-            .trimEnd('0')
-            .trimEnd('.')
-            .ifEmpty { "0" }
+        val qty = scaledQty.roundToInt().coerceAtLeast(if (scaledQty > 0.0) 1 else 0)
         val unitLabel = if (unit == "none" || unit.isBlank()) "" else " $unit"
-        return "$formatted$unitLabel"
+        return "$qty$unitLabel"
     }
 
     // ── Core scale + format ───────────────────────────────────────────────────
