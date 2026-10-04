@@ -32,7 +32,10 @@ object RecipeOcrParser {
     // seen in practice. Applied as a pre-pass before the quantity regex runs.
     private val OCR_FRACTION_FIXES: List<Pair<Regex, String>> = listOf(
         // "1/3" rendered as "Va", "1/s", "Vs", "V3", "V's"
-        Pair(Regex("""(?i)\bV[a3s]'?\b"""), "1/3"),
+        // Anchored to start-of-line or preceded by whitespace, and followed by
+        // whitespace or end-of-line, so mid-word tokens (e.g. "V3" in "API_V3")
+        // are not incorrectly rewritten.
+        Pair(Regex("""(?im)(?:^|(?<=\s))V[a3s]'?(?=\s|$)"""), "1/3"),
         // "1/2" rendered as "Y2", "Yz", "1/2" is usually fine
         Pair(Regex("""(?i)\bY[2z]\b"""), "1/2"),
         // "1/4" rendered as "Y4", "Va" (ambiguous with 1/3 — context-free, treat as 1/4)
@@ -57,7 +60,9 @@ object RecipeOcrParser {
         "tsps"       to "tsp",
         "teaspoon"   to "tsp",
         "teaspoons"  to "tsp",
-        "t."         to "tsp",
+        // Note: bare "t" and "t." are intentionally absent — lowercase "t" is the
+        // teaspoon convention and capital "T" is tablespoon. These are resolved
+        // case-sensitively in the unit lookup below before any lowercasing occurs.
         // tablespoon
         "tbsp"        to "tbsp",
         "tbsps"       to "tbsp",
@@ -66,7 +71,6 @@ object RecipeOcrParser {
         "tbls"        to "tbsp",
         "tbl"         to "tbsp",
         "tb"          to "tbsp",
-        "t"           to "tbsp",    // capital T convention: handled by case-folding
         // cup
         "cup"  to "cup",
         "cups" to "cup",
@@ -226,7 +230,13 @@ object RecipeOcrParser {
         val unitKey: String
         val tokens = remaining.split(Regex("\\s+"), limit = 2)
         val firstToken = tokens.firstOrNull().orEmpty()
-        val lookedUpUnit = UNIT_SYNONYMS[firstToken.lowercase().trimEnd('.')]
+        // Resolve bare "T" (tablespoon) and "t" / "t." (teaspoon) case-sensitively
+        // BEFORE lowercasing, so punctuation trimming cannot collapse the distinction.
+        val lookedUpUnit = when (firstToken.trimEnd('.')) {
+            "T"  -> "tbsp"
+            "t"  -> "tsp"
+            else -> UNIT_SYNONYMS[firstToken.lowercase().trimEnd('.')]
+        }
         if (lookedUpUnit != null) {
             unitKey   = lookedUpUnit
             remaining = tokens.getOrElse(1) { "" }.trim()

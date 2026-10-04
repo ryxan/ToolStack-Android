@@ -128,10 +128,11 @@ fun RecipeScalerScreen(
     // ── Scan: source picker dialog ────────────────────────────────────────────
     var showScanSourceDialog by rememberSaveable { mutableStateOf(false) }
 
-    // ── Scan: pending camera URI (survives recomposition) ────────────────────
-    // Stored in a remembered mutableStateOf so the TakePicture launcher can
-    // capture it in its result callback even after recomposition.
-    var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
+    // ── Scan: pending camera URI (survives recomposition + activity recreation) ─
+    // rememberSaveable persists the Parcelable URI across process death so the
+    // TakePicture result callback can still retrieve it after the camera app
+    // returns to a recreated activity.
+    var pendingCameraUri by rememberSaveable { mutableStateOf<Uri?>(null) }
 
     // ── Gallery picker launcher ───────────────────────────────────────────────
     val galleryLauncher = rememberLauncherForActivityResult(
