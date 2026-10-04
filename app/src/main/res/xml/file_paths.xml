@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    FileProvider path configuration for the recipe scan feature.
+
+    external-cache-path maps to Context.getExternalCacheDir(), which is the
+    standard scratch location for camera capture files on Android. The file is
+    written by the app before launching the camera intent and deleted after ML
+    Kit finishes processing, so it never occupies storage for long.
+
+    The path attribute "recipe_scan/" scopes the grant to that sub-directory,
+    keeping the FileProvider grant as narrow as possible.
+-->
+<paths>
+    <external-cache-path
+        name="recipe_scan_photos"
+        path="recipe_scan/" />
+</paths>
