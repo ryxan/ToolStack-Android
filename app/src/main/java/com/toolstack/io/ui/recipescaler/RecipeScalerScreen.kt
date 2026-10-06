@@ -1,6 +1,6 @@
 package com.toolstack.io.ui.recipescaler
 
-import android.Manifest
+import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -86,6 +87,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -134,9 +136,9 @@ fun RecipeScalerScreen(
     // returns to a recreated activity.
     var pendingCameraUri by rememberSaveable { mutableStateOf<Uri?>(null) }
 
-    // ── Gallery picker launcher ───────────────────────────────────────────────
+    // ── Gallery picker launcher (Photo Picker — no storage permission needed) ──
     val galleryLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.GetContent()
+        ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
         if (uri != null) {
             viewModel.onImageCaptured(uri)
@@ -146,6 +148,8 @@ fun RecipeScalerScreen(
     }
 
     // ── Camera launcher ───────────────────────────────────────────────────────
+    // TakePicture grants the camera app a URI permission, so no CAMERA runtime
+    // permission is needed.
     val cameraLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.TakePicture()
     ) { success: Boolean ->
@@ -158,27 +162,6 @@ fun RecipeScalerScreen(
         pendingCameraUri = null
     }
 
-    // ── Camera permission launcher ────────────────────────────────────────────
-    val cameraPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted: Boolean ->
-        if (granted) {
-            // Permission just granted — open camera
-            val uri = viewModel.createCameraImageUri()
-            if (uri != null) {
-                pendingCameraUri = uri
-                cameraLauncher.launch(uri)
-            }
-        } else {
-            Toast.makeText(
-                context,
-                context.getString(R.string.recipe_scaler_scan_permission_denied),
-                Toast.LENGTH_LONG
-            ).show()
-            viewModel.onScanCancelled()
-        }
-    }
-
     // ── Dialogs ───────────────────────────────────────────────────────────────
 
     if (showScanSourceDialog) {
@@ -186,24 +169,67 @@ fun RecipeScalerScreen(
             onTakePhoto = {
                 showScanSourceDialog = false
                 val uri = viewModel.createCameraImageUri()
-                if (uri != null) {
+                if (uri == null) {
+                    viewModel.onCameraUnavailable()
+                } else {
                     pendingCameraUri = uri
-                    cameraLauncher.launch(uri)
+                    try {
+                        cameraLauncher.launch(uri)
+                    } catch (e: ActivityNotFoundException) {
+                        pendingCameraUri = null
+                        viewModel.onCameraUnavailable()
+                    }
                 }
-                // If createCameraImageUri returns null the external cache is
-                // unavailable; silently fall back — no crash.
             },
             onChooseGallery = {
                 showScanSourceDialog = false
-                galleryLauncher.launch("image/*")
-            },
-            onRequestCameraPermission = {
-                showScanSourceDialog = false
-                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                galleryLauncher.launch(
+                    androidx.activity.result.PickVisualMediaRequest(
+                        ActivityResultContracts.PickVisualMedia.ImageOnly
+                    )
+                )
             },
             onDismiss = {
                 showScanSourceDialog = false
                 viewModel.onScanCancelled()
+            }
+        )
+    }
+
+    // ── Scan import confirmation (existing list isn't blank) ──────────────────
+    val pendingScan = uiState.pendingScanResult
+    if (pendingScan != null) {
+        AlertDialog(
+            onDismissRequest = viewModel::onScanResultDismiss,
+            title = {
+                Text(
+                    text = pluralStringResource(
+                        R.plurals.recipe_scaler_scan_import_title,
+                        pendingScan.size,
+                        pendingScan.size
+                    )
+                )
+            },
+            text = {
+                Text(
+                    text = stringResource(R.string.recipe_scaler_scan_import_message),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::onScanResultReplace) {
+                    Text(text = stringResource(R.string.recipe_scaler_scan_replace_action))
+                }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = viewModel::onScanResultAppend) {
+                        Text(text = stringResource(R.string.recipe_scaler_scan_add_to_list_action))
+                    }
+                    TextButton(onClick = viewModel::onScanResultDismiss) {
+                        Text(text = stringResource(android.R.string.cancel))
+                    }
+                }
             }
         )
     }
@@ -448,20 +474,16 @@ fun RecipeScalerScreen(
 /**
  * Simple dialog that lets the user choose between the camera and the gallery.
  *
- * We do not check [CAMERA] permission inside this composable — that is the
- * responsibility of the caller via [onRequestCameraPermission] / [onTakePhoto].
- * The screen calls [onTakePhoto] only when it already holds the permission; it
- * calls [onRequestCameraPermission] otherwise. Keeping that logic in the screen
- * avoids polluting the dialog with permission state.
+ * No CAMERA permission is required: TakePicture grants the camera app a scoped
+ * URI permission for the photo file. [onTakePhoto] launches the camera
+ * directly; any launch failure is handled by the caller.
  */
 @Composable
 private fun ScanSourceDialog(
     onTakePhoto: () -> Unit,
     onChooseGallery: () -> Unit,
-    onRequestCameraPermission: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val context = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(text = stringResource(R.string.recipe_scaler_scan_dialog_title)) },
@@ -473,19 +495,9 @@ private fun ScanSourceDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.size(4.dp))
-                // Camera button — requests permission if needed, opens camera if held
+                // Camera button — opens the camera via TakePicture
                 Button(
-                    onClick = {
-                        val permissionStatus = androidx.core.content.ContextCompat.checkSelfPermission(
-                            context,
-                            Manifest.permission.CAMERA
-                        )
-                        if (permissionStatus == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                            onTakePhoto()
-                        } else {
-                            onRequestCameraPermission()
-                        }
-                    },
+                    onClick = onTakePhoto,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -652,6 +664,8 @@ private fun OriginalRecipeCard(
                                         R.string.recipe_scaler_scan_error_no_ingredients
                                     ScanError.RECOGNITION_FAILED ->
                                         R.string.recipe_scaler_scan_error_failed
+                                    ScanError.CAMERA_UNAVAILABLE ->
+                                        R.string.recipe_scaler_scan_error_camera_unavailable
                                 }
                             ),
                             style = MaterialTheme.typography.bodySmall,
@@ -852,7 +866,7 @@ private fun CompactIngredientRow(
         mutableStateOf(
             TextFieldValue(
                 text = ingredient.qtyString,
-                selection = TextRange(ingredient.qtyString.length)
+                selection = TextRange(0)  // cursor at start so leading digits are visible
             )
         )
     }
@@ -860,7 +874,7 @@ private fun CompactIngredientRow(
         if (ingredient.qtyString != qtyFieldValue.text) {
             qtyFieldValue = TextFieldValue(
                 text = ingredient.qtyString,
-                selection = TextRange(ingredient.qtyString.length)
+                selection = TextRange(0)  // cursor at start so leading digits are visible
             )
         }
     }
@@ -939,6 +953,7 @@ private fun CompactIngredientRow(
             colors = fieldColors,
             modifier = Modifier
                 .weight(1.1f)
+                .heightIn(max = 48.dp)
                 .focusRequester(quantityFocusRequester)
                 .onFocusChanged { focusState ->
                     if (focusState.isFocused) {
@@ -972,6 +987,7 @@ private fun CompactIngredientRow(
             colors = fieldColors,
             modifier = Modifier
                 .weight(1.1f)
+                .heightIn(max = 48.dp)
                 .focusRequester(unitFocusRequester)
                 .clickable {
                     keyboardController?.hide()
@@ -1012,6 +1028,7 @@ private fun CompactIngredientRow(
             colors = fieldColors,
             modifier = Modifier
                 .weight(2.2f)
+                .heightIn(max = 48.dp)
                 .focusRequester(nameFocusRequester)
                 .onFocusChanged { focusState ->
                     if (focusState.isFocused) {

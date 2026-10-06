@@ -1,14 +1,19 @@
 package com.toolstack.io.ui.recipescaler
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.ImageDecoder
 import android.net.Uri
+import android.os.Build
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.toolstack.io.data.repository.UserPreferencesRepository
+import com.toolstack.io.domain.calculator.OcrLine
 import com.toolstack.io.domain.calculator.RecipeOcrParser
 import com.toolstack.io.domain.calculator.RecipeScalerCalculator
 import com.toolstack.io.domain.model.IngredientItem
@@ -25,12 +30,13 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
 import java.util.UUID
 import javax.inject.Inject
-import kotlin.coroutines.resume
 
 @HiltViewModel
 class RecipeScalerViewModel @Inject constructor(
@@ -44,6 +50,18 @@ class RecipeScalerViewModel @Inject constructor(
     // Holds the File written before the camera is launched so we can delete it
     // after ML Kit finishes (or on cancellation).
     private var pendingScanFile: File? = null
+
+    // One recognizer for the ViewModel's lifetime — creating a client per scan
+    // pays native init cost each time. `recognizerInitialized` tracks whether
+    // the lazy was ever triggered so onCleared() doesn't instantiate it just to
+    // close it.
+    private val recognizer by lazy { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
+    private var recognizerInitialized = false
+
+    override fun onCleared() {
+        if (recognizerInitialized) recognizer.close()
+        super.onCleared()
+    }
 
     init {
         addIngredient()
@@ -344,12 +362,14 @@ class RecipeScalerViewModel @Inject constructor(
      * ML Kit finishes processing (or when the user cancels).
      *
      * Returns `null` if the external cache directory is unavailable (e.g. SD card
-     * ejected). The screen should treat `null` as a non-fatal failure and skip
-     * launching the camera.
+     * ejected). The screen should report this via [onCameraUnavailable].
      */
     fun createCameraImageUri(): Uri? {
         return try {
             val dir = File(appContext.externalCacheDir, "recipe_scan").also { it.mkdirs() }
+            // Clear leftovers from previous scans so cancelled/failed attempts
+            // don't accumulate in the cache directory.
+            dir.listFiles()?.forEach { it.delete() }
             val file = File(dir, "scan_${System.currentTimeMillis()}.jpg")
             pendingScanFile = file
             FileProvider.getUriForFile(
@@ -366,21 +386,30 @@ class RecipeScalerViewModel @Inject constructor(
     /**
      * Called when the camera or gallery activity returns with a [uri] pointing to
      * the selected/captured image. Runs ML Kit text recognition on the image,
-     * parses the result with [RecipeOcrParser], then replaces the current
-     * ingredient list with the parsed ingredients.
+     * parses the result with [RecipeOcrParser], then either replaces the current
+     * ingredient list (when it's entirely blank) or stores the result in
+     * [RecipeScalerUiState.pendingScanResult] for the user to confirm.
      *
      * State transitions:
      *   isScanProcessing = true  → ML Kit running
      *   isScanProcessing = false → done (success or error)
-     *   scanError                → non-null string on failure, null on success
+     *   scanError                → non-null on failure, null on success
+     *   pendingScanResult        → non-null when confirmation is needed
      */
     fun onImageCaptured(uri: Uri) {
         viewModelScope.launch {
             _uiState.update { it.copy(isScanProcessing = true, scanError = null) }
+            var scanBitmap: Bitmap? = null
             try {
-                val image = InputImage.fromFilePath(appContext, uri)
-                val rawText = runTextRecognition(image)
-                val parsed  = RecipeOcrParser.parse(rawText, MAX_INGREDIENTS)
+                val (image, bitmap) = loadScanImage(uri)
+                scanBitmap = bitmap
+
+                val visionText = runTextRecognition(image)
+
+                // Parsing is pure CPU work — keep it off the main thread.
+                val parsed = withContext(Dispatchers.Default) {
+                    parseVisionText(visionText)
+                }
 
                 if (parsed.isEmpty()) {
                     _uiState.update {
@@ -391,11 +420,23 @@ class RecipeScalerViewModel @Inject constructor(
                     }
                 } else {
                     _uiState.update { state ->
-                        state.copy(
-                            ingredients      = parsed,
-                            isScanProcessing = false,
-                            scanError        = null
-                        ).recalculate()
+                        // Only replace silently when the current list is entirely
+                        // blank; otherwise ask the user (replace / append / cancel).
+                        if (state.ingredients.all { it.name.isBlank() && it.qtyString.isBlank() }) {
+                            state.copy(
+                                ingredients         = parsed,
+                                isScanProcessing    = false,
+                                scanError           = null,
+                                focusedIngredientId = null,
+                                focusedField        = FocusedIngredientField.NONE
+                            ).recalculate()
+                        } else {
+                            state.copy(
+                                pendingScanResult = parsed,
+                                isScanProcessing  = false,
+                                scanError         = null
+                            )
+                        }
                     }
                 }
             } catch (e: CancellationException) {
@@ -408,6 +449,7 @@ class RecipeScalerViewModel @Inject constructor(
                     )
                 }
             } finally {
+                scanBitmap?.recycle()
                 deletePendingScanFile()
             }
         }
@@ -424,31 +466,115 @@ class RecipeScalerViewModel @Inject constructor(
         _uiState.update { it.copy(scanError = null) }
     }
 
+    /** Called when the camera cannot be launched (no camera app, dead cache dir). */
+    fun onCameraUnavailable() {
+        deletePendingScanFile()
+        _uiState.update {
+            it.copy(isScanProcessing = false, scanError = ScanError.CAMERA_UNAVAILABLE)
+        }
+    }
+
+    /** Confirm a pending scan import: replace the current ingredient list. */
+    fun onScanResultReplace() {
+        _uiState.update { state ->
+            val pending = state.pendingScanResult ?: return@update state
+            state.copy(
+                ingredients         = pending,
+                pendingScanResult   = null,
+                focusedIngredientId = null,
+                focusedField        = FocusedIngredientField.NONE
+            ).recalculate()
+        }
+    }
+
+    /** Confirm a pending scan import: append scanned items after non-blank ones. */
+    fun onScanResultAppend() {
+        _uiState.update { state ->
+            val pending = state.pendingScanResult ?: return@update state
+            val kept    = state.ingredients.filter { it.name.isNotBlank() || it.qtyString.isNotBlank() }
+            state.copy(
+                ingredients         = (kept + pending).take(MAX_INGREDIENTS),
+                pendingScanResult   = null,
+                focusedIngredientId = null,
+                focusedField        = FocusedIngredientField.NONE
+            ).recalculate()
+        }
+    }
+
+    /** Dismiss the pending scan import dialog without changing ingredients. */
+    fun onScanResultDismiss() {
+        _uiState.update { it.copy(pendingScanResult = null) }
+    }
+
     // ── Private scan helpers ──────────────────────────────────────────────────
 
     /**
-     * Wraps the ML Kit [TextRecognizer] callback API in a suspend function.
-     * The coroutine is resumed exactly once (success) or with an exception
-     * (failure). The recognizer is closed after use to free native resources.
+     * Runs ML Kit text recognition on [image] using the shared [recognizer].
+     * `kotlinx-coroutines-play-services`' await() bridges the Task API.
      */
-    private suspend fun runTextRecognition(image: InputImage): String =
-        suspendCancellableCoroutine { cont ->
-            val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-            val closed = java.util.concurrent.atomic.AtomicBoolean(false)
-            fun closeOnce() { if (closed.compareAndSet(false, true)) recognizer.close() }
+    private suspend fun runTextRecognition(image: InputImage): Text {
+        recognizerInitialized = true
+        return recognizer.process(image).await()
+    }
 
-            cont.invokeOnCancellation { closeOnce() }
-
-            recognizer.process(image)
-                .addOnSuccessListener { visionText ->
-                    closeOnce()
-                    cont.resume(visionText.text)
-                }
-                .addOnFailureListener { e ->
-                    closeOnce()
-                    if (cont.isActive) cont.cancel(e)
-                }
+    /**
+     * Parses recognised text into ingredients, preferring the layout-aware path
+     * (column detection + wrapped-line merge) when every OCR line has a
+     * bounding box; falls back to plain text parsing otherwise.
+     */
+    private fun parseVisionText(visionText: Text): List<IngredientItem> {
+        val lines = visionText.textBlocks.flatMap { it.lines }
+        if (lines.isNotEmpty() && lines.all { it.boundingBox != null }) {
+            return RecipeOcrParser.parseLines(
+                lines.map { line ->
+                    val box = line.boundingBox!!
+                    OcrLine(
+                        text   = line.text,
+                        left   = box.left,
+                        top    = box.top,
+                        right  = box.right,
+                        bottom = box.bottom
+                    )
+                },
+                MAX_INGREDIENTS
+            )
         }
+        return RecipeOcrParser.parse(visionText.text, MAX_INGREDIENTS)
+    }
+
+    /**
+     * Decodes [uri] into an [InputImage], downscaling so the longest edge is at
+     * most [MAX_SCAN_EDGE_PX]. Image decoding runs on [Dispatchers.IO].
+     *
+     * On API 28+ [ImageDecoder] applies EXIF orientation itself, so the bitmap
+     * is already upright and [InputImage] gets rotation 0. On API 26–27 we fall
+     * back to [InputImage.fromFilePath], which also handles EXIF.
+     *
+     * Returns the [InputImage] paired with the decoded [Bitmap] (non-null only
+     * on the ImageDecoder path) so the caller can recycle it after recognition.
+     */
+    private suspend fun loadScanImage(uri: Uri): Pair<InputImage, Bitmap?> = withContext(Dispatchers.IO) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val bitmap = ImageDecoder.decodeBitmap(
+                ImageDecoder.createSource(appContext.contentResolver, uri)
+            ) { decoder, info, _ ->
+                decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+                val w = info.size.width
+                val h = info.size.height
+                val longest = maxOf(w, h)
+                if (longest > MAX_SCAN_EDGE_PX) {
+                    val scale = MAX_SCAN_EDGE_PX.toFloat() / longest
+                    decoder.setTargetSize(
+                        (w * scale).toInt().coerceAtLeast(1),
+                        (h * scale).toInt().coerceAtLeast(1)
+                    )
+                }
+            }
+            InputImage.fromBitmap(bitmap, 0) to bitmap
+        } else {
+            InputImage.fromFilePath(appContext, uri) to null
+        }
+    }
 
     private fun deletePendingScanFile() {
         pendingScanFile?.delete()
@@ -457,17 +583,21 @@ class RecipeScalerViewModel @Inject constructor(
 
     companion object {
         const val MAX_INGREDIENTS = 50
+        /** Longest-edge pixel cap for scan images; large photos waste memory/OCR time. */
+        const val MAX_SCAN_EDGE_PX = 2048
     }
 }
 
 // ── Scan error type ───────────────────────────────────────────────────────────
 
-/** Sealed type for the two distinguishable scan failure modes. */
+/** Sealed type for the distinguishable scan failure modes. */
 sealed interface ScanError {
     /** ML Kit ran successfully but the parser found no ingredient lines. */
     data object NO_INGREDIENTS_FOUND : ScanError
     /** ML Kit itself threw an exception (image unreadable, OOM, etc.). */
     data object RECOGNITION_FAILED : ScanError
+    /** The camera could not be launched (no camera app or temp-file failure). */
+    data object CAMERA_UNAVAILABLE : ScanError
 }
 
 // ── UiState ───────────────────────────────────────────────────────────────────
@@ -499,7 +629,12 @@ data class RecipeScalerUiState(
     /** True while ML Kit is processing the captured image. */
     val isScanProcessing: Boolean = false,
     /** Non-null when the most recent scan attempt ended with an error. */
-    val scanError: ScanError? = null
+    val scanError: ScanError? = null,
+    /**
+     * Parsed scan result awaiting the user's replace/append/cancel choice.
+     * Non-null only when a scan succeeded but the current list isn't blank.
+     */
+    val pendingScanResult: List<IngredientItem>? = null
 ) {
     fun recalculate(): RecipeScalerUiState {
         val originalServings = originalServingsText.toDoubleOrNull() ?: 0.0

@@ -29,23 +29,25 @@ object RecipeOcrParser {
     //
     // ML Kit sometimes reads "1¼" as "14" (the ¼ glyph collapses into its
     // denominator digit). We can only safely rewrite when the next token is a
-    // recognised unit word — "14 cups" fires but "14 eggs" does not.
+    // recognised VOLUME unit word — "14 cups" fires but "14 eggs" and
+    // "14 oz" (a real weight quantity) do not.
     //
-    // Unit-anchored lookahead: the pattern is kept as a plain String and
+    // Volume-unit-anchored lookahead: the pattern is kept as a plain String and
     // concatenated (not interpolated) into each Regex constructor call so the
     // regex $ anchors inside it are never mistaken for Kotlin string templates.
-    private val UNIT_LOOKAHEAD: String = buildString {
-        // Case-insensitive lookahead that matches " <unit>" at the end of the
-        // quantity token. The unit list mirrors UNIT_SYNONYMS (longest forms first
-        // so the alternation matches greedily). The trailing (?:\s|$) anchor
-        // ensures we match a full unit word, not a prefix.
+    //
+    // Restricted to VOLUME units (cup / tbsp / tsp family): weight and count
+    // units like "oz", "g", "lb" legitimately take large integer quantities
+    // ("14 oz can tomatoes", "454 g flour"), so rewriting them as collapsed
+    // fractions would corrupt real quantities.
+    private val VOLUME_UNIT_LOOKAHEAD: String = buildString {
+        // Case-insensitive lookahead that matches " <volume unit>" at the end of
+        // the quantity token. The unit list is the volume subset of UNIT_SYNONYMS
+        // (longest forms first so the alternation matches greedily). The
+        // trailing (?:\s|$) anchor ensures we match a full unit word, not a prefix.
         append("(?i)(?=\\s+(?:")
         append("tablespoons|tablespoon|teaspoons|teaspoon|")
-        append("milliliters|millilitres|milliliter|millilitre|")
-        append("litres|liters|pounds|pieces|ounces|ounce|")
-        append("litre|liter|grams|gram|tbsps|tbsp|tbls|tsps|")
-        append("cups|cup|each|lbs|mls|tsp|pcs|")
-        append("oz\\.|oz|lb\\.|lb|g\\.|g|c\\.|c|ea|pc|l\\.|l|T|t")
+        append("tbsps|tbsp|tbls|tsps|tsp|cups|cup|c\\.|c|T|t")
         append(")(?:\\s|\$))")
     }
 
@@ -54,15 +56,16 @@ object RecipeOcrParser {
         //
         // ML Kit reads "1¼" as "14", "1½" as "12", "1¾" as "134", etc.
         // Ordered longest suffix first so "134" (→ 1¾) is tried before "14" (→ 1¼).
-        Pair(Regex("(?<!\\d)(\\d+)34$UNIT_LOOKAHEAD"), "$1 3/4"),  // "134 cups" → "1 3/4 cups"
-        Pair(Regex("(?<!\\d)(\\d+)23$UNIT_LOOKAHEAD"), "$1 2/3"),  // "123 ml"   → "1 2/3 ml"
-        Pair(Regex("(?<!\\d)(\\d+)38$UNIT_LOOKAHEAD"), "$1 3/8"),  // "138 oz"   → "1 3/8 oz"
-        Pair(Regex("(?<!\\d)(\\d+)58$UNIT_LOOKAHEAD"), "$1 5/8"),  // "158 oz"   → "1 5/8 oz"
-        Pair(Regex("(?<!\\d)(\\d+)78$UNIT_LOOKAHEAD"), "$1 7/8"),  // "178 oz"   → "1 7/8 oz"
-        Pair(Regex("(?<!\\d)(\\d+)2$UNIT_LOOKAHEAD"),  "$1 1/2"),  // "12 cups"  → "1 1/2 cups"
-        Pair(Regex("(?<!\\d)(\\d+)3$UNIT_LOOKAHEAD"),  "$1 1/3"),  // "13 cups"  → "1 1/3 cups"
-        Pair(Regex("(?<!\\d)(\\d+)4$UNIT_LOOKAHEAD"),  "$1 1/4"),  // "14 cups"  → "1 1/4 cups"
-        Pair(Regex("(?<!\\d)(\\d+)8$UNIT_LOOKAHEAD"),  "$1 1/8"),  // "18 tsp"   → "1 1/8 tsp"
+        // Anchored to volume units only — "14 oz" / "454 g" are real quantities.
+        Pair(Regex("(?<!\\d)(\\d+)34$VOLUME_UNIT_LOOKAHEAD"), "$1 3/4"),  // "134 cups" → "1 3/4 cups"
+        Pair(Regex("(?<!\\d)(\\d+)23$VOLUME_UNIT_LOOKAHEAD"), "$1 2/3"),  // "123 cups" → "1 2/3 cups"
+        Pair(Regex("(?<!\\d)(\\d+)38$VOLUME_UNIT_LOOKAHEAD"), "$1 3/8"),  // "138 tsp"  → "1 3/8 tsp"
+        Pair(Regex("(?<!\\d)(\\d+)58$VOLUME_UNIT_LOOKAHEAD"), "$1 5/8"),  // "158 tsp"  → "1 5/8 tsp"
+        Pair(Regex("(?<!\\d)(\\d+)78$VOLUME_UNIT_LOOKAHEAD"), "$1 7/8"),  // "178 tsp"  → "1 7/8 tsp"
+        Pair(Regex("(?<!\\d)(\\d+)2$VOLUME_UNIT_LOOKAHEAD"),  "$1 1/2"),  // "12 cups"  → "1 1/2 cups"
+        Pair(Regex("(?<!\\d)(\\d+)3$VOLUME_UNIT_LOOKAHEAD"),  "$1 1/3"),  // "13 cups"  → "1 1/3 cups"
+        Pair(Regex("(?<!\\d)(\\d+)4$VOLUME_UNIT_LOOKAHEAD"),  "$1 1/4"),  // "14 cups"  → "1 1/4 cups"
+        Pair(Regex("(?<!\\d)(\\d+)8$VOLUME_UNIT_LOOKAHEAD"),  "$1 1/8"),  // "18 tsp"   → "1 1/8 tsp"
         // ── Latin look-alike mis-reads ────────────────────────────────────────
         // "1/3" rendered as "Va", "Vs", "V3"
         Pair(Regex("""(?im)(?:^|(?<=\s))V[a3s]'?(?=\s|$)"""), "1/3"),
@@ -138,6 +141,41 @@ object RecipeOcrParser {
         Pair(
             Regex("""(?<=\d)(tablespoons|tablespoon|teaspoons|teaspoon|tbsps|tbsp|tbls|tsps|tsp|cups|cup|grams|gram|ounces|ounce|pounds|pound|litres|liters|litre|liter|milliliters|millilitres|milliliter|millilitre|pieces|piece|lbs|mls|oz|lb|ml|g|c)(?=\s|$)""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)),
             " $1"
+        ),
+
+        // ── Handwritten-card: vertical bar or backslash used as fraction slash ─
+        //
+        // Handwritten recipes frequently use a narrow vertical stroke for the
+        // fraction separator.  ML Kit reads it as "|" or occasionally "\".
+        //
+        //   "3|4 C. butter"  → "3/4 C. butter"
+        //   "1|2 tsp salt"   → "1/2 tsp salt"
+        //   "1 1|2 cups"     → "1 1/2 cups"
+        //   "3\4 C."         → "3/4 C."
+        Pair(
+            Regex("""(\d+)\s*[|\\]\s*(\d+)"""),
+            "$1/$2"
+        ),
+
+        // ── Handwritten-card: digit-collapse compound mixed-number artifact ───
+        //
+        // When the digit-collapse rules above convert "N12 unit" → "N 1 1/2 unit",
+        // the result is a three-token quantity "N 1 1/2" where the middle "1" is
+        // an artifact from splitting the collapsed glyph.  QTY_PREFIX_REGEX only
+        // handles two-part mixed numbers ("N M/D"), so "N 1 1/2" ends up with only
+        // "N" parsed as the quantity and "1 1/2 unit" misread as the name.
+        //
+        // This rule absorbs the artifact "1" and folds the fraction into the
+        // leading whole number:
+        //
+        //   "4 1 1/2 cups"  → "4 1/2 cups"    (4 + artifact "1" → 4½)
+        //   "2 1 1/3 tsp"   → "2 1/3 tsp"
+        //
+        // The match is anchored to start-of-string (after all previous fixes have
+        // run) so it only fires on the quantity portion, not mid-name text.
+        Pair(
+            Regex("""^(\d+)\s+1\s+(\d+/\d+)""", setOf(RegexOption.MULTILINE)),
+            "$1 $2"
         )
     )
 
@@ -235,6 +273,22 @@ object RecipeOcrParser {
         """^($FRAC_CHAR+(?:[\s-]+$FRAC_CHAR+/$FRAC_CHAR+|[./]$FRAC_CHAR+)?)"""
     )
 
+    // Per-line cleanup regexes, hoisted so they are compiled once rather than
+    // on every line of every scan.
+    // Explicit Unicode escapes keep the patterns ASCII-safe: U+2022=bullet,
+    // U+2013=en-dash, U+2014=em-dash, U+00B7=middle-dot. Leading periods are
+    // stripped too — OCR sometimes renders a bullet as a plain dot.
+    private val LEADING_MARKERS_REGEX = Regex("^[\\s\\u2022\\u2013\\u2014*\\u00B7.-]+")
+    private val MULTI_SPACE_REGEX     = Regex("\\s{2,}")
+    private val WHITESPACE_SPLIT      = Regex("\\s+")
+    private val TRAILING_COMMA_REGEX  = Regex("\\s*,.*$")      // "flour, sifted" → "flour"
+    private val PAREN_NOTE_REGEX      = Regex("\\s*\\(.*?\\)") // "(optional)" → ""
+
+    // Conjunctions/prepositions that signal a wrapped continuation line:
+    // an ingredient line ending in one of these almost certainly continues on
+    // the next visual line ("1 cup cheddar and" → "mozzarella").
+    private val WRAP_WORDS = setOf("and", "or", "of", "with", "for", "to", "in", "plus")
+
     // Lines that are almost certainly recipe section headers, not ingredients.
     private val SKIP_LINE_PATTERNS = listOf(
         Regex("""^ingredients\s*:?\s*$""", RegexOption.IGNORE_CASE),
@@ -265,9 +319,110 @@ object RecipeOcrParser {
      * manually.
      */
     fun parse(rawText: String, maxIngredients: Int = 50): List<IngredientItem> {
-        return rawText
-            .lines()
-            .asSequence()
+        return parseRawLines(rawText.lines().asSequence(), maxIngredients)
+    }
+
+    /**
+     * Layout-aware variant of [parse] that consumes positioned OCR lines instead
+     * of raw text. ML Kit supplies each recognised line with a bounding box;
+     * using the geometry lets us:
+     *
+     * 1. Detect multi-column layouts (common on recipe cards where ingredients
+     *    are set in two columns) and emit ingredients column-by-column,
+     *    left-to-right, instead of interleaving them by vertical position.
+     * 2. Rejoin wrapped lines — a long ingredient name that overflows onto the
+     *    next visual line is merged back into one ingredient.
+     *
+     * Lines with degenerate geometry should be filtered out by the caller; if
+     * any line lacks a bounding box the caller should fall back to [parse].
+     */
+    fun parseLines(lines: List<OcrLine>, maxIngredients: Int = 50): List<IngredientItem> {
+        if (lines.isEmpty()) return emptyList()
+
+        // ── a. Column detection ──────────────────────────────────────────────
+        // Median line height doubles as the "gutter" tolerance: two lines belong
+        // to different columns when the second starts further right than the
+        // first column's right edge plus one median line height.
+        val heights = lines.map { it.bottom - it.top }.sorted()
+        val medianLineHeight = heights[heights.size / 2]
+
+        // Sweep left-to-right, keeping the running right edge of the current
+        // column. Normal single-column text overlaps horizontally, so all lines
+        // land in one column.
+        val columns = mutableListOf<MutableList<OcrLine>>()
+        var maxRight = Int.MIN_VALUE
+        for (line in lines.sortedBy { it.left }) {
+            if (columns.isEmpty() || line.left > maxRight + medianLineHeight) {
+                columns.add(mutableListOf(line))
+                maxRight = line.right
+            } else {
+                columns.last().add(line)
+                if (line.right > maxRight) maxRight = line.right
+            }
+        }
+
+        // ── b. Wrapped-line merge (within each column, top-to-bottom) ────────
+        // Line B is a visual continuation of line A when ALL of these hold:
+        //   - B's text starts with a lowercase letter (a new ingredient line
+        //     starts uppercase/digit)
+        //   - the vertical gap B.top - A.bottom is < 0.6 * A's height
+        //   - B is not indented left of A by more than one line height
+        // AND at least one wrap signal is present:
+        //   - A looks unfinished: it ends with ',', '-' or '&', has more '('
+        //     than ')', or its last word is a conjunction/preposition
+        //     (WRAP_WORDS) — e.g. "1 cup cheddar and" → "mozzarella"
+        //   - B is indented right of A by more than half a line height
+        // The wrap signal guards against swallowing standalone lowercase
+        // ingredient lines ("salt and pepper to taste") at normal line spacing.
+        val orderedTexts = mutableListOf<String>()
+        for (column in columns) {
+            var previous: OcrLine? = null
+            for (line in column.sortedBy { it.top }) {
+                val prev = previous
+                val prevHeight = if (prev != null) prev.bottom - prev.top else 0
+                val prevText = prev?.text?.trim().orEmpty()
+                val prevLooksUnfinished = prev != null && (
+                    prevText.lastOrNull() in setOf(',', '-', '&', '(') ||
+                        prevText.count { it == '(' } > prevText.count { it == ')' } ||
+                        prevText.substringAfterLast(' ')
+                            .lowercase()
+                            .trim { !it.isLetterOrDigit() } in WRAP_WORDS
+                    )
+                val isIndented = prev != null &&
+                    line.left > prev.left + 0.5 * prevHeight
+                val isContinuation = prev != null &&
+                    line.text.trim().firstOrNull()?.isLowerCase() == true &&
+                    (line.top - prev.bottom) < 0.6 * prevHeight &&
+                    line.left >= prev.left - prevHeight &&
+                    (prevLooksUnfinished || isIndented)
+                if (prev != null && isContinuation) {
+                    // Expand A's bounds and append B's text with a single space.
+                    val merged = prev.copy(
+                        text  = prev.text.trimEnd() + " " + line.text.trim(),
+                        right = maxOf(prev.right, line.right),
+                        bottom = maxOf(prev.bottom, line.bottom)
+                    )
+                    orderedTexts[orderedTexts.lastIndex] = merged.text
+                    previous = merged
+                } else {
+                    orderedTexts.add(line.text)
+                    previous = line
+                }
+            }
+        }
+
+        // ── c. Same per-line pipeline as parse(String) ───────────────────────
+        return parseRawLines(orderedTexts.asSequence(), maxIngredients)
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    /**
+     * Shared pipeline for [parse] and [parseLines]: cleans each raw line, drops
+     * blanks and section headers, parses what remains, and caps the result.
+     */
+    private fun parseRawLines(rawLines: Sequence<String>, maxIngredients: Int): List<IngredientItem> {
+        return rawLines
             .map   { cleanLine(it) }
             .filter { it.isNotBlank() }
             .filter { line -> SKIP_LINE_PATTERNS.none { it.containsMatchIn(line) } }
@@ -277,8 +432,6 @@ object RecipeOcrParser {
             .toList()
     }
 
-    // ── Private helpers ───────────────────────────────────────────────────────
-
     /**
      * Normalise a single raw OCR line:
      * - Strip leading bullet/dash/asterisk markers (common in recipe lists).
@@ -286,12 +439,9 @@ object RecipeOcrParser {
      * - Trim.
      */
     private fun cleanLine(line: String): String {
-        // Use explicit Unicode escapes for bullet/dash chars so the regex stays
-        // ASCII-safe. U+2022=bullet, U+2013=en-dash, U+2014=em-dash, U+00B7=middle-dot.
-        // Also strip leading periods — OCR sometimes renders a bullet as a plain dot.
         return line
-            .replace(Regex("^[\\s\\u2022\\u2013\\u2014*\\u00B7.-]+"), "") // leading list markers + dots
-            .replace(Regex("\\s{2,}"), " ")                                // collapsed whitespace
+            .replace(LEADING_MARKERS_REGEX, "") // leading list markers + dots
+            .replace(MULTI_SPACE_REGEX, " ")    // collapsed whitespace
             .trim()
     }
 
@@ -329,7 +479,7 @@ object RecipeOcrParser {
 
         // ── 2. Unit ───────────────────────────────────────────────────────────
         val unitKey: String
-        val tokens = remaining.split(Regex("\\s+"), limit = 2)
+        val tokens = remaining.split(WHITESPACE_SPLIT, limit = 2)
         val firstToken = tokens.firstOrNull().orEmpty()
         // Resolve bare "T" (tablespoon) and "t" / "t." (teaspoon) case-sensitively
         // BEFORE lowercasing, so punctuation trimming cannot collapse the distinction.
@@ -348,9 +498,9 @@ object RecipeOcrParser {
 
         // ── 3. Name ───────────────────────────────────────────────────────────
         val name = remaining
-            .replace(Regex("\\s*,.*$"), "")      // strip trailing comma clauses ("flour, sifted")
-            .replace(Regex("\\s*\\(.*?\\)"), "") // strip parenthetical notes ("(optional)")
-            .replace(Regex("\\s{2,}"), " ")
+            .replace(TRAILING_COMMA_REGEX, "") // strip trailing comma clauses ("flour, sifted")
+            .replace(PAREN_NOTE_REGEX, "")     // strip parenthetical notes ("(optional)")
+            .replace(MULTI_SPACE_REGEX, " ")
             .trim()
             .replaceFirstChar { it.uppercaseChar() }
 
@@ -369,3 +519,10 @@ object RecipeOcrParser {
         )
     }
 }
+
+/**
+ * One OCR-recognised line of text with its pixel-space bounding box, as supplied
+ * by ML Kit's `Text.Line`. Consumed by [RecipeOcrParser.parseLines] for
+ * layout-aware (column detection + wrapped-line merge) parsing.
+ */
+data class OcrLine(val text: String, val left: Int, val top: Int, val right: Int, val bottom: Int)

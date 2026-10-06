@@ -317,7 +317,13 @@
     <string name="recipe_scaler_scan_processing">Reading recipe…</string>
     <string name="recipe_scaler_scan_error_no_ingredients">No ingredients found. Try a clearer photo showing just the ingredients list.</string>
     <string name="recipe_scaler_scan_error_failed">Could not read the image. Please try again.</string>
-    <string name="recipe_scaler_scan_permission_rationale">Camera access is needed to take a photo of your recipe. You can also pick an existing photo from your gallery without granting camera access.</string>
-    <string name="recipe_scaler_scan_permission_denied">Camera permission denied. Use \"Choose from Gallery\" to pick an existing photo instead.</string>
+    <string name="recipe_scaler_scan_error_camera_unavailable">Couldn\'t open the camera. You can still pick a photo from your gallery.</string>
+    <plurals name="recipe_scaler_scan_import_title">
+        <item quantity="one">Import %d ingredient?</item>
+        <item quantity="other">Import %d ingredients?</item>
+    </plurals>
+    <string name="recipe_scaler_scan_import_message">Your current list already has ingredients. Replace it with the scanned ingredients, or add them to the end?</string>
+    <string name="recipe_scaler_scan_replace_action">Replace</string>
+    <string name="recipe_scaler_scan_add_to_list_action">Add to list</string>
 </resources>
 
