@@ -109,11 +109,15 @@ class UserPreferencesRepository @Inject constructor(
      *
      * An empty/missing value means no presets have been saved.
      */
-    val ratioMixPresets: Flow<List<RatioMixPreset>> = dataStore.data.map { preferences ->
-        preferences[KEY_RATIO_MIX_PRESETS]
-            ?.let { decodeRatioMixPresets(it) }
-            ?: emptyList()
-    }
+    val ratioMixPresets: Flow<List<RatioMixPreset>> = dataStore.data
+        .catch { e ->
+            if (e is IOException) emit(emptyPreferences()) else throw e
+        }
+        .map { preferences ->
+            preferences[KEY_RATIO_MIX_PRESETS]
+                ?.let { decodeRatioMixPresets(it) }
+                ?: emptyList()
+        }
 
     suspend fun saveRatioMixPreset(preset: RatioMixPreset) {
         dataStore.edit { preferences ->

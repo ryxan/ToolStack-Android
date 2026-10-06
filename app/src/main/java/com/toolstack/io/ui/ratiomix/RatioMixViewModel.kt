@@ -97,7 +97,7 @@ class RatioMixViewModel @Inject constructor(
     }
 
     fun onKnownPartIndexChanged(index: Int) {
-        _uiState.update { it.copy(knownPartIndex = index).recalculate() }
+        _uiState.update { it.copy(knownPartIndex = index.coerceIn(it.parts.indices)).recalculate() }
     }
 
     // ── preset save/load/delete ───────────────────────────────────────────────
@@ -189,9 +189,8 @@ enum class Mode { TOTAL_TO_PARTS, PART_TO_TOTAL }
 data class RatioPart(
     val label: String,
     val ratioText: String,
-    /** Computed result volume, null when inputs are invalid. */
-    val resultVolume: Double? = null,
-    val resultText: String = ""
+    /** True when ratioText is not a positive finite number — drives field error UI. */
+    val ratioError: Boolean = false
 )
 
 // ── UiState ───────────────────────────────────────────────────────────────────
@@ -214,59 +213,71 @@ data class RatioMixUiState(
     val results: List<RatioResult> = emptyList(),
     val totalResultText: String = "",
     val ratioSummary: String = "",
-    val hasError: Boolean = false
+    val hasError: Boolean = false,
+    /** True when the volume field holds non-blank text that isn't a positive number. */
+    val volumeError: Boolean = false
 ) {
     fun recalculate(): RatioMixUiState {
-        val ratios = parts.map { it.ratioText.trim().toDoubleOrNull() }
-        if (ratios.any { it == null || !it.isFinite() || it <= 0.0 }) {
-            return copy(results = emptyList(), totalResultText = "", ratioSummary = "", hasError = true)
+        val ratios = parts.map { parseDecimal(it.ratioText) }
+        val ratioOk = ratios.map { it != null && it.isFinite() && it > 0.0 }
+        // Flag each invalid ratio field so the UI can highlight the offender.
+        val markedParts = parts.mapIndexed { i, part -> part.copy(ratioError = !ratioOk[i]) }
+
+        val volume = parseDecimal(totalVolumeText)
+        // Blank volume is just "no input yet"; non-blank-but-invalid is an error.
+        val volumeError = totalVolumeText.isNotBlank() &&
+            (volume == null || !volume.isFinite() || volume <= 0.0)
+
+        val withFlags = copy(parts = markedParts, volumeError = volumeError)
+
+        if (ratioOk.any { !it }) {
+            return withFlags.copy(results = emptyList(), totalResultText = "", ratioSummary = "", hasError = true)
         }
 
         val ratioValues = ratios.map { it!! }
         val ratioSum = ratioValues.sum()
         if (!ratioSum.isFinite() || ratioSum <= 0.0) {
-            return copy(results = emptyList(), totalResultText = "", ratioSummary = "", hasError = true)
+            return withFlags.copy(results = emptyList(), totalResultText = "", ratioSummary = "", hasError = true)
         }
 
-        // Build simplified ratio string e.g. "3 : 1" or "2 : 1 : 0.5"
-        val summary = ratioValues.joinToString(" : ") { formatRatio(it) }
+        // Echo the user's own (normalised) text so tiny ratios like "0.001" aren't
+        // rounded to "0" by display formatting.
+        val summary = markedParts.joinToString(" : ") { it.ratioText.trim().replace(',', '.') }
 
         return when (mode) {
             Mode.TOTAL_TO_PARTS -> {
-                val totalLitres = totalVolumeText.trim().toDoubleOrNull()
-                if (totalLitres == null || !totalLitres.isFinite() || totalLitres <= 0.0) {
-                    copy(results = emptyList(), totalResultText = "", ratioSummary = summary, hasError = false)
+                if (volume == null || !volume.isFinite() || volume <= 0.0) {
+                    withFlags.copy(results = emptyList(), totalResultText = "", ratioSummary = summary, hasError = false)
                 } else {
-                    val totalInLitres = totalLitres * selectedUnit.toLitres
-                    val results = parts.mapIndexed { i, part ->
+                    val totalInLitres = volume * selectedUnit.toLitres
+                    val results = markedParts.mapIndexed { i, part ->
                         val vol = totalInLitres * (ratioValues[i] / ratioSum)
-                        if (!vol.isFinite()) return copy(results = emptyList(), totalResultText = "", ratioSummary = summary, hasError = true)
+                        if (!vol.isFinite()) return withFlags.copy(results = emptyList(), totalResultText = "", ratioSummary = summary, hasError = true)
                         val display = formatVolume(vol / selectedUnit.toLitres)
                         RatioResult(label = part.label, volumeText = "$display ${selectedUnit.symbol}")
                     }
-                    copy(results = results, totalResultText = "", ratioSummary = summary, hasError = false)
+                    withFlags.copy(results = results, totalResultText = "", ratioSummary = summary, hasError = false)
                 }
             }
             Mode.PART_TO_TOTAL -> {
-                val knownVolume = totalVolumeText.trim().toDoubleOrNull()
-                val idx = knownPartIndex.coerceIn(parts.indices)
-                if (knownVolume == null || !knownVolume.isFinite() || knownVolume <= 0.0) {
-                    copy(results = emptyList(), totalResultText = "", ratioSummary = summary, hasError = false)
+                val idx = knownPartIndex.coerceIn(markedParts.indices)
+                if (volume == null || !volume.isFinite() || volume <= 0.0) {
+                    withFlags.copy(results = emptyList(), totalResultText = "", ratioSummary = summary, hasError = false)
                 } else {
-                    val knownInLitres = knownVolume * selectedUnit.toLitres
+                    val knownInLitres = volume * selectedUnit.toLitres
                     val litresPerRatioPart = knownInLitres / ratioValues[idx]
                     val totalLitres = litresPerRatioPart * ratioSum
                     if (!litresPerRatioPart.isFinite() || !totalLitres.isFinite()) {
-                        return copy(results = emptyList(), totalResultText = "", ratioSummary = summary, hasError = true)
+                        return withFlags.copy(results = emptyList(), totalResultText = "", ratioSummary = summary, hasError = true)
                     }
-                    val results = parts.mapIndexed { i, part ->
+                    val results = markedParts.mapIndexed { i, part ->
                         val vol = litresPerRatioPart * ratioValues[i]
-                        if (!vol.isFinite()) return copy(results = emptyList(), totalResultText = "", ratioSummary = summary, hasError = true)
+                        if (!vol.isFinite()) return withFlags.copy(results = emptyList(), totalResultText = "", ratioSummary = summary, hasError = true)
                         val display = formatVolume(vol / selectedUnit.toLitres)
                         RatioResult(label = part.label, volumeText = "$display ${selectedUnit.symbol}")
                     }
                     val totalDisplay = formatVolume(totalLitres / selectedUnit.toLitres)
-                    copy(
+                    withFlags.copy(
                         results = results,
                         totalResultText = "$totalDisplay ${selectedUnit.symbol}",
                         ratioSummary = summary,
@@ -277,16 +288,17 @@ data class RatioMixUiState(
         }
     }
 
-    private fun formatRatio(v: Double): String =
-        if (v == v.toLong().toDouble()) v.toLong().toString()
-        else String.format(Locale.US, "%.2f", v).trimEnd('0').trimEnd('.')
+    private fun parseDecimal(text: String): Double? =
+        text.trim().replace(',', '.').toDoubleOrNull()
 
     private fun formatVolume(v: Double): String {
         if (v <= 0.0) return "0"
         return if (v >= 100.0) {
             String.format(Locale.US, "%.1f", v).trimEnd('0').trimEnd('.')
         } else {
-            String.format(Locale.US, "%.3f", v).trimEnd('0').trimEnd('.')
+            val s = String.format(Locale.US, "%.3f", v).trimEnd('0').trimEnd('.')
+            // Sub-millilitre results would format as "0"; show a floor instead.
+            if (s == "0") "<0.001" else s
         }
     }
 }

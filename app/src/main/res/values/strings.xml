@@ -152,6 +152,7 @@
     <string name="ratio_mix_results_title">Results</string>
     <string name="ratio_mix_ratio_summary">Ratio: %1$s</string>
     <string name="ratio_mix_total_label">Total</string>
+    <string name="ratio_mix_error_positive">Must be a positive number</string>
     <string name="ratio_mix_save_preset">Save preset</string>
     <string name="ratio_mix_saved_presets">Saved presets</string>
     <string name="ratio_mix_preset_name_hint">Preset name</string>
