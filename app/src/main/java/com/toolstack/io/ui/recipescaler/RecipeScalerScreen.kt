@@ -874,7 +874,7 @@ private fun CompactIngredientRow(
         if (ingredient.qtyString != qtyFieldValue.text) {
             qtyFieldValue = TextFieldValue(
                 text = ingredient.qtyString,
-                selection = TextRange(0)  // cursor at start so leading digits are visible
+                selection = TextRange(ingredient.qtyString.length)
             )
         }
     }
