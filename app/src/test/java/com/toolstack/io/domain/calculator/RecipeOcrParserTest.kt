@@ -110,6 +110,32 @@ class RecipeOcrParserTest {
         assertEquals("12 eggs must not become 1.5", 12.0, qty, 0.001)
     }
 
+    // ── Leading-decimal quantities ────────────────────────────────────────────
+    //
+    // A ".5" written without a leading zero must survive cleanLine's
+    // leading-marker strip (a '.' followed by a digit is a decimal point, not a
+    // bullet) and parse as 0.5 — not 5.
+
+    @Test fun `leading dot decimal point 5 cup → half cup`() {
+        val item = parseLine(".5 cup milk")
+        assertEquals("0.5",  item?.qtyString)
+        assertEquals("cup",  item?.unit)
+        assertEquals("Milk", item?.name)
+    }
+
+    @Test fun `leading dot decimal after bullet marker → half cup`() {
+        val item = parseLine("* .5 cup milk")
+        val qty  = RecipeScalerCalculator.parseQuantity(item?.qtyString ?: "")
+        assertEquals("qty should be 0.5", 0.5, qty, 0.001)
+        assertEquals("cup", item?.unit)
+    }
+
+    @Test fun `leading period followed by space is still stripped as bullet`() {
+        // ". chopped parsley" — '.' before a space is a bullet artefact, not a decimal.
+        val item = parseLine(". chopped parsley")
+        assertEquals("Chopped parsley", item?.name)
+    }
+
     // ── Digit-1 mis-read as "L" fused to unit (Cheesy Bread regression) ──────
     //
     // These three patterns were observed in a real ML Kit scan of a Cheesy Bread

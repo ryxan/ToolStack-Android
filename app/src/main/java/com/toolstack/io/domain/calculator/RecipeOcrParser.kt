@@ -251,7 +251,7 @@ object RecipeOcrParser {
     )
 
     // Regex that matches the quantity portion at the very start of a line.
-    // Supports: "1", "1.5", "1/2", "1 1/2", "1-1/2", "1¼", and the Unicode
+    // Supports: "1", "1.5", ".5", "1/2", "1 1/2", "1-1/2", "1¼", and the Unicode
     // vulgar fractions in U+00BC-U+00BE and U+2150-U+215E.
     //
     // All Unicode code points are explicit hex escapes so the file stays ASCII-safe.
@@ -264,21 +264,24 @@ object RecipeOcrParser {
     //     [\s-]+FRAC_CHAR+/FRAC_CHAR+   – mixed number: "1 1/4" or "1-1/4"
     //   | [./]FRAC_CHAR+                – decimal "1.5" or slash-fraction continuation "1/2"
     //   )?
+    // | \.\d+                    – or a leading-decimal with no whole part: ".5"
     //
     // This deliberately excludes a bare space followed by a letter, so "1¼ cups"
     // does NOT extend the match into "cups". The [\s-]+ is only followed by more
     // digit/fraction chars and a slash (the mixed-number form), never bare words.
     private val FRAC_CHAR = "[\u00BC-\u00BE\u2150-\u215E\\d]"
     private val QTY_PREFIX_REGEX = Regex(
-        """^($FRAC_CHAR+(?:[\s-]+$FRAC_CHAR+/$FRAC_CHAR+|[./]$FRAC_CHAR+)?)"""
+        """^($FRAC_CHAR+(?:[\s-]+$FRAC_CHAR+/$FRAC_CHAR+|[./]$FRAC_CHAR+)?|\.\d+)"""
     )
 
     // Per-line cleanup regexes, hoisted so they are compiled once rather than
     // on every line of every scan.
     // Explicit Unicode escapes keep the patterns ASCII-safe: U+2022=bullet,
     // U+2013=en-dash, U+2014=em-dash, U+00B7=middle-dot. Leading periods are
-    // stripped too — OCR sometimes renders a bullet as a plain dot.
-    private val LEADING_MARKERS_REGEX = Regex("^[\\s\\u2022\\u2013\\u2014*\\u00B7.-]+")
+    // stripped too — OCR sometimes renders a bullet as a plain dot — except a
+    // period immediately followed by a digit, which is a leading-decimal
+    // quantity (".5 cup" → 0.5), not a marker.
+    private val LEADING_MARKERS_REGEX = Regex("^(?:[\\s\\u2022\\u2013\\u2014*\\u00B7-]|\\.(?!\\d))+")
     private val MULTI_SPACE_REGEX     = Regex("\\s{2,}")
     private val WHITESPACE_SPLIT      = Regex("\\s+")
     private val TRAILING_COMMA_REGEX  = Regex("\\s*,.*$")      // "flour, sifted" → "flour"
@@ -463,7 +466,9 @@ object RecipeOcrParser {
         val qtyString: String
         val qtyMatch = QTY_PREFIX_REGEX.find(remaining)
         if (qtyMatch != null) {
+            // Normalise a bare leading decimal (".5") to "0.5" for display.
             val raw = qtyMatch.value.trim()
+                .let { if (it.startsWith('.')) "0$it" else it }
             // Validate: parseQuantity must return a non-zero value for this to
             // count as a real quantity token.
             val qty = RecipeScalerCalculator.parseQuantity(raw)
