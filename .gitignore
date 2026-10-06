@@ -37,3 +37,14 @@ __pycache__/
 
 # Local tooling / agent artifacts
 .kiro/
+.cursor/
+graphify-out/
+test_output/
+
+# Icon bake/export folders (real assets live in app/src/main/res)
+AppIcons/
+MainApp Icon/
+ConduitBenderIcons-Android/
+fastnerandwrenchsize/
+recipescalericons/
+sprayercalcicon/
