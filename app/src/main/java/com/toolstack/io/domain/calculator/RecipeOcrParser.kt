@@ -27,23 +27,118 @@ object RecipeOcrParser {
 
     // ── OCR mis-read normalization map ───────────────────────────────────────
     //
-    // ML Kit sometimes renders Unicode vulgar fractions as Latin look-alikes
-    // depending on the font being scanned. These are the most common mis-reads
-    // seen in practice. Applied as a pre-pass before the quantity regex runs.
+    // ML Kit sometimes reads "1¼" as "14" (the ¼ glyph collapses into its
+    // denominator digit). We can only safely rewrite when the next token is a
+    // recognised unit word — "14 cups" fires but "14 eggs" does not.
+    //
+    // Unit-anchored lookahead: the pattern is kept as a plain String and
+    // concatenated (not interpolated) into each Regex constructor call so the
+    // regex $ anchors inside it are never mistaken for Kotlin string templates.
+    private val UNIT_LOOKAHEAD: String = buildString {
+        // Case-insensitive lookahead that matches " <unit>" at the end of the
+        // quantity token. The unit list mirrors UNIT_SYNONYMS (longest forms first
+        // so the alternation matches greedily). The trailing (?:\s|$) anchor
+        // ensures we match a full unit word, not a prefix.
+        append("(?i)(?=\\s+(?:")
+        append("tablespoons|tablespoon|teaspoons|teaspoon|")
+        append("milliliters|millilitres|milliliter|millilitre|")
+        append("litres|liters|pounds|pieces|ounces|ounce|")
+        append("litre|liter|grams|gram|tbsps|tbsp|tbls|tsps|")
+        append("cups|cup|each|lbs|mls|tsp|pcs|")
+        append("oz\\.|oz|lb\\.|lb|g\\.|g|c\\.|c|ea|pc|l\\.|l|T|t")
+        append(")(?:\\s|\$))")
+    }
+
     private val OCR_FRACTION_FIXES: List<Pair<Regex, String>> = listOf(
-        // "1/3" rendered as "Va", "1/s", "Vs", "V3", "V's"
-        // Anchored to start-of-line or preceded by whitespace, and followed by
-        // whitespace or end-of-line, so mid-word tokens (e.g. "V3" in "API_V3")
-        // are not incorrectly rewritten.
+        // ── Unicode vulgar fraction glyph collapsed into surrounding digits ──
+        //
+        // ML Kit reads "1¼" as "14", "1½" as "12", "1¾" as "134", etc.
+        // Ordered longest suffix first so "134" (→ 1¾) is tried before "14" (→ 1¼).
+        Pair(Regex("(?<!\\d)(\\d+)34$UNIT_LOOKAHEAD"), "$1 3/4"),  // "134 cups" → "1 3/4 cups"
+        Pair(Regex("(?<!\\d)(\\d+)23$UNIT_LOOKAHEAD"), "$1 2/3"),  // "123 ml"   → "1 2/3 ml"
+        Pair(Regex("(?<!\\d)(\\d+)38$UNIT_LOOKAHEAD"), "$1 3/8"),  // "138 oz"   → "1 3/8 oz"
+        Pair(Regex("(?<!\\d)(\\d+)58$UNIT_LOOKAHEAD"), "$1 5/8"),  // "158 oz"   → "1 5/8 oz"
+        Pair(Regex("(?<!\\d)(\\d+)78$UNIT_LOOKAHEAD"), "$1 7/8"),  // "178 oz"   → "1 7/8 oz"
+        Pair(Regex("(?<!\\d)(\\d+)2$UNIT_LOOKAHEAD"),  "$1 1/2"),  // "12 cups"  → "1 1/2 cups"
+        Pair(Regex("(?<!\\d)(\\d+)3$UNIT_LOOKAHEAD"),  "$1 1/3"),  // "13 cups"  → "1 1/3 cups"
+        Pair(Regex("(?<!\\d)(\\d+)4$UNIT_LOOKAHEAD"),  "$1 1/4"),  // "14 cups"  → "1 1/4 cups"
+        Pair(Regex("(?<!\\d)(\\d+)8$UNIT_LOOKAHEAD"),  "$1 1/8"),  // "18 tsp"   → "1 1/8 tsp"
+        // ── Latin look-alike mis-reads ────────────────────────────────────────
+        // "1/3" rendered as "Va", "Vs", "V3"
         Pair(Regex("""(?im)(?:^|(?<=\s))V[a3s]'?(?=\s|$)"""), "1/3"),
-        // "1/2" rendered as "Y2", "Yz", "1/2" is usually fine
+        // "1/2" rendered as "Y2", "Yz"
         Pair(Regex("""(?i)\bY[2z]\b"""), "1/2"),
-        // "1/4" rendered as "Y4", "Va" (ambiguous with 1/3 — context-free, treat as 1/4)
+        // "1/4" rendered as "Y4"
         Pair(Regex("""(?i)\bY4\b"""), "1/4"),
-        // "3/4" rendered as "3/4" is fine; "3A" is a common mis-read
+        // "3/4" rendered as "3A"
         Pair(Regex("""\b3A\b"""), "3/4"),
-        // "2/3" rendered as "2/s", "2/3" is usually fine
-        Pair(Regex("""(?i)\b2/[sz]\b"""), "2/3")
+        // "2/3" rendered as "2/s"
+        Pair(Regex("""(?i)\b2/[sz]\b"""), "2/3"),
+
+        // ── Digit-1 read as standalone "L" or "I" before a unit word ────────
+        //
+        // ML Kit sometimes reads the digit "1" as the capital letter "L" or "I"
+        // and leaves it as a separate space-separated token before the unit word.
+        // Examples seen in production:
+        //
+        //   "1 cup shredded cheddar" → "L cup shredded cheddar"
+        //   "1 cup milk"             → "L cup milk"
+        //
+        // Pattern: at line start (or after whitespace), a bare [LI] followed by
+        // exactly one space and then a known unit word. Must not match common
+        // English words — the lookahead on both sides is tight enough to prevent
+        // false-positives.
+        Pair(
+            Regex("""(?:(?<=^)|(?<=\s))[LI]\s(tablespoons|tablespoon|teaspoons|teaspoon|tbsps|tbsp|tbls|tsps|tsp|cups|cup|grams|gram|ounces|ounce|pounds|pound|litres|liters|litre|liter|milliliters|millilitres|milliliter|millilitre|pieces|piece|lbs|mls|oz|lb|ml|g|c)(?=\s|$)""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)),
+            "1 $1"
+        ),
+
+        // ── Digit-1 fused directly to unit word (no space) ───────────────────
+        //
+        // ML Kit sometimes reads the digit "1" as the capital letter "L" (or "I")
+        // and fuses it directly onto the following unit word when no space was
+        // detected between them. Examples from the Cheesy Bread recipe:
+        //
+        //   "1 cup shredded cheddar" → "Lcup shredded cheddar"
+        //   "1 cup milk"             → "Lcup milk"
+        //   "1 Tbsp chopped parsley" → "V1Tbsp chopped parsley"  (leading V artefact)
+        //
+        // Pattern: at line start (or after whitespace), an [LI] immediately followed
+        // (no space) by a known unit word. The unit word boundary is enforced by a
+        // lookahead so the regex matches the full "Lcup" token but not a word like
+        // "Lemon" that merely starts with L.
+        //
+        // The unit alternation mirrors UNIT_SYNONYMS (longest first for greedy match).
+        // "Lcup" → "1 cup", "Ltbsp" → "1 tbsp", "Itsp" → "1 tsp", etc.
+        Pair(
+            Regex("""(?:(?<=^)|(?<=\s))[LI](tablespoons|tablespoon|teaspoons|teaspoon|tbsps|tbsp|tbls|tsps|tsp|cups|cup|grams|gram|ounces|ounce|pounds|pound|litres|liters|litre|liter|milliliters|millilitres|milliliter|millilitre|pieces|piece|lbs|mls|oz|lb|ml|g|c)(?=\s|$)""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)),
+            "1 $1"
+        ),
+
+        // ── "V<digit>Unit" leading-V artefact fused with digit + unit ─────────
+        //
+        // ML Kit occasionally prepends a spurious "V" before a digit-unit token,
+        // e.g. "V1Tbsp" or "V1cup".  The existing Va/Vs/V3 rule only covers
+        // fraction forms; this handles the fused-quantity variant.
+        //
+        //   "V1Tbsp chopped parsley" → "1 Tbsp chopped parsley"
+        //   "V2cup flour"            → "2 cup flour"
+        Pair(
+            Regex("""(?:(?<=^)|(?<=\s))V(\d+)(tablespoons|tablespoon|teaspoons|teaspoon|tbsps|tbsp|tbls|tsps|tsp|cups|cup|grams|gram|ounces|ounce|pounds|pound|litres|liters|litre|liter|milliliters|millilitres|milliliter|millilitre|pieces|piece|lbs|mls|oz|lb|ml|g|c)(?=\s|$)""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)),
+            "$1 $2"
+        ),
+
+        // ── Digit fused directly to unit word (no space, starts with digit) ──
+        //
+        // On some fonts/images ML Kit reads "1cup" (no space) or "2tbsp".
+        // This inserts the missing space so the unit-recognition step finds it.
+        //
+        //   "1cup shredded cheddar" → "1 cup shredded cheddar"
+        //   "2tbsp butter"          → "2 tbsp butter"
+        Pair(
+            Regex("""(?<=\d)(tablespoons|tablespoon|teaspoons|teaspoon|tbsps|tbsp|tbls|tsps|tsp|cups|cup|grams|gram|ounces|ounce|pounds|pound|litres|liters|litre|liter|milliliters|millilitres|milliliter|millilitre|pieces|piece|lbs|mls|oz|lb|ml|g|c)(?=\s|$)""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)),
+            " $1"
+        )
     )
 
     // ── Unit synonym map ──────────────────────────────────────────────────────
@@ -117,22 +212,28 @@ object RecipeOcrParser {
         "whole"  to "each"
     )
 
-    // Regex that matches the quantity portion at the very start of a token.
-    // Supports: "1", "1.5", "1/2", "1 1/2", "1-1/2", and the unicode fractions
-    // handled by parseQuantity (U+00BC - U+00BE vulgar fractions, U+2150-U+215E).
+    // Regex that matches the quantity portion at the very start of a line.
+    // Supports: "1", "1.5", "1/2", "1 1/2", "1-1/2", "1¼", and the Unicode
+    // vulgar fractions in U+00BC-U+00BE and U+2150-U+215E.
     //
-    // All Unicode fraction code points are listed as explicit hex escapes so
-    // the file is pure ASCII — avoids JVM regex "literal prefixes and suffixes"
-    // errors that arise when literal Unicode chars are mixed with \d in a
-    // character class.
+    // All Unicode code points are explicit hex escapes so the file stays ASCII-safe.
     //
-    // Character class breakdown:
-    //   \d          - ASCII digit (start or continuation)
-    //   \u00BC-\u00BE - 1/4, 1/2, 3/4 (Latin-1 vulgar fractions)
-    //   \u2150-\u215E - Unicode vulgar fraction block (1/7 through 7/8)
-    private val QTY_CHAR_CLASS = "[\u00BC-\u00BE\u2150-\u215E\\d]"
-    private val QTY_CONT_CLASS = "[\u00BC-\u00BE\u2150-\u215E\\d\\s./-]"
-    private val QTY_PREFIX_REGEX = Regex("^($QTY_CHAR_CLASS$QTY_CONT_CLASS*)")
+    // The pattern is structured to match exactly the quantity token and no more:
+    //
+    //   ^                        – start of (cleaned) line
+    //   (FRAC_CHAR+)             – one or more fraction/digit chars  → whole number OR standalone fraction glyph
+    //   (                        – optionally followed by ONE of:
+    //     [\s-]+FRAC_CHAR+/FRAC_CHAR+   – mixed number: "1 1/4" or "1-1/4"
+    //   | [./]FRAC_CHAR+                – decimal "1.5" or slash-fraction continuation "1/2"
+    //   )?
+    //
+    // This deliberately excludes a bare space followed by a letter, so "1¼ cups"
+    // does NOT extend the match into "cups". The [\s-]+ is only followed by more
+    // digit/fraction chars and a slash (the mixed-number form), never bare words.
+    private val FRAC_CHAR = "[\u00BC-\u00BE\u2150-\u215E\\d]"
+    private val QTY_PREFIX_REGEX = Regex(
+        """^($FRAC_CHAR+(?:[\s-]+$FRAC_CHAR+/$FRAC_CHAR+|[./]$FRAC_CHAR+)?)"""
+    )
 
     // Lines that are almost certainly recipe section headers, not ingredients.
     private val SKIP_LINE_PATTERNS = listOf(
