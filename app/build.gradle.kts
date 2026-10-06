@@ -113,6 +113,7 @@ dependencies {
     implementation(libs.hilt.navigation.compose)
 
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.datastore.preferences)
 
@@ -125,6 +126,9 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging.interceptor)
     implementation(libs.gson)
+
+    // ML Kit — on-device text recognition (used by recipe scan feature)
+    implementation(libs.mlkit.text.recognition)
 
     val composeBom = platform(libs.compose.bom)
     implementation(composeBom)

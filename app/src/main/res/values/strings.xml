@@ -293,7 +293,8 @@
     <!-- Recipe Scaler - Enhanced Features -->
     <string name="recipe_scaler_show_original">Show Original</string>
     <string name="recipe_scaler_hide_original">Hide Original</string>
-    <string name="recipe_scaler_simplify_fractions">Simplify Fractions</string>
+    <string name="recipe_scaler_keep_original_units">Keep Original Units</string>
+    <string name="recipe_scaler_scale_warning">Taste and adjust salt, spices, and leavening.</string>
     <string name="recipe_scaler_select_copy_format">Select Copy Format</string>
     <string name="recipe_scaler_format_plain">Plain Text</string>
     <string name="recipe_scaler_format_markdown">Markdown</string>
@@ -306,5 +307,23 @@
     <string name="recipe_scaler_weight">Weight</string>
     <string name="recipe_scaler_other_units">Other</string>
     <string name="recipe_scaler_insert_fraction">Insert %1$s</string>
+
+    <!-- Recipe Scaler - Scan Feature -->
+    <string name="recipe_scaler_scan_recipe">Scan recipe</string>
+    <string name="recipe_scaler_scan_dialog_title">Add ingredients from photo</string>
+    <string name="recipe_scaler_scan_dialog_message">Take a photo of a printed or on-screen recipe, or pick an existing image. Ingredients will be extracted automatically — you can edit them afterwards.</string>
+    <string name="recipe_scaler_scan_take_photo">Take Photo</string>
+    <string name="recipe_scaler_scan_choose_gallery">Choose from Gallery</string>
+    <string name="recipe_scaler_scan_processing">Reading recipe…</string>
+    <string name="recipe_scaler_scan_error_no_ingredients">No ingredients found. Try a clearer photo showing just the ingredients list.</string>
+    <string name="recipe_scaler_scan_error_failed">Could not read the image. Please try again.</string>
+    <string name="recipe_scaler_scan_error_camera_unavailable">Couldn\'t open the camera. You can still pick a photo from your gallery.</string>
+    <plurals name="recipe_scaler_scan_import_title">
+        <item quantity="one">Import %d ingredient?</item>
+        <item quantity="other">Import %d ingredients?</item>
+    </plurals>
+    <string name="recipe_scaler_scan_import_message">Your current list already has ingredients. Replace it with the scanned ingredients, or add them to the end?</string>
+    <string name="recipe_scaler_scan_replace_action">Replace</string>
+    <string name="recipe_scaler_scan_add_to_list_action">Add to list</string>
 </resources>
 

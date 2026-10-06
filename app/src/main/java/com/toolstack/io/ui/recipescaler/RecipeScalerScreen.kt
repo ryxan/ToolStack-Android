@@ -1,9 +1,13 @@
 package com.toolstack.io.ui.recipescaler
 
+import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +19,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -39,11 +44,14 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.RestaurantMenu
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -67,6 +75,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -78,6 +87,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -117,6 +127,113 @@ fun RecipeScalerScreen(
     val density = LocalDensity.current
     val navBarBottomDp = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
+    // ── Scan: source picker dialog ────────────────────────────────────────────
+    var showScanSourceDialog by rememberSaveable { mutableStateOf(false) }
+
+    // ── Scan: pending camera URI (survives recomposition + activity recreation) ─
+    // rememberSaveable persists the Parcelable URI across process death so the
+    // TakePicture result callback can still retrieve it after the camera app
+    // returns to a recreated activity.
+    var pendingCameraUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+
+    // ── Gallery picker launcher (Photo Picker — no storage permission needed) ──
+    val galleryLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            viewModel.onImageCaptured(uri)
+        } else {
+            viewModel.onScanCancelled()
+        }
+    }
+
+    // ── Camera launcher ───────────────────────────────────────────────────────
+    // TakePicture grants the camera app a URI permission, so no CAMERA runtime
+    // permission is needed.
+    val cameraLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { success: Boolean ->
+        val uri = pendingCameraUri
+        if (success && uri != null) {
+            viewModel.onImageCaptured(uri)
+        } else {
+            viewModel.onScanCancelled()
+        }
+        pendingCameraUri = null
+    }
+
+    // ── Dialogs ───────────────────────────────────────────────────────────────
+
+    if (showScanSourceDialog) {
+        ScanSourceDialog(
+            onTakePhoto = {
+                showScanSourceDialog = false
+                val uri = viewModel.createCameraImageUri()
+                if (uri == null) {
+                    viewModel.onCameraUnavailable()
+                } else {
+                    pendingCameraUri = uri
+                    try {
+                        cameraLauncher.launch(uri)
+                    } catch (e: ActivityNotFoundException) {
+                        pendingCameraUri = null
+                        viewModel.onCameraUnavailable()
+                    }
+                }
+            },
+            onChooseGallery = {
+                showScanSourceDialog = false
+                galleryLauncher.launch(
+                    androidx.activity.result.PickVisualMediaRequest(
+                        ActivityResultContracts.PickVisualMedia.ImageOnly
+                    )
+                )
+            },
+            onDismiss = {
+                showScanSourceDialog = false
+                viewModel.onScanCancelled()
+            }
+        )
+    }
+
+    // ── Scan import confirmation (existing list isn't blank) ──────────────────
+    val pendingScan = uiState.pendingScanResult
+    if (pendingScan != null) {
+        AlertDialog(
+            onDismissRequest = viewModel::onScanResultDismiss,
+            title = {
+                Text(
+                    text = pluralStringResource(
+                        R.plurals.recipe_scaler_scan_import_title,
+                        pendingScan.size,
+                        pendingScan.size
+                    )
+                )
+            },
+            text = {
+                Text(
+                    text = stringResource(R.string.recipe_scaler_scan_import_message),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::onScanResultReplace) {
+                    Text(text = stringResource(R.string.recipe_scaler_scan_replace_action))
+                }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = viewModel::onScanResultAppend) {
+                        Text(text = stringResource(R.string.recipe_scaler_scan_add_to_list_action))
+                    }
+                    TextButton(onClick = viewModel::onScanResultDismiss) {
+                        Text(text = stringResource(android.R.string.cancel))
+                    }
+                }
+            }
+        )
+    }
+
     if (uiState.showShoppingListDialog) {
         ShoppingListDialog(
             shoppingListText = uiState.shoppingListText,
@@ -134,8 +251,7 @@ fun RecipeScalerScreen(
                 val text = RecipeScalerCalculator.generateFormattedRecipe(
                     uiState.scaledIngredients,
                     uiState.desiredServingsText,
-                    format,
-                    uiState.simplifyFractions
+                    format
                 )
                 copyToClipboard(context, text)
                 viewModel.onDismissCopyFormatDialog()
@@ -193,6 +309,24 @@ fun RecipeScalerScreen(
                     }
                 },
                 actions = {
+                    // ── Scan button ──────────────────────────────────────────
+                    IconButton(
+                        onClick = { showScanSourceDialog = true },
+                        enabled = !uiState.isScanProcessing
+                    ) {
+                        if (uiState.isScanProcessing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Outlined.CameraAlt,
+                                contentDescription = stringResource(R.string.recipe_scaler_scan_recipe)
+                            )
+                        }
+                    }
                     if (onAddShortcut != null) {
                         IconButton(onClick = onAddShortcut) {
                             Icon(
@@ -240,6 +374,8 @@ fun RecipeScalerScreen(
                         ingredients = uiState.ingredients,
                         focusedIngredientId = uiState.focusedIngredientId,
                         focusedField = uiState.focusedField,
+                        isScanProcessing = uiState.isScanProcessing,
+                        scanError = uiState.scanError,
                         onOriginalServingsChanged = viewModel::onOriginalServingsChanged,
                         onDesiredServingsChanged = viewModel::onDesiredServingsChanged,
                         onClearAll = viewModel::clearAllIngredients,
@@ -265,19 +401,21 @@ fun RecipeScalerScreen(
                             } else if (ingredients.size < RecipeScalerViewModel.MAX_INGREDIENTS) {
                                 viewModel.addIngredientAndFocusName()
                             }
-                        }
+                        },
+                        onDismissScanError = viewModel::onDismissScanError
                     )
                 }
 
                 item {
                     ScaledRecipeCard(
-                        scaledIngredients = uiState.scaledIngredients,
-                        multiplierText = uiState.multiplierText,
-                        showOriginalValues = uiState.showOriginalValues,
-                        simplifyFractions = uiState.simplifyFractions,
-                        onCopyRecipe = viewModel::onShowCopyFormatDialog,
+                        scaledIngredients      = uiState.scaledIngredients,
+                        multiplierText         = uiState.multiplierText,
+                        showOriginalValues     = uiState.showOriginalValues,
+                        keepOriginalUnits      = uiState.keepOriginalUnits,
+                        showScaleWarning       = uiState.showScaleWarning,
+                        onCopyRecipe           = viewModel::onShowCopyFormatDialog,
                         onToggleOriginalValues = viewModel::toggleShowOriginalValues,
-                        onToggleSimplifyFractions = viewModel::toggleSimplifyFractions
+                        onToggleKeepOriginalUnits = viewModel::toggleKeepOriginalUnits
                     )
                 }
 
@@ -306,7 +444,6 @@ fun RecipeScalerScreen(
                     onUnitClick = { unit ->
                         uiState.focusedIngredientId?.let { id ->
                             viewModel.onIngredientUnitChanged(id, unit)
-                            // After unit is selected, advance to name field
                             viewModel.setFocusedIngredient(id, FocusedIngredientField.NAME)
                         }
                     },
@@ -316,10 +453,8 @@ fun RecipeScalerScreen(
                         val currentIndex = ingredients.indexOfFirst { it.id == currentId }
                         val nextIngredient = ingredients.getOrNull(currentIndex + 1)
                         if (nextIngredient != null) {
-                            // Advance focus to the next ingredient's quantity field.
                             viewModel.setFocusedIngredient(nextIngredient.id, FocusedIngredientField.QUANTITY)
                         } else if (ingredients.size < RecipeScalerViewModel.MAX_INGREDIENTS) {
-                            // No next ingredient — add a new row and focus its quantity field.
                             viewModel.addIngredientAndFocusName()
                         }
                     },
@@ -334,6 +469,72 @@ fun RecipeScalerScreen(
     }
 }
 
+// ── Scan source picker dialog ─────────────────────────────────────────────────
+
+/**
+ * Simple dialog that lets the user choose between the camera and the gallery.
+ *
+ * No CAMERA permission is required: TakePicture grants the camera app a scoped
+ * URI permission for the photo file. [onTakePhoto] launches the camera
+ * directly; any launch failure is handled by the caller.
+ */
+@Composable
+private fun ScanSourceDialog(
+    onTakePhoto: () -> Unit,
+    onChooseGallery: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = stringResource(R.string.recipe_scaler_scan_dialog_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = stringResource(R.string.recipe_scaler_scan_dialog_message),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.size(4.dp))
+                // Camera button — opens the camera via TakePicture
+                Button(
+                    onClick = onTakePhoto,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.CameraAlt,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = stringResource(R.string.recipe_scaler_scan_take_photo))
+                }
+                OutlinedButton(
+                    onClick = onChooseGallery,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.FolderOpen,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = stringResource(R.string.recipe_scaler_scan_choose_gallery))
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(android.R.string.cancel))
+            }
+        }
+    )
+}
+
+// ── OriginalRecipeCard ────────────────────────────────────────────────────────
+
 @Composable
 private fun OriginalRecipeCard(
     originalServingsText: String,
@@ -341,6 +542,8 @@ private fun OriginalRecipeCard(
     ingredients: List<IngredientItem>,
     focusedIngredientId: String?,
     focusedField: FocusedIngredientField?,
+    isScanProcessing: Boolean,
+    scanError: ScanError?,
     onOriginalServingsChanged: (String) -> Unit,
     onDesiredServingsChanged: (String) -> Unit,
     onClearAll: () -> Unit,
@@ -355,7 +558,8 @@ private fun OriginalRecipeCard(
     canSave: Boolean,
     onIngredientFocusChanged: (String, FocusedIngredientField) -> Unit,
     onIngredientFocusCleared: (String, FocusedIngredientField) -> Unit,
-    onIngredientNameDone: (String) -> Unit
+    onIngredientNameDone: (String) -> Unit,
+    onDismissScanError: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -405,6 +609,84 @@ private fun OriginalRecipeCard(
                 }
             }
 
+            // ── Scan processing indicator ─────────────────────────────────────
+            if (isScanProcessing) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Text(
+                            text = stringResource(R.string.recipe_scaler_scan_processing),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                }
+            }
+
+            // ── Scan error banner ─────────────────────────────────────────────
+            if (scanError != null) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.errorContainer
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = stringResource(
+                                when (scanError) {
+                                    ScanError.NO_INGREDIENTS_FOUND ->
+                                        R.string.recipe_scaler_scan_error_no_ingredients
+                                    ScanError.RECOGNITION_FAILED ->
+                                        R.string.recipe_scaler_scan_error_failed
+                                    ScanError.CAMERA_UNAVAILABLE ->
+                                        R.string.recipe_scaler_scan_error_camera_unavailable
+                                }
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(
+                            onClick = onDismissScanError,
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Close,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -417,7 +699,6 @@ private fun OriginalRecipeCard(
                     horizontalArrangement = Arrangement.spacedBy(0.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // "Serves" column
                     Column(
                         modifier = Modifier.weight(1f),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -434,7 +715,6 @@ private fun OriginalRecipeCard(
                         )
                     }
 
-                    // Arrow divider
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = null,
@@ -442,13 +722,9 @@ private fun OriginalRecipeCard(
                         modifier = Modifier
                             .padding(horizontal = 8.dp)
                             .size(20.dp)
-                            // mirror to point right
-                            .then(
-                                Modifier.graphicsLayer { rotationZ = 180f }
-                            )
+                            .then(Modifier.graphicsLayer { rotationZ = 180f })
                     )
 
-                    // "Scale to" column
                     Column(
                         modifier = Modifier.weight(1f),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -565,6 +841,8 @@ private fun OriginalRecipeCard(
     }
 }
 
+// ── CompactIngredientRow ──────────────────────────────────────────────────────
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CompactIngredientRow(
@@ -584,15 +862,11 @@ private fun CompactIngredientRow(
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
     val scope = rememberCoroutineScope()
 
-    // Local TextFieldValue for qty so we control cursor position.
-    // Initialized once; kept stable so local edits preserve the cursor.
-    // When qtyString changes externally (e.g. fraction insert), we detect the
-    // divergence in a LaunchedEffect and reinitialize with the cursor at end-of-text.
     var qtyFieldValue by remember {
         mutableStateOf(
             TextFieldValue(
                 text = ingredient.qtyString,
-                selection = TextRange(ingredient.qtyString.length)
+                selection = TextRange(0)  // cursor at start so leading digits are visible
             )
         )
     }
@@ -617,13 +891,6 @@ private fun CompactIngredientRow(
         }
     }
 
-    // Case 1 — NEW row: focusedField is already set to the desired value on first
-    // composition (the ViewModel sets it atomically with the new ingredient). Keyed on
-    // ingredient.id so it runs exactly once per row lifetime, after the first layout
-    // pass, giving the FocusRequester time to attach to the layout tree. A 150 ms delay
-    // covers both the layout pass and the soft-keyboard animation settling.
-    // Keying on id (not Unit) means the effect is also cancelled if the row is ever
-    // removed and re-added with a different id.
     LaunchedEffect(ingredient.id) {
         if (focusedField == FocusedIngredientField.QUANTITY ||
             focusedField == FocusedIngredientField.NAME) {
@@ -637,9 +904,6 @@ private fun CompactIngredientRow(
         }
     }
 
-    // Case 2 — EXISTING row: focusedField changes after the row is already fully laid
-    // out (e.g. advancing from a previous row via the IME Next action). The row's
-    // FocusRequester is already attached, so a short delay is sufficient.
     LaunchedEffect(focusedField) {
         when (focusedField) {
             FocusedIngredientField.NAME -> {
@@ -689,6 +953,7 @@ private fun CompactIngredientRow(
             colors = fieldColors,
             modifier = Modifier
                 .weight(1.1f)
+                .heightIn(max = 48.dp)
                 .focusRequester(quantityFocusRequester)
                 .onFocusChanged { focusState ->
                     if (focusState.isFocused) {
@@ -722,6 +987,7 @@ private fun CompactIngredientRow(
             colors = fieldColors,
             modifier = Modifier
                 .weight(1.1f)
+                .heightIn(max = 48.dp)
                 .focusRequester(unitFocusRequester)
                 .clickable {
                     keyboardController?.hide()
@@ -762,6 +1028,7 @@ private fun CompactIngredientRow(
             colors = fieldColors,
             modifier = Modifier
                 .weight(2.2f)
+                .heightIn(max = 48.dp)
                 .focusRequester(nameFocusRequester)
                 .onFocusChanged { focusState ->
                     if (focusState.isFocused) {
@@ -784,15 +1051,18 @@ private fun CompactIngredientRow(
     }
 }
 
+// ── ScaledRecipeCard ──────────────────────────────────────────────────────────
+
 @Composable
 private fun ScaledRecipeCard(
     scaledIngredients: List<ScaledIngredient>,
     multiplierText: String,
     showOriginalValues: Boolean,
-    simplifyFractions: Boolean,
+    keepOriginalUnits: Boolean,
+    showScaleWarning: Boolean,
     onCopyRecipe: () -> Unit,
     onToggleOriginalValues: () -> Unit,
-    onToggleSimplifyFractions: () -> Unit
+    onToggleKeepOriginalUnits: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -837,6 +1107,34 @@ private fun ScaledRecipeCard(
             }
 
             if (scaledIngredients.isNotEmpty()) {
+                if (showScaleWarning) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.tertiaryContainer
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Warning,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = stringResource(R.string.recipe_scaler_scale_warning),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        }
+                    }
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -855,29 +1153,29 @@ private fun ScaledRecipeCard(
                         }
                     )
                     FilterChip(
-                        selected = simplifyFractions,
-                        onClick = onToggleSimplifyFractions,
+                        selected = keepOriginalUnits,
+                        onClick = onToggleKeepOriginalUnits,
                         label = {
-                            Text(text = stringResource(R.string.recipe_scaler_simplify_fractions))
+                            Text(text = stringResource(R.string.recipe_scaler_keep_original_units))
                         }
                     )
                 }
 
                 Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                        scaledIngredients.forEachIndexed { index, ingredient ->
-                            ScaledIngredientRow(
-                                ingredient = ingredient,
-                                showOriginalValues = showOriginalValues
+                    scaledIngredients.forEachIndexed { index, ingredient ->
+                        ScaledIngredientRow(
+                            ingredient = ingredient,
+                            showOriginalValues = showOriginalValues
+                        )
+                        if (index != scaledIngredients.lastIndex) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 12.dp),
+                                thickness = 0.5.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                             )
-                            if (index != scaledIngredients.lastIndex) {
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(horizontal = 12.dp),
-                                    thickness = 0.5.dp,
-                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                                )
-                            }
                         }
                     }
+                }
 
                 Button(
                     onClick = onCopyRecipe,
@@ -914,6 +1212,8 @@ private fun ScaledRecipeCard(
     }
 }
 
+// ── ScaledIngredientRow ───────────────────────────────────────────────────────
+
 @Composable
 private fun ScaledIngredientRow(
     ingredient: ScaledIngredient,
@@ -942,15 +1242,13 @@ private fun ScaledIngredientRow(
                 textAlign = TextAlign.End
             )
             if (showOriginalValues && ingredient.originalQty > 0) {
-                val originalUnit = RecipeScalerCalculator.ALL_UNITS
+                val unitLabel = RecipeScalerCalculator.ALL_UNITS
                     .find { it.first == ingredient.unit }?.second.orEmpty()
                 val originalDisplay = String.format(
-                    java.util.Locale.US,
-                    "%.2f",
-                    ingredient.originalQty
+                    java.util.Locale.US, "%.2f", ingredient.originalQty
                 ).trimEnd('0').trimEnd('.')
-                val originalText = if (originalUnit.isNotBlank()) {
-                    "$originalDisplay $originalUnit"
+                val originalText = if (unitLabel.isNotBlank() && unitLabel != "-") {
+                    "$originalDisplay $unitLabel"
                 } else {
                     originalDisplay
                 }
@@ -964,6 +1262,8 @@ private fun ScaledIngredientRow(
         }
     }
 }
+
+// ── StepBadge ─────────────────────────────────────────────────────────────────
 
 @Composable
 private fun StepBadge(step: String, emphasized: Boolean) {
@@ -994,6 +1294,8 @@ private fun StepBadge(step: String, emphasized: Boolean) {
     }
 }
 
+// ── ServingsField ─────────────────────────────────────────────────────────────
+
 @Composable
 private fun ServingsField(
     value: String,
@@ -1013,6 +1315,8 @@ private fun ServingsField(
         )
     )
 }
+
+// ── CopyFormatDialog ──────────────────────────────────────────────────────────
 
 @Composable
 private fun CopyFormatDialog(
@@ -1056,6 +1360,8 @@ private fun CopyFormatDialog(
     )
 }
 
+// ── ShoppingListDialog ────────────────────────────────────────────────────────
+
 @Composable
 private fun ShoppingListDialog(
     shoppingListText: String,
@@ -1083,6 +1389,8 @@ private fun ShoppingListDialog(
         }
     )
 }
+
+// ── SaveRecipeDialog ──────────────────────────────────────────────────────────
 
 @Composable
 private fun SaveRecipeDialog(
@@ -1160,6 +1468,8 @@ private fun SaveRecipeDialog(
     )
 }
 
+// ── SaveListDialog ────────────────────────────────────────────────────────────
+
 @Composable
 private fun SaveListDialog(
     savedRecipes: List<SavedRecipe>,
@@ -1177,7 +1487,6 @@ private fun SaveListDialog(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                // "Save as New" always at the top
                 OutlinedButton(
                     onClick = onSaveAsNew,
                     modifier = Modifier.fillMaxWidth(),
@@ -1255,6 +1564,8 @@ private fun SaveListDialog(
         }
     )
 }
+
+// ── LoadRecipeDialog ──────────────────────────────────────────────────────────
 
 @Composable
 private fun LoadRecipeDialog(
@@ -1363,6 +1674,8 @@ private fun LoadRecipeDialog(
         }
     )
 }
+
+// ── Clipboard helper ──────────────────────────────────────────────────────────
 
 private fun copyToClipboard(context: Context, text: String) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager

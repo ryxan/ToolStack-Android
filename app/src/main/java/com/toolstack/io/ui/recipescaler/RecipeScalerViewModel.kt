@@ -1,15 +1,27 @@
 package com.toolstack.io.ui.recipescaler
 
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.ImageDecoder
+import android.net.Uri
+import android.os.Build
+import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.Text
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.toolstack.io.data.repository.UserPreferencesRepository
+import com.toolstack.io.domain.calculator.OcrLine
+import com.toolstack.io.domain.calculator.RecipeOcrParser
 import com.toolstack.io.domain.calculator.RecipeScalerCalculator
 import com.toolstack.io.domain.model.IngredientItem
-import com.toolstack.io.domain.model.IngredientState
 import com.toolstack.io.domain.model.SavedRecipe
 import com.toolstack.io.domain.model.SavedRecipeIngredient
 import com.toolstack.io.domain.model.ScaledIngredient
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,23 +29,43 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
+import java.io.File
 import java.util.Locale
 import java.util.UUID
 import javax.inject.Inject
 
 @HiltViewModel
 class RecipeScalerViewModel @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     private val userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RecipeScalerUiState())
     val uiState: StateFlow<RecipeScalerUiState> = _uiState.asStateFlow()
 
+    // Holds the File written before the camera is launched so we can delete it
+    // after ML Kit finishes (or on cancellation).
+    private var pendingScanFile: File? = null
+
+    // One recognizer for the ViewModel's lifetime — creating a client per scan
+    // pays native init cost each time. `recognizerInitialized` tracks whether
+    // the lazy was ever triggered so onCleared() doesn't instantiate it just to
+    // close it.
+    private val recognizer by lazy { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
+    private var recognizerInitialized = false
+
+    override fun onCleared() {
+        if (recognizerInitialized) recognizer.close()
+        super.onCleared()
+    }
+
     init {
-        // Start with one empty ingredient
         addIngredient()
-        
-        // Observe saved recipes
+
         userPreferencesRepository.savedRecipes
             .onEach { recipes ->
                 _uiState.update { it.copy(savedRecipes = recipes) }
@@ -62,13 +94,10 @@ class RecipeScalerViewModel @Inject constructor(
             val updated = state.ingredients.map { ingredient ->
                 if (ingredient.id == ingredientId) {
                     val current = ingredient.qtyString.trim()
-                    // Unicode fractions: ½ ⅓ ¼ ¾ ⅛ ⅔ ⅜ (and others in the Vulgar Fractions block)
                     val unicodeFractionRegex = Regex("[\\u00BC-\\u00BE\\u2150-\\u215E]")
                     val newQuantity = when {
                         current.isEmpty() -> fraction
-                        // Append "/" directly so "1" + "/" → "1/" (enables "1/2" entry)
                         fraction == "/" -> "$current$fraction"
-                        // Replace an existing Unicode fraction, preserving any whole-number prefix
                         unicodeFractionRegex.containsMatchIn(current) -> {
                             val wholePart = current.replace(unicodeFractionRegex, "").trim()
                             if (wholePart.isEmpty()) fraction else "$wholePart $fraction"
@@ -99,36 +128,28 @@ class RecipeScalerViewModel @Inject constructor(
     fun addIngredient() {
         _uiState.update { state ->
             val newIngredient = IngredientItem(
-                id = UUID.randomUUID().toString(),
+                id        = UUID.randomUUID().toString(),
                 qtyString = "",
-                unit = "none",
-                state = IngredientState.DRY,
-                name = ""
+                unit      = "none",
+                name      = ""
             )
             state.copy(ingredients = state.ingredients + newIngredient).recalculate()
         }
     }
 
-    /**
-     * Adds a new empty ingredient at the end of the list and immediately
-     * focuses its quantity field. The ID is generated and committed in a single
-     * [_uiState] update so the LaunchedEffect in the row composable sees the
-     * correct [FocusedIngredientField.QUANTITY] signal as soon as composition runs.
-     */
     fun addIngredientAndFocusName() {
         _uiState.update { state ->
             if (state.ingredients.size >= MAX_INGREDIENTS) return@update state
             val newIngredient = IngredientItem(
-                id = UUID.randomUUID().toString(),
+                id        = UUID.randomUUID().toString(),
                 qtyString = "",
-                unit = "none",
-                state = IngredientState.DRY,
-                name = ""
+                unit      = "none",
+                name      = ""
             )
             state.copy(
-                ingredients = state.ingredients + newIngredient,
+                ingredients       = state.ingredients + newIngredient,
                 focusedIngredientId = newIngredient.id,
-                focusedField = FocusedIngredientField.QUANTITY
+                focusedField      = FocusedIngredientField.QUANTITY
             ).recalculate()
         }
     }
@@ -141,42 +162,21 @@ class RecipeScalerViewModel @Inject constructor(
 
     fun onIngredientQuantityChanged(id: String, text: String) {
         _uiState.update { state ->
-            val updated = state.ingredients.map { ingredient ->
-                if (ingredient.id == id) ingredient.copy(qtyString = text) else ingredient
-            }
+            val updated = state.ingredients.map { if (it.id == id) it.copy(qtyString = text) else it }
             state.copy(ingredients = updated).recalculate()
         }
     }
 
     fun onIngredientUnitChanged(id: String, unit: String) {
         _uiState.update { state ->
-            val updated = state.ingredients.map { ingredient ->
-                if (ingredient.id == id) {
-                    // Auto-detect ingredient state from unit
-                    val detectedState = RecipeScalerCalculator.detectIngredientState(unit)
-                    ingredient.copy(unit = unit, state = detectedState)
-                } else {
-                    ingredient
-                }
-            }
-            state.copy(ingredients = updated).recalculate()
-        }
-    }
-
-    fun onIngredientStateChanged(id: String, ingredientState: IngredientState) {
-        _uiState.update { state ->
-            val updated = state.ingredients.map { ingredient ->
-                if (ingredient.id == id) ingredient.copy(state = ingredientState) else ingredient
-            }
+            val updated = state.ingredients.map { if (it.id == id) it.copy(unit = unit) else it }
             state.copy(ingredients = updated).recalculate()
         }
     }
 
     fun onIngredientNameChanged(id: String, name: String) {
         _uiState.update { state ->
-            val updated = state.ingredients.map { ingredient ->
-                if (ingredient.id == id) ingredient.copy(name = name) else ingredient
-            }
+            val updated = state.ingredients.map { if (it.id == id) it.copy(name = name) else it }
             state.copy(ingredients = updated).recalculate()
         }
     }
@@ -193,17 +193,11 @@ class RecipeScalerViewModel @Inject constructor(
 
     fun clearAllIngredients() {
         _uiState.update { it.copy(ingredients = emptyList()).recalculate() }
-        // Add one empty ingredient back
         addIngredient()
     }
 
     // ── Recipe Management ─────────────────────────────────────────────────────
 
-    /**
-     * Tap on "Save Recipe". If there are already saved recipes, show the list
-     * so the user can choose to overwrite one or save as new. If there are none,
-     * skip straight to the name-entry dialog.
-     */
     fun onShowSaveRecipeDialog() {
         val hasSaved = _uiState.value.savedRecipes.isNotEmpty()
         if (hasSaved) {
@@ -216,42 +210,39 @@ class RecipeScalerViewModel @Inject constructor(
     fun onDismissSaveRecipeDialog() {
         _uiState.update {
             it.copy(
-                showSaveRecipeDialog = false,
-                showSaveListDialog = false,
-                recipeNameInput = "",
-                saveRecipeError = null,
+                showSaveRecipeDialog     = false,
+                showSaveListDialog       = false,
+                recipeNameInput          = "",
+                saveRecipeError          = null,
                 selectedRecipeForOverwrite = null
             )
         }
     }
 
-    /** User dismissed the "pick a recipe to overwrite" list without choosing anything. */
     fun onDismissSaveListDialog() {
         _uiState.update { it.copy(showSaveListDialog = false) }
     }
 
-    /** User tapped an existing recipe in the list — pre-fill the name and open the name dialog. */
     fun onSelectOverwriteRecipe(recipe: SavedRecipe) {
         _uiState.update {
             it.copy(
-                showSaveListDialog = false,
-                showSaveRecipeDialog = true,
-                recipeNameInput = recipe.name,
+                showSaveListDialog         = false,
+                showSaveRecipeDialog       = true,
+                recipeNameInput            = recipe.name,
                 selectedRecipeForOverwrite = recipe.name,
-                saveRecipeError = null
+                saveRecipeError            = null
             )
         }
     }
 
-    /** User tapped "Save as New" in the list — open the name dialog with a blank name. */
     fun onChooseSaveAsNew() {
         _uiState.update {
             it.copy(
-                showSaveListDialog = false,
-                showSaveRecipeDialog = true,
-                recipeNameInput = "",
+                showSaveListDialog         = false,
+                showSaveRecipeDialog       = true,
+                recipeNameInput            = "",
                 selectedRecipeForOverwrite = null,
-                saveRecipeError = null
+                saveRecipeError            = null
             )
         }
     }
@@ -267,11 +258,9 @@ class RecipeScalerViewModel @Inject constructor(
         if (state.ingredients.isEmpty()) return
 
         val originalKey = state.selectedRecipeForOverwrite
-        val isRename = originalKey != null && recipeName != originalKey
+        val isRename    = originalKey != null && recipeName != originalKey
         val isSaveAsNew = originalKey == null
 
-        // When saving as new, reject the save if a recipe with the given name already
-        // exists — do not silently overwrite an unrelated saved recipe.
         if (isSaveAsNew && state.savedRecipes.any { it.name == recipeName }) {
             _uiState.update {
                 it.copy(saveRecipeError = "A recipe named \"$recipeName\" already exists. Choose a different name or select it from the list to overwrite.")
@@ -279,42 +268,32 @@ class RecipeScalerViewModel @Inject constructor(
             return
         }
 
-        // When renaming a saved recipe, reject the save if another recipe already
-        // uses the new name (would silently overwrite an unrelated recipe otherwise).
         if (isRename && state.savedRecipes.any { it.name == recipeName }) {
-            _uiState.update {
-                it.copy(saveRecipeError = "A recipe named \"$recipeName\" already exists.")
-            }
+            _uiState.update { it.copy(saveRecipeError = "A recipe named \"$recipeName\" already exists.") }
             return
         }
 
         val recipe = SavedRecipe(
-            name = recipeName,
-            servings = state.originalServingsText,
+            name       = recipeName,
+            servings   = state.originalServingsText,
             ingredients = state.ingredients.map { ingredient ->
                 SavedRecipeIngredient(
                     qtyString = ingredient.qtyString,
-                    unit = ingredient.unit,
-                    state = ingredient.state,
-                    name = ingredient.name
+                    unit      = ingredient.unit,
+                    name      = ingredient.name
                 )
             }
         )
 
         viewModelScope.launch {
-            // If the user renamed an overwrite target, remove the old entry first so the
-            // original recipe is not retained alongside the newly named one.
-            if (isRename) {
-                userPreferencesRepository.deleteRecipe(originalKey!!)
-            }
-
+            if (isRename) userPreferencesRepository.deleteRecipe(originalKey!!)
             val result = userPreferencesRepository.saveRecipe(recipe)
             if (result.isSuccess) {
                 _uiState.update {
                     it.copy(
-                        showSaveRecipeDialog = false,
-                        recipeNameInput = "",
-                        saveRecipeError = null,
+                        showSaveRecipeDialog       = false,
+                        recipeNameInput            = "",
+                        saveRecipeError            = null,
                         selectedRecipeForOverwrite = null
                     )
                 }
@@ -333,19 +312,17 @@ class RecipeScalerViewModel @Inject constructor(
     }
 
     fun onLoadRecipe(recipe: SavedRecipe) {
-        val loadedIngredients = recipe.ingredients.map { savedIngredient ->
+        val loadedIngredients = recipe.ingredients.map { saved ->
             IngredientItem(
-                id = UUID.randomUUID().toString(),
-                qtyString = savedIngredient.qtyString,
-                unit = savedIngredient.unit,
-                state = savedIngredient.state,
-                name = savedIngredient.name
+                id        = UUID.randomUUID().toString(),
+                qtyString = saved.qtyString,
+                unit      = saved.unit,
+                name      = saved.name
             )
         }
-
         _uiState.update {
             it.copy(
-                ingredients = loadedIngredients,
+                ingredients         = loadedIngredients,
                 originalServingsText = recipe.servings,
                 showLoadRecipeDialog = false
             ).recalculate()
@@ -353,19 +330,18 @@ class RecipeScalerViewModel @Inject constructor(
     }
 
     fun onDeleteRecipe(recipeName: String) {
-        viewModelScope.launch {
-            userPreferencesRepository.deleteRecipe(recipeName)
-        }
+        viewModelScope.launch { userPreferencesRepository.deleteRecipe(recipeName) }
     }
 
-    // ── Enhanced Features ─────────────────────────────────────────────────────
+    // ── Toggles ───────────────────────────────────────────────────────────────
 
     fun toggleShowOriginalValues() {
         _uiState.update { it.copy(showOriginalValues = !it.showOriginalValues) }
     }
 
-    fun toggleSimplifyFractions() {
-        _uiState.update { it.copy(simplifyFractions = !it.simplifyFractions).recalculate() }
+    /** Keep original units: skip unit-family decomposition, display raw rounded amount. */
+    fun toggleKeepOriginalUnits() {
+        _uiState.update { it.copy(keepOriginalUnits = !it.keepOriginalUnits).recalculate() }
     }
 
     fun onShowCopyFormatDialog() {
@@ -376,10 +352,255 @@ class RecipeScalerViewModel @Inject constructor(
         _uiState.update { it.copy(showCopyFormatDialog = false) }
     }
 
+    // ── OCR / Scan ────────────────────────────────────────────────────────────
+
+    /**
+     * Creates a temporary file in the app's external cache directory and returns
+     * a [Uri] (via FileProvider) that can be passed to [TakePicture].
+     *
+     * Stores the [File] reference in [pendingScanFile] so it can be deleted after
+     * ML Kit finishes processing (or when the user cancels).
+     *
+     * Returns `null` if the external cache directory is unavailable (e.g. SD card
+     * ejected). The screen should report this via [onCameraUnavailable].
+     */
+    fun createCameraImageUri(): Uri? {
+        return try {
+            val dir = File(appContext.externalCacheDir, "recipe_scan").also { it.mkdirs() }
+            // Clear leftovers from previous scans so cancelled/failed attempts
+            // don't accumulate in the cache directory.
+            dir.listFiles()?.forEach { it.delete() }
+            val file = File(dir, "scan_${System.currentTimeMillis()}.jpg")
+            pendingScanFile = file
+            FileProvider.getUriForFile(
+                appContext,
+                "${appContext.packageName}.fileprovider",
+                file
+            )
+        } catch (e: Exception) {
+            pendingScanFile = null
+            null
+        }
+    }
+
+    /**
+     * Called when the camera or gallery activity returns with a [uri] pointing to
+     * the selected/captured image. Runs ML Kit text recognition on the image,
+     * parses the result with [RecipeOcrParser], then either replaces the current
+     * ingredient list (when it's entirely blank) or stores the result in
+     * [RecipeScalerUiState.pendingScanResult] for the user to confirm.
+     *
+     * State transitions:
+     *   isScanProcessing = true  → ML Kit running
+     *   isScanProcessing = false → done (success or error)
+     *   scanError                → non-null on failure, null on success
+     *   pendingScanResult        → non-null when confirmation is needed
+     */
+    fun onImageCaptured(uri: Uri) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isScanProcessing = true, scanError = null) }
+            var scanBitmap: Bitmap? = null
+            try {
+                val (image, bitmap) = loadScanImage(uri)
+                scanBitmap = bitmap
+
+                val visionText = runTextRecognition(image)
+
+                // Parsing is pure CPU work — keep it off the main thread.
+                val parsed = withContext(Dispatchers.Default) {
+                    parseVisionText(visionText)
+                }
+
+                if (parsed.isEmpty()) {
+                    _uiState.update {
+                        it.copy(
+                            isScanProcessing = false,
+                            scanError        = ScanError.NO_INGREDIENTS_FOUND
+                        )
+                    }
+                } else {
+                    _uiState.update { state ->
+                        // Only replace silently when the current list is entirely
+                        // blank; otherwise ask the user (replace / append / cancel).
+                        if (state.ingredients.all { it.name.isBlank() && it.qtyString.isBlank() }) {
+                            state.copy(
+                                ingredients         = parsed,
+                                isScanProcessing    = false,
+                                scanError           = null,
+                                focusedIngredientId = null,
+                                focusedField        = FocusedIngredientField.NONE
+                            ).recalculate()
+                        } else {
+                            state.copy(
+                                pendingScanResult = parsed,
+                                isScanProcessing  = false,
+                                scanError         = null
+                            )
+                        }
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isScanProcessing = false,
+                        scanError        = ScanError.RECOGNITION_FAILED
+                    )
+                }
+            } finally {
+                scanBitmap?.recycle()
+                deletePendingScanFile()
+            }
+        }
+    }
+
+    /** Called when the user cancels the camera/gallery without selecting an image. */
+    fun onScanCancelled() {
+        deletePendingScanFile()
+        _uiState.update { it.copy(isScanProcessing = false, scanError = null) }
+    }
+
+    /** Dismiss a previously-shown scan error banner. */
+    fun onDismissScanError() {
+        _uiState.update { it.copy(scanError = null) }
+    }
+
+    /** Called when the camera cannot be launched (no camera app, dead cache dir). */
+    fun onCameraUnavailable() {
+        deletePendingScanFile()
+        _uiState.update {
+            it.copy(isScanProcessing = false, scanError = ScanError.CAMERA_UNAVAILABLE)
+        }
+    }
+
+    /** Confirm a pending scan import: replace the current ingredient list. */
+    fun onScanResultReplace() {
+        _uiState.update { state ->
+            val pending = state.pendingScanResult ?: return@update state
+            state.copy(
+                ingredients         = pending,
+                pendingScanResult   = null,
+                focusedIngredientId = null,
+                focusedField        = FocusedIngredientField.NONE
+            ).recalculate()
+        }
+    }
+
+    /** Confirm a pending scan import: append scanned items after non-blank ones. */
+    fun onScanResultAppend() {
+        _uiState.update { state ->
+            val pending = state.pendingScanResult ?: return@update state
+            val kept    = state.ingredients.filter { it.name.isNotBlank() || it.qtyString.isNotBlank() }
+            state.copy(
+                ingredients         = (kept + pending).take(MAX_INGREDIENTS),
+                pendingScanResult   = null,
+                focusedIngredientId = null,
+                focusedField        = FocusedIngredientField.NONE
+            ).recalculate()
+        }
+    }
+
+    /** Dismiss the pending scan import dialog without changing ingredients. */
+    fun onScanResultDismiss() {
+        _uiState.update { it.copy(pendingScanResult = null) }
+    }
+
+    // ── Private scan helpers ──────────────────────────────────────────────────
+
+    /**
+     * Runs ML Kit text recognition on [image] using the shared [recognizer].
+     * `kotlinx-coroutines-play-services`' await() bridges the Task API.
+     */
+    private suspend fun runTextRecognition(image: InputImage): Text {
+        recognizerInitialized = true
+        return recognizer.process(image).await()
+    }
+
+    /**
+     * Parses recognised text into ingredients, preferring the layout-aware path
+     * (column detection + wrapped-line merge) when every OCR line has a
+     * bounding box; falls back to plain text parsing otherwise.
+     */
+    private fun parseVisionText(visionText: Text): List<IngredientItem> {
+        val lines = visionText.textBlocks.flatMap { it.lines }
+        if (lines.isNotEmpty() && lines.all { it.boundingBox != null }) {
+            return RecipeOcrParser.parseLines(
+                lines.map { line ->
+                    val box = line.boundingBox!!
+                    OcrLine(
+                        text   = line.text,
+                        left   = box.left,
+                        top    = box.top,
+                        right  = box.right,
+                        bottom = box.bottom
+                    )
+                },
+                MAX_INGREDIENTS
+            )
+        }
+        return RecipeOcrParser.parse(visionText.text, MAX_INGREDIENTS)
+    }
+
+    /**
+     * Decodes [uri] into an [InputImage], downscaling so the longest edge is at
+     * most [MAX_SCAN_EDGE_PX]. Image decoding runs on [Dispatchers.IO].
+     *
+     * On API 28+ [ImageDecoder] applies EXIF orientation itself, so the bitmap
+     * is already upright and [InputImage] gets rotation 0. On API 26–27 we fall
+     * back to [InputImage.fromFilePath], which also handles EXIF.
+     *
+     * Returns the [InputImage] paired with the decoded [Bitmap] (non-null only
+     * on the ImageDecoder path) so the caller can recycle it after recognition.
+     */
+    private suspend fun loadScanImage(uri: Uri): Pair<InputImage, Bitmap?> = withContext(Dispatchers.IO) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val bitmap = ImageDecoder.decodeBitmap(
+                ImageDecoder.createSource(appContext.contentResolver, uri)
+            ) { decoder, info, _ ->
+                decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+                val w = info.size.width
+                val h = info.size.height
+                val longest = maxOf(w, h)
+                if (longest > MAX_SCAN_EDGE_PX) {
+                    val scale = MAX_SCAN_EDGE_PX.toFloat() / longest
+                    decoder.setTargetSize(
+                        (w * scale).toInt().coerceAtLeast(1),
+                        (h * scale).toInt().coerceAtLeast(1)
+                    )
+                }
+            }
+            InputImage.fromBitmap(bitmap, 0) to bitmap
+        } else {
+            InputImage.fromFilePath(appContext, uri) to null
+        }
+    }
+
+    private fun deletePendingScanFile() {
+        pendingScanFile?.delete()
+        pendingScanFile = null
+    }
+
     companion object {
         const val MAX_INGREDIENTS = 50
+        /** Longest-edge pixel cap for scan images; large photos waste memory/OCR time. */
+        const val MAX_SCAN_EDGE_PX = 2048
     }
 }
+
+// ── Scan error type ───────────────────────────────────────────────────────────
+
+/** Sealed type for the distinguishable scan failure modes. */
+sealed interface ScanError {
+    /** ML Kit ran successfully but the parser found no ingredient lines. */
+    data object NO_INGREDIENTS_FOUND : ScanError
+    /** ML Kit itself threw an exception (image unreadable, OOM, etc.). */
+    data object RECOGNITION_FAILED : ScanError
+    /** The camera could not be launched (no camera app or temp-file failure). */
+    data object CAMERA_UNAVAILABLE : ScanError
+}
+
+// ── UiState ───────────────────────────────────────────────────────────────────
 
 data class RecipeScalerUiState(
     val originalServingsText: String = "1",
@@ -388,61 +609,58 @@ data class RecipeScalerUiState(
     val scaledIngredients: List<ScaledIngredient> = emptyList(),
     val multiplierText: String = "",
     val shoppingListText: String = "",
+    /** True when multiplier > 4×; triggers the recipe-level warning banner. */
+    val showScaleWarning: Boolean = false,
+    /** When true, unit-family decomposition is skipped; raw rounded amounts are shown. */
+    val keepOriginalUnits: Boolean = false,
+    val showOriginalValues: Boolean = false,
     val showShoppingListDialog: Boolean = false,
     val savedRecipes: List<SavedRecipe> = emptyList(),
-    /** True when the "pick a saved recipe to overwrite (or save as new)" sheet is visible. */
     val showSaveListDialog: Boolean = false,
     val showSaveRecipeDialog: Boolean = false,
     val showLoadRecipeDialog: Boolean = false,
     val recipeNameInput: String = "",
-    /** The name of the recipe the user chose to overwrite, or null when saving as new. */
     val selectedRecipeForOverwrite: String? = null,
-    val showOriginalValues: Boolean = false,
-    val simplifyFractions: Boolean = false,
     val showCopyFormatDialog: Boolean = false,
     val saveRecipeError: String? = null,
     val focusedIngredientId: String? = null,
-    val focusedField: FocusedIngredientField = FocusedIngredientField.NONE
+    val focusedField: FocusedIngredientField = FocusedIngredientField.NONE,
+    // ── scan ──────────────────────────────────────────────────────────────────
+    /** True while ML Kit is processing the captured image. */
+    val isScanProcessing: Boolean = false,
+    /** Non-null when the most recent scan attempt ended with an error. */
+    val scanError: ScanError? = null,
+    /**
+     * Parsed scan result awaiting the user's replace/append/cancel choice.
+     * Non-null only when a scan succeeded but the current list isn't blank.
+     */
+    val pendingScanResult: List<IngredientItem>? = null
 ) {
     fun recalculate(): RecipeScalerUiState {
         val originalServings = originalServingsText.toDoubleOrNull() ?: 0.0
-        val desiredServings = desiredServingsText.toDoubleOrNull() ?: 0.0
+        val desiredServings  = desiredServingsText.toDoubleOrNull()  ?: 0.0
 
         if (originalServings <= 0.0 || desiredServings <= 0.0) {
             return copy(
                 scaledIngredients = emptyList(),
-                multiplierText = "",
-                shoppingListText = ""
+                multiplierText    = "",
+                shoppingListText  = "",
+                showScaleWarning  = false
             )
         }
 
         val multiplier = RecipeScalerCalculator.calculateMultiplier(originalServings, desiredServings)
-        val scaled = RecipeScalerCalculator.scaleIngredients(ingredients, multiplier)
-        
-        // Apply simplified format if enabled
-        val finalScaled = if (simplifyFractions) {
-            scaled.map { ingredient ->
-                ingredient.copy(
-                    displayText = RecipeScalerCalculator.formatQuantitySimplified(
-                        ingredient.scaledQty,
-                        ingredient.unit,
-                        ingredient.state
-                    )
-                )
-            }
-        } else {
-            scaled
-        }
-        
-        val shoppingList = RecipeScalerCalculator.generateShoppingList(finalScaled)
+        val scaled     = RecipeScalerCalculator.scaleIngredients(ingredients, multiplier, keepOriginalUnits)
+        val shoppingList = RecipeScalerCalculator.generateShoppingList(scaled)
 
         val multiplierFormatted = String.format(Locale.US, "%.2f", multiplier)
             .replace(Regex("\\.?0+$"), "")
 
         return copy(
-            scaledIngredients = finalScaled,
-            multiplierText = multiplierFormatted,
-            shoppingListText = shoppingList
+            scaledIngredients = scaled,
+            multiplierText    = multiplierFormatted,
+            shoppingListText  = shoppingList,
+            showScaleWarning  = multiplier > 4.0
         )
     }
 }
