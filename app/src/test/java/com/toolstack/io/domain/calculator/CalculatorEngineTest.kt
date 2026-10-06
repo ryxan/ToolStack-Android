@@ -7,8 +7,8 @@ class CalculatorEngineTest {
 
     @Test
     fun `formatNumber preserves scientific notation exponents`() {
-        // Large numbers that trigger scientific notation
-        assertEquals("1e+10", CalculatorEngine.formatNumber(1e10))
+        // Large numbers that trigger scientific notation (1e15 and beyond)
+        assertEquals("1e+15", CalculatorEngine.formatNumber(1e15))
         assertEquals("1.23e+15", CalculatorEngine.formatNumber(1.23e15))
         assertEquals("5e+20", CalculatorEngine.formatNumber(5e20))
         
@@ -44,7 +44,34 @@ class CalculatorEngineTest {
     fun `formatNumber handles negative numbers`() {
         assertEquals("-5", CalculatorEngine.formatNumber(-5.0))
         assertEquals("-3.14", CalculatorEngine.formatNumber(-3.14))
-        assertEquals("-1e+10", CalculatorEngine.formatNumber(-1e10))
+        assertEquals("-10000000000", CalculatorEngine.formatNumber(-1e10))
+    }
+
+    @Test
+    fun `formatNumber prints large whole numbers in plain notation below 1e15`() {
+        // Matches the 15-digit input cap — the old 1e10 cutoff hid these behind e-notation
+        assertEquals("12345678901234", CalculatorEngine.formatNumber(12345678901234.0))
+        assertEquals("999999999999999", CalculatorEngine.formatNumber(999999999999999.0))
+        assertEquals("-12345678901234", CalculatorEngine.formatNumber(-12345678901234.0))
+        assertEquals("12345678901234.5", CalculatorEngine.formatNumber(12345678901234.5))
+        // Boundary: 1e15 and beyond still uses scientific notation
+        assertEquals("1e+15", CalculatorEngine.formatNumber(1e15))
+    }
+
+    @Test
+    fun `equals on large operands shows full digits`() {
+        // Plan repro: 12345678901234 + 0 = used to display "1.23456789e+13"
+        var state = CalculatorState()
+        var internal = InternalState()
+        for (d in "12345678901234") {
+            val (s, i) = CalculatorEngine.onDigit(state, d.toString(), internal)
+            state = s; internal = i
+        }
+        val (s2, i2) = CalculatorEngine.onOperator(state, "+", internal)
+        val (s3, i3) = CalculatorEngine.onDigit(s2, "0", i2)
+        val (s4, _) = CalculatorEngine.onEquals(s3, i3)
+        assertEquals("12345678901234", s4.display)
+        assertEquals("12345678901234 + 0 = 12345678901234", s4.history[0])
     }
 
     @Test
@@ -385,5 +412,51 @@ class CalculatorEngineTest {
 
         val (s4, _) = CalculatorEngine.onDigit(s3, "3", i3)
         assertEquals("3", s4.display)
+    }
+
+    @Test
+    fun `digit after mid-expression error clears the expression`() {
+        // 5 ÷ 0 + 10 % → "Error" while tokens are still on the stack;
+        // typing 3 must start fresh, not produce "5 ÷ 0 + 3"
+        val (s1, i1) = CalculatorEngine.onDigit(CalculatorState(), "5", InternalState())
+        val (s2, i2) = CalculatorEngine.onOperator(s1, "÷", i1)
+        val (s3, i3) = CalculatorEngine.onDigit(s2, "0", i2)
+        val (s4, i4) = CalculatorEngine.onOperator(s3, "+", i3)
+        val (s5, i5) = CalculatorEngine.onDigit(s4, "1", i4)
+        val (s6, i6) = CalculatorEngine.onDigit(s5, "0", i5)
+        val (s7, i7) = CalculatorEngine.onPercent(s6, i6)
+        assertEquals("Error", s7.display)
+
+        val (s8, i8) = CalculatorEngine.onDigit(s7, "3", i7)
+        assertEquals("3", s8.display)
+        assertEquals("3", s8.expression)
+        assertEquals("", s8.liveResult)
+    }
+
+    @Test
+    fun `digit after sign flip of percent result starts fresh`() {
+        // 50 % → 0.5 (committed); ± → -0.5; typing 3 must give "3", not "-0.53"
+        val (s1, i1) = CalculatorEngine.onDigit(CalculatorState(), "5", InternalState())
+        val (s2, i2) = CalculatorEngine.onDigit(s1, "0", i1)
+        val (s3, i3) = CalculatorEngine.onPercent(s2, i2)
+        val (s4, i4) = CalculatorEngine.onSignFlip(s3, i3)
+        assertEquals("-0.5", s4.display)
+
+        val (s5, _) = CalculatorEngine.onDigit(s4, "3", i4)
+        assertEquals("3", s5.display)
+    }
+
+    @Test
+    fun `digit after sign flip of equals result starts fresh`() {
+        // 5 + 5 = → 10; ± → -10; typing 3 must give "3", not "-103"
+        val (s1, i1) = CalculatorEngine.onDigit(CalculatorState(), "5", InternalState())
+        val (s2, i2) = CalculatorEngine.onOperator(s1, "+", i1)
+        val (s3, i3) = CalculatorEngine.onDigit(s2, "5", i2)
+        val (s4, i4) = CalculatorEngine.onEquals(s3, i3)
+        val (s5, i5) = CalculatorEngine.onSignFlip(s4, i4)
+        assertEquals("-10", s5.display)
+
+        val (s6, _) = CalculatorEngine.onDigit(s5, "3", i5)
+        assertEquals("3", s6.display)
     }
 }

@@ -114,7 +114,12 @@ object CalculatorEngine {
                 current.isEmpty()                     -> digit
                 else                                  -> current + digit
             }
-            newInternal = internal.copy(pendingInput = newInput, pendingIsResult = false)
+            newInternal = if (internal.pendingInput == "Error") {
+                // Recovering from an error discards the invalid expression too
+                InternalState(pendingInput = newInput)
+            } else {
+                internal.copy(pendingInput = newInput, pendingIsResult = false)
+            }
             newDisplay = newInput
         }
 
@@ -329,7 +334,7 @@ object CalculatorEngine {
         val newInternal = internal.copy(
             pendingInput = str,
             justEvaluated = false,
-            pendingIsResult = false
+            pendingIsResult = internal.pendingIsResult || internal.justEvaluated
         )
 
         val expressionStr = buildExpressionString(newInternal.expressionTokens, str)
@@ -442,16 +447,21 @@ object CalculatorEngine {
 
     /**
      * Formats a [Double] for display: strips trailing zeros from decimals,
-     * caps at 10 significant digits, and falls back to "Error" for NaN/Infinity.
+     * caps at 15 significant digits (matching the input limit), and falls
+     * back to "Error" for NaN/Infinity. Scientific notation is only used
+     * beyond 1e15 or for magnitudes below ~1e-4.
      */
     fun formatNumber(value: Double): String {
         if (value.isNaN() || value.isInfinite()) return "Error"
-        // If the value is a whole number, show without decimal.
-        return if (value == kotlin.math.floor(value) && !value.isInfinite() && kotlin.math.abs(value) < 1e10) {
+        // Whole numbers below 1e15 print in full — doubles represent every
+        // integer below 2^53 (~9e15) exactly.
+        return if (value == kotlin.math.floor(value) && kotlin.math.abs(value) < 1e15) {
             String.format(java.util.Locale.US, "%.0f", value)
         } else {
-            // Up to 10 significant digits
-            val raw = String.format(java.util.Locale.US, "%.10g", value)
+            // Up to 15 significant digits; %g only switches to scientific
+            // notation once the exponent reaches the precision, so values
+            // below 1e15 stay in plain notation.
+            val raw = String.format(java.util.Locale.US, "%.15g", value)
             // Preserve scientific notation (e.g., "1.000000000e+10")
             // Only trim zeros from the mantissa (before 'e'), not the exponent
             if (raw.contains('e', ignoreCase = true)) {

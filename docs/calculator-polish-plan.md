@@ -61,7 +61,7 @@ Where: `onPercent` ~L262–L279; test `onPercent with operator still divides by 
 Input allows 15 digits, but `formatNumber` switches to scientific notation at `1e10`.
 `12345678901234 + 0 =` displays `1.23456789e+13`.
 
-- [ ] Raise the plain-format threshold to ~1e15 (matching the 15-digit input cap); only use `e` notation beyond that.
+- [x] Raise the plain-format threshold to ~1e15 (matching the 15-digit input cap); only use `e` notation beyond that.
 
 Where: `formatNumber` ~L400–L419.
 
@@ -105,7 +105,7 @@ Where: `CalculatorViewModel` init ~L41–L51, `onEquals` ~L63–L73.
 ### 11. No ± key; `00` is low-value
 Engine supports `onSignFlip` but there's no key for it.
 
-- [ ] Swap `00` for `±` (common layout: `±  0  .  =`); fix #4 in the same change.
+- [x] Swap `00` for `±` (common layout: `±  0  .  =`); fix #4 in the same change.
 
 Where: `Keypad` row 5 ~L496–L505.
 
@@ -113,7 +113,7 @@ Where: `Keypad` row 5 ~L496–L505.
 "More options", "Clear History", "Clear History?", "This will permanently delete…", "Clear",
 "Cancel" bypass `strings.xml` while the rest of the screen uses resources.
 
-- [ ] Move all to `strings.xml`.
+- [x] Move all to `strings.xml`.
 
 Where: `CalculatorScreen.kt` ~L181–L189, ~L281–L302.
 
@@ -121,7 +121,7 @@ Where: `CalculatorScreen.kt` ~L181–L189, ~L281–L302.
 App has `darkColorScheme`, but the calculator hard-codes `CalcBackground` (light pastel),
 `CalcDisplayDark`, and `Color.White` content — glares in dark mode.
 
-- [ ] Add dark variants of the `Calc*` palette or derive from `MaterialTheme.colorScheme`.
+- [x] Add dark variants of the `Calc*` palette or derive from `MaterialTheme.colorScheme`.
 
 Where: `ui/theme/Color.kt` L10–L16, `CalculatorScreen.kt` throughout.
 
@@ -129,7 +129,7 @@ Where: `ui/theme/Color.kt` L10–L16, `CalculatorScreen.kt` throughout.
 Five near-identical copies (`CalcDigitKey`, `CalcOperatorKey`, `CalcClearKey`, `CalcFunctionKey`,
 `CalcEqualsKey`) differ only in colour and font size.
 
-- [ ] One `CalcKey(label, container, fontSize)` would cut ~100 lines.
+- [x] One `CalcKey(label, container, fontSize)` would cut ~100 lines.
 
 Where: ~L511–L628.
 
@@ -167,7 +167,7 @@ Nothing in the app uses `LocalHapticFeedback`.
 - [ ] error then operator resets instead of chaining (#3)
 - [ ] sign flip preserves `5.` / `5.10`; `0 ± 5` → `-5` not `-05` (#4)
 - [ ] digit after `%` starts a fresh number (#5)
-- [ ] large whole-number result formats without `e` notation below 1e15 (#6)
+- [x] large whole-number result formats without `e` notation below 1e15 (#6)
 - [ ] history capped at N entries (#8)
 
 Test file: `app/src/test/java/com/toolstack/io/domain/calculator/CalculatorEngineTest.kt`

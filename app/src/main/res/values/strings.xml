@@ -199,6 +199,11 @@
     <string name="calculator_key_pct">%</string>
     <string name="calculator_switch_to_unit_converter">Switch to Unit Converter</string>
     <string name="unit_converter_switch_to_calculator">Switch to Calculator</string>
+    <string name="calculator_more_options">More options</string>
+    <string name="calculator_clear_history">Clear History</string>
+    <string name="calculator_clear_history_title">Clear History?</string>
+    <string name="calculator_clear_history_message">This will permanently delete all calculation history.</string>
+    <string name="calculator_clear_history_confirm">Clear</string>
 
     <!-- Paywall copy shown when a non-premium user taps Add to Home Screen -->
     <string name="shortcut_premium_required_body">Home screen shortcuts are a Pro feature. Upgrade to pin any tool directly to your launcher.</string>

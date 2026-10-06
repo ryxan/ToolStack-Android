@@ -56,3 +56,8 @@ fun IndustrialUtilityTheme(
         content = content
     )
 }
+
+/** Calculator button palette for the current theme — the Calc* colors don't follow colorScheme. */
+@Composable
+fun calcColors(darkTheme: Boolean = isSystemInDarkTheme()): CalcColors =
+    if (darkTheme) DarkCalcColors else LightCalcColors

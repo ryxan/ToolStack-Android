@@ -47,14 +47,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.toolstack.io.R
+import com.toolstack.io.ui.theme.CalcColors
+import com.toolstack.io.ui.theme.calcColors
 import java.util.Locale
 
 /**
@@ -135,6 +140,7 @@ fun CalculatorScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val calcState = uiState.calculatorState
+    val colors = calcColors()
     
     var showMenu by remember { mutableStateOf(false) }
     var showClearHistoryDialog by remember { mutableStateOf(false) }
@@ -178,7 +184,7 @@ fun CalculatorScreen(
                         IconButton(onClick = { showMenu = true }) {
                             Icon(
                                 imageVector = Icons.Filled.MoreVert,
-                                contentDescription = "More options"
+                                contentDescription = stringResource(R.string.calculator_more_options)
                             )
                         }
                         DropdownMenu(
@@ -186,7 +192,7 @@ fun CalculatorScreen(
                             onDismissRequest = { showMenu = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Clear History") },
+                                text = { Text(stringResource(R.string.calculator_clear_history)) },
                                 onClick = {
                                     showMenu = false
                                     showClearHistoryDialog = true
@@ -210,7 +216,7 @@ fun CalculatorScreen(
                 )
             )
         },
-        containerColor = com.toolstack.io.ui.theme.CalcBackground,
+        containerColor = colors.background,
         modifier = modifier.fillMaxSize()
     ) { padding ->
         BoxWithConstraints(
@@ -250,6 +256,7 @@ fun CalculatorScreen(
                     expression = calcState.expression,
                     display = calcState.display,
                     liveResult = calcState.liveResult,
+                    colors = colors,
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -266,6 +273,7 @@ fun CalculatorScreen(
                     onBackspace = viewModel::onBackspace,
                     onPercent  = viewModel::onPercent,
                     onSignFlip = viewModel::onSignFlip,
+                    colors = colors,
                     modifier = if (needsScroll) {
                         // Constrain width in landscape to maintain square keys
                         Modifier.width(availableHeight * 0.8f)
@@ -281,8 +289,8 @@ fun CalculatorScreen(
     if (showClearHistoryDialog) {
         AlertDialog(
             onDismissRequest = { showClearHistoryDialog = false },
-            title = { Text("Clear History?") },
-            text = { Text("This will permanently delete all calculation history.") },
+            title = { Text(stringResource(R.string.calculator_clear_history_title)) },
+            text = { Text(stringResource(R.string.calculator_clear_history_message)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -290,12 +298,12 @@ fun CalculatorScreen(
                         showClearHistoryDialog = false
                     }
                 ) {
-                    Text("Clear")
+                    Text(stringResource(R.string.calculator_clear_history_confirm))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showClearHistoryDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(android.R.string.cancel))
                 }
             }
         )
@@ -310,6 +318,7 @@ private fun DisplayPanel(
     expression: String,
     display: String,
     liveResult: String,
+    colors: CalcColors,
     modifier: Modifier = Modifier
 ) {
     val historyScrollState = rememberScrollState()
@@ -352,13 +361,13 @@ private fun DisplayPanel(
                         Text(
                             text = "  |  ",
                             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
-                            color = com.toolstack.io.ui.theme.CalcDisplayDark.copy(alpha = 0.4f)
+                            color = colors.display.copy(alpha = 0.4f)
                         )
                     }
                     Text(
                         text = item,
                         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
-                        color = com.toolstack.io.ui.theme.CalcDisplayDark.copy(alpha = 0.6f),
+                        color = colors.display.copy(alpha = 0.6f),
                         maxLines = 1
                     )
                 }
@@ -398,7 +407,7 @@ private fun DisplayPanel(
                         fontWeight = FontWeight.Normal,
                         lineHeight = dynamicFontSize * 1.2f
                     ),
-                    color = com.toolstack.io.ui.theme.CalcDisplayDark,
+                    color = colors.display,
                     textAlign = TextAlign.End,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -420,7 +429,7 @@ private fun DisplayPanel(
                             fontSize = resultFontSize,
                             fontWeight = FontWeight.Normal
                         ),
-                        color = com.toolstack.io.ui.theme.CalcDisplayDark.copy(alpha = 0.8f),
+                        color = colors.display.copy(alpha = 0.8f),
                         textAlign = TextAlign.End,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -441,6 +450,7 @@ private fun Keypad(
     onBackspace: () -> Unit,
     onPercent: () -> Unit,
     onSignFlip: () -> Unit,
+    colors: CalcColors,
     modifier: Modifier = Modifier
 ) {
     // Row layout: 4 columns × 5 rows
@@ -448,7 +458,7 @@ private fun Keypad(
     // Row 2:  7   8   9  ×
     // Row 3:  4   5   6  −
     // Row 4:  1   2   3  +
-    // Row 5: 00   0   .  =
+    // Row 5:  ±   0   .  =
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -458,50 +468,50 @@ private fun Keypad(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            CalcClearKey(label = stringResource(R.string.calculator_key_clear), modifier = Modifier.weight(1f), onClick = onClear)
-            CalcBackspaceKey(modifier = Modifier.weight(1f), onClick = onBackspace)
-            CalcFunctionKey(label = stringResource(R.string.calculator_key_pct),   modifier = Modifier.weight(1f), onClick = onPercent)
-            CalcOperatorKey(label = "÷", modifier = Modifier.weight(1f)) { onOperator("÷") }
+            CalcKey(label = stringResource(R.string.calculator_key_clear), containerColor = colors.clear, fontSize = 24.sp, modifier = Modifier.weight(1f), onClick = onClear)
+            CalcKey(icon = Icons.AutoMirrored.Filled.Backspace, contentDescription = stringResource(R.string.content_description_backspace), containerColor = colors.function, modifier = Modifier.weight(1f), onClick = onBackspace)
+            CalcKey(label = stringResource(R.string.calculator_key_pct), containerColor = colors.function, fontSize = 28.sp, modifier = Modifier.weight(1f), onClick = onPercent)
+            CalcKey(label = "÷", containerColor = colors.operator, fontSize = 40.sp, modifier = Modifier.weight(1f)) { onOperator("÷") }
         }
         // Row 2
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            CalcDigitKey(label = "7", modifier = Modifier.weight(1f)) { onDigit("7") }
-            CalcDigitKey(label = "8", modifier = Modifier.weight(1f)) { onDigit("8") }
-            CalcDigitKey(label = "9", modifier = Modifier.weight(1f)) { onDigit("9") }
-            CalcOperatorKey(label = "×", modifier = Modifier.weight(1f)) { onOperator("×") }
+            CalcKey(label = "7", containerColor = colors.digit, fontSize = 32.sp, modifier = Modifier.weight(1f)) { onDigit("7") }
+            CalcKey(label = "8", containerColor = colors.digit, fontSize = 32.sp, modifier = Modifier.weight(1f)) { onDigit("8") }
+            CalcKey(label = "9", containerColor = colors.digit, fontSize = 32.sp, modifier = Modifier.weight(1f)) { onDigit("9") }
+            CalcKey(label = "×", containerColor = colors.operator, fontSize = 40.sp, modifier = Modifier.weight(1f)) { onOperator("×") }
         }
         // Row 3
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            CalcDigitKey(label = "4", modifier = Modifier.weight(1f)) { onDigit("4") }
-            CalcDigitKey(label = "5", modifier = Modifier.weight(1f)) { onDigit("5") }
-            CalcDigitKey(label = "6", modifier = Modifier.weight(1f)) { onDigit("6") }
-            CalcOperatorKey(label = "−", modifier = Modifier.weight(1f)) { onOperator("−") }
+            CalcKey(label = "4", containerColor = colors.digit, fontSize = 32.sp, modifier = Modifier.weight(1f)) { onDigit("4") }
+            CalcKey(label = "5", containerColor = colors.digit, fontSize = 32.sp, modifier = Modifier.weight(1f)) { onDigit("5") }
+            CalcKey(label = "6", containerColor = colors.digit, fontSize = 32.sp, modifier = Modifier.weight(1f)) { onDigit("6") }
+            CalcKey(label = "−", containerColor = colors.operator, fontSize = 40.sp, modifier = Modifier.weight(1f)) { onOperator("−") }
         }
         // Row 4
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            CalcDigitKey(label = "1", modifier = Modifier.weight(1f)) { onDigit("1") }
-            CalcDigitKey(label = "2", modifier = Modifier.weight(1f)) { onDigit("2") }
-            CalcDigitKey(label = "3", modifier = Modifier.weight(1f)) { onDigit("3") }
-            CalcOperatorKey(label = "+", modifier = Modifier.weight(1f)) { onOperator("+") }
+            CalcKey(label = "1", containerColor = colors.digit, fontSize = 32.sp, modifier = Modifier.weight(1f)) { onDigit("1") }
+            CalcKey(label = "2", containerColor = colors.digit, fontSize = 32.sp, modifier = Modifier.weight(1f)) { onDigit("2") }
+            CalcKey(label = "3", containerColor = colors.digit, fontSize = 32.sp, modifier = Modifier.weight(1f)) { onDigit("3") }
+            CalcKey(label = "+", containerColor = colors.operator, fontSize = 40.sp, modifier = Modifier.weight(1f)) { onOperator("+") }
         }
         // Row 5
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            CalcDigitKey(label = "00", modifier = Modifier.weight(1f)) { onDigit("00") }
-            CalcDigitKey(label = "0", modifier = Modifier.weight(1f)) { onDigit("0") }
-            CalcDigitKey(label = ".", modifier = Modifier.weight(1f)) { onDigit(".") }
-            CalcEqualsKey(modifier = Modifier.weight(1f), onClick = onEquals)
+            CalcKey(label = stringResource(R.string.calculator_key_sign), containerColor = colors.function, fontSize = 28.sp, modifier = Modifier.weight(1f), onClick = onSignFlip)
+            CalcKey(label = "0", containerColor = colors.digit, fontSize = 32.sp, modifier = Modifier.weight(1f)) { onDigit("0") }
+            CalcKey(label = ".", containerColor = colors.digit, fontSize = 32.sp, modifier = Modifier.weight(1f)) { onDigit(".") }
+            CalcKey(label = "=", containerColor = colors.equals, fontSize = 40.sp, modifier = Modifier.weight(1f), onClick = onEquals)
         }
     }
 }
@@ -509,8 +519,10 @@ private fun Keypad(
 // ── Individual key composables ────────────────────────────────────────────────
 
 @Composable
-private fun CalcDigitKey(
+private fun CalcKey(
     label: String,
+    containerColor: Color,
+    fontSize: TextUnit,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
@@ -518,14 +530,14 @@ private fun CalcDigitKey(
         onClick = onClick,
         modifier = modifier.aspectRatio(1f),
         colors = ButtonDefaults.buttonColors(
-            containerColor = com.toolstack.io.ui.theme.CalcDigitButton,
-            contentColor = androidx.compose.ui.graphics.Color.White
+            containerColor = containerColor,
+            contentColor = Color.White
         )
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.titleLarge.copy(
-                fontSize = 32.sp,
+                fontSize = fontSize,
                 fontWeight = FontWeight.Normal
             )
         )
@@ -533,8 +545,10 @@ private fun CalcDigitKey(
 }
 
 @Composable
-private fun CalcOperatorKey(
-    label: String,
+private fun CalcKey(
+    icon: ImageVector,
+    contentDescription: String,
+    containerColor: Color,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
@@ -542,108 +556,14 @@ private fun CalcOperatorKey(
         onClick = onClick,
         modifier = modifier.aspectRatio(1f),
         colors = ButtonDefaults.buttonColors(
-            containerColor = com.toolstack.io.ui.theme.CalcOperatorOrange,
-            contentColor = androidx.compose.ui.graphics.Color.White
-        )
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontSize = 40.sp,
-                fontWeight = FontWeight.Normal
-            )
-        )
-    }
-}
-
-@Composable
-private fun CalcClearKey(
-    label: String,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Button(
-        onClick = onClick,
-        modifier = modifier.aspectRatio(1f),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = com.toolstack.io.ui.theme.CalcClearRed,
-            contentColor = androidx.compose.ui.graphics.Color.White
-        )
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Normal
-            )
-        )
-    }
-}
-
-@Composable
-private fun CalcFunctionKey(
-    label: String,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Button(
-        onClick = onClick,
-        modifier = modifier.aspectRatio(1f),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = com.toolstack.io.ui.theme.CalcFunctionDark,
-            contentColor = androidx.compose.ui.graphics.Color.White
-        )
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Normal
-            )
-        )
-    }
-}
-
-@Composable
-private fun CalcEqualsKey(
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Button(
-        onClick = onClick,
-        modifier = modifier.aspectRatio(1f),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = com.toolstack.io.ui.theme.CalcEqualsGreen,
-            contentColor = androidx.compose.ui.graphics.Color.White
-        )
-    ) {
-        Text(
-            text = "=",
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontSize = 40.sp,
-                fontWeight = FontWeight.Normal
-            )
-        )
-    }
-}
-
-@Composable
-private fun CalcBackspaceKey(
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Button(
-        onClick = onClick,
-        modifier = modifier.aspectRatio(1f),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = com.toolstack.io.ui.theme.CalcFunctionDark,
-            contentColor = androidx.compose.ui.graphics.Color.White
+            containerColor = containerColor,
+            contentColor = Color.White
         )
     ) {
         Icon(
-            imageVector = Icons.AutoMirrored.Filled.Backspace,
-            contentDescription = stringResource(R.string.content_description_backspace),
-            tint = androidx.compose.ui.graphics.Color.White,
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = Color.White,
             modifier = Modifier.padding(4.dp)
         )
     }
