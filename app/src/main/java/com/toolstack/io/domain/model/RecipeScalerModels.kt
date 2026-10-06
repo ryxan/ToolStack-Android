@@ -4,7 +4,8 @@ data class IngredientItem(
     val id: String,
     val qtyString: String,
     val unit: String,
-    val name: String
+    val name: String,
+    val lowConfidence: Boolean = false
 )
 
 data class UnitOption(

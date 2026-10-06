@@ -152,6 +152,7 @@
     <string name="ratio_mix_results_title">Results</string>
     <string name="ratio_mix_ratio_summary">Ratio: %1$s</string>
     <string name="ratio_mix_total_label">Total</string>
+    <string name="ratio_mix_error_positive">Must be a positive number</string>
     <string name="ratio_mix_save_preset">Save preset</string>
     <string name="ratio_mix_saved_presets">Saved presets</string>
     <string name="ratio_mix_preset_name_hint">Preset name</string>
@@ -240,6 +241,8 @@
     <string name="recipe_scaler_serves_label">Serves:</string>
     <string name="recipe_scaler_scale_to_label">Scale To:</string>
     <string name="recipe_scaler_clear_all">Clear All</string>
+    <string name="recipe_scaler_clear_all_title">Clear all ingredients?</string>
+    <string name="recipe_scaler_clear_all_message">This will remove every ingredient from the list.</string>
     <string name="recipe_scaler_qty_header">QTY</string>
     <string name="recipe_scaler_unit_header">UNIT</string>
     <string name="recipe_scaler_type_header">TYPE</string>
@@ -261,6 +264,7 @@
     <string name="recipe_scaler_copy_shopping_list">Copy shopping list</string>
     <string name="recipe_scaler_copy_scaled_recipe">Copy Scaled Recipe</string>
     <string name="recipe_scaler_empty_scaled_recipe">Enter servings and ingredients to see scaled recipe</string>
+    <string name="recipe_scaler_empty_scaled_recipe_hint">Scaled quantities appear here automatically as you type</string>
     <string name="recipe_scaler_shopping_list_title">Shopping List</string>
     <string name="recipe_scaler_no_ingredients">No ingredients to show</string>
     <string name="recipe_scaler_copy_action">Copy</string>
@@ -297,8 +301,11 @@
     <string name="recipe_scaler_scale_warning">Taste and adjust salt, spices, and leavening.</string>
     <string name="recipe_scaler_select_copy_format">Select Copy Format</string>
     <string name="recipe_scaler_format_plain">Plain Text</string>
+    <string name="recipe_scaler_format_plain_desc">Simple text with a servings header</string>
     <string name="recipe_scaler_format_markdown">Markdown</string>
+    <string name="recipe_scaler_format_markdown_desc">Headings and bold quantities</string>
     <string name="recipe_scaler_format_shopping_list">Shopping List</string>
+    <string name="recipe_scaler_format_shopping_list_desc">Checklist with checkboxes</string>
     <string name="recipe_scaler_select_unit">Select Unit</string>
     <string name="recipe_scaler_was_original">was: %1$s</string>
     <string name="recipe_scaler_more_units">More</string>
@@ -325,5 +332,6 @@
     <string name="recipe_scaler_scan_import_message">Your current list already has ingredients. Replace it with the scanned ingredients, or add them to the end?</string>
     <string name="recipe_scaler_scan_replace_action">Replace</string>
     <string name="recipe_scaler_scan_add_to_list_action">Add to list</string>
+    <string name="recipe_scaler_low_confidence_hint">Scan was unsure about this row — please check it</string>
 </resources>
 

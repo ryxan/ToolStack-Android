@@ -68,17 +68,17 @@ class RecipeScalerUiStateTest {
     @Test fun `50 tsp formats as 1 cup 2 tsp`() =
         assertEquals("1 cup 2 tsp", format(50.0, "tsp"))
 
-    /** 1/3 cup → 5 tbsp 1 tsp  (1/3 cup = 16 tsp; 16/3=5 tbsp r1) */
-    @Test fun `one third cup formats as 5 tbsp 1 tsp`() =
-        assertEquals("5 tbsp 1 tsp", scale("1/3", "cup", 1.0))
+    /** 1/3 cup → 5 Tbsp 1 tsp  (1/3 cup = 16 tsp; 16/3=5 tbsp r1) */
+    @Test fun `one third cup formats as 5 Tbsp 1 tsp`() =
+        assertEquals("5 Tbsp 1 tsp", scale("1/3", "cup", 1.0))
 
-    /** 1/4 cup × 3 → 12 tbsp  (36 tsp total — under 48, no cup rollup) */
-    @Test fun `quarter cup times 3 is 12 tbsp not 1 cup`() =
-        assertEquals("12 tbsp", scale("1/4", "cup", 3.0))
+    /** 1/4 cup × 3 → 12 Tbsp  (36 tsp total — under 48, no cup rollup) */
+    @Test fun `quarter cup times 3 is 12 Tbsp not 1 cup`() =
+        assertEquals("12 Tbsp", scale("1/4", "cup", 3.0))
 
-    /** 2 tsp × 2.5 → 5 tsp → 1 tbsp 2 tsp */
-    @Test fun `2 tsp scaled by 2·5 is 1 tbsp 2 tsp`() =
-        assertEquals("1 tbsp 2 tsp", scale("2", "tsp", 2.5))
+    /** 2 tsp × 2.5 → 5 tsp → 1 Tbsp 2 tsp */
+    @Test fun `2 tsp scaled by 2·5 is 1 Tbsp 2 tsp`() =
+        assertEquals("1 Tbsp 2 tsp", scale("2", "tsp", 2.5))
 
     /** 12 cups flour → 12 cups */
     @Test fun `12 cups stays as 12 cups`() =
@@ -87,7 +87,7 @@ class RecipeScalerUiStateTest {
     // ── 47 vs 48 tsp boundary ─────────────────────────────────────────────────
 
     @Test fun `47 tsp does not roll into a cup`() =
-        assertEquals("15 tbsp 2 tsp", format(47.0, "tsp"))
+        assertEquals("15 Tbsp 2 tsp", format(47.0, "tsp"))
 
     @Test fun `48 tsp is exactly 1 cup`() =
         assertEquals("1 cup", format(48.0, "tsp"))
@@ -105,41 +105,41 @@ class RecipeScalerUiStateTest {
 
     // ── Metric volume spec examples ───────────────────────────────────────────
 
-    /** 250 ml × 2 → 500 ml */
-    @Test fun `250 ml times 2 is 500 ml`() =
-        assertEquals("500 ml", scale("250", "ml", 2.0))
+    /** 250 ml × 2 → 500 mL */
+    @Test fun `250 ml times 2 is 500 mL`() =
+        assertEquals("500 mL", scale("250", "ml", 2.0))
 
-    /** 250 ml × 6 → 1 L 500 ml */
-    @Test fun `250 ml times 6 is 1 L 500 ml`() =
-        assertEquals("1 L 500 ml", scale("250", "ml", 6.0))
+    /** 250 ml × 6 → 1 L 500 mL */
+    @Test fun `250 ml times 6 is 1 L 500 mL`() =
+        assertEquals("1 L 500 mL", scale("250", "ml", 6.0))
 
-    /** 900 ml × 1.1 → 990 ml */
-    @Test fun `900 ml times 1·1 is 990 ml`() =
-        assertEquals("990 ml", scale("900", "ml", 1.1))
+    /** 900 ml × 1.1 → 990 mL */
+    @Test fun `900 ml times 1·1 is 990 mL`() =
+        assertEquals("990 mL", scale("900", "ml", 1.1))
 
     // ── 999 vs 1000 ml boundary ───────────────────────────────────────────────
 
-    @Test fun `999 ml stays as ml`() =
-        assertEquals("999 ml", format(999.0, "ml"))
+    @Test fun `999 ml stays as mL`() =
+        assertEquals("999 mL", format(999.0, "ml"))
 
     @Test fun `1000 ml becomes 1 L`() =
         assertEquals("1 L", format(1000.0, "ml"))
 
-    /** 1500 ml → 1 L 500 ml */
-    @Test fun `1500 ml becomes 1 L 500 ml`() =
-        assertEquals("1 L 500 ml", format(1500.0, "ml"))
+    /** 1500 ml → 1 L 500 mL */
+    @Test fun `1500 ml becomes 1 L 500 mL`() =
+        assertEquals("1 L 500 mL", format(1500.0, "ml"))
 
     /** 2000 ml → 2 L */
     @Test fun `2000 ml becomes 2 L`() =
         assertEquals("2 L", format(2000.0, "ml"))
 
-    /** L unit input: 0.25 L → 250 ml */
-    @Test fun `quarter litre formats as 250 ml`() =
-        assertEquals("250 ml", format(0.25, "L"))
+    /** L unit input: 0.25 L → 250 mL */
+    @Test fun `quarter litre formats as 250 mL`() =
+        assertEquals("250 mL", format(0.25, "L"))
 
-    /** L unit input: 1.5 L → 1 L 500 ml */
-    @Test fun `1·5 L formats as 1 L 500 ml`() =
-        assertEquals("1 L 500 ml", format(1.5, "L"))
+    /** L unit input: 1.5 L → 1 L 500 mL */
+    @Test fun `1·5 L formats as 1 L 500 mL`() =
+        assertEquals("1 L 500 mL", format(1.5, "L"))
 
     // ── Other units ───────────────────────────────────────────────────────────
 
@@ -166,13 +166,25 @@ class RecipeScalerUiStateTest {
     @Test fun `keep original units skips cup decomposition`() =
         assertEquals("48 tsp", format(48.0, "tsp", keepOriginal = true))
 
-    /** With keepOriginalUnits=true, 1000 ml stays "1000 ml", not "1 L" */
+    /** With keepOriginalUnits=true, 1000 ml stays "1000 mL", not "1 L" */
     @Test fun `keep original units skips L promotion`() =
-        assertEquals("1000 ml", format(1000.0, "ml", keepOriginal = true))
+        assertEquals("1000 mL", format(1000.0, "ml", keepOriginal = true))
 
     /** keepOriginalUnits still rounds to a whole number */
-    @Test fun `keep original units rounds 2·5 tbsp to 3 tbsp`() =
-        assertEquals("3 tbsp", format(2.5, "tbsp", keepOriginal = true))
+    @Test fun `keep original units rounds 2·5 tbsp to 3 Tbsp`() =
+        assertEquals("3 Tbsp", format(2.5, "tbsp", keepOriginal = true))
+
+    // ── Unit key normalisation ────────────────────────────────────────────────
+
+    @Test fun `canonicalUnit maps accessory-bar labels to keys`() {
+        assertEquals("tbsp", RecipeScalerCalculator.canonicalUnit("Tbsp"))
+        assertEquals("ml",   RecipeScalerCalculator.canonicalUnit("mL"))
+        assertEquals("L",    RecipeScalerCalculator.canonicalUnit("l"))
+        assertEquals("pt",   RecipeScalerCalculator.canonicalUnit("pt"))
+    }
+
+    @Test fun `legacy Tbsp unit key still scales as US volume`() =
+        assertEquals("2 Tbsp 2 tsp", format(2.5, "Tbsp"))
 
     // ── UiState recalculate ───────────────────────────────────────────────────
 

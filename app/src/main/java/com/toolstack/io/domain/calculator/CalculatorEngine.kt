@@ -82,8 +82,14 @@ object CalculatorEngine {
             newInternal = InternalState(pendingInput = initialInput)
             newDisplay = initialInput
         } else {
-            val current = internal.pendingInput
-            
+            // A committed result (e.g. after "%") or a stray "Error" is replaced
+            // by the next digit rather than appended to
+            val current = if (internal.pendingIsResult || internal.pendingInput == "Error") {
+                ""
+            } else {
+                internal.pendingInput
+            }
+
             // Count digits only (excluding decimal point and minus sign)
             val digitCount = current.count { it.isDigit() }
             val newDigitCount = when (digit) {
@@ -91,23 +97,24 @@ object CalculatorEngine {
                 "." -> 0
                 else -> digit.count { it.isDigit() }
             }
-            
+
             // Enforce 15-digit limit
             if (digitCount + newDigitCount > 15 && digit != ".") {
                 // Reject the input if it would exceed 15 digits
                 return state to internal
             }
-            
+
             val newInput = when {
                 current.isEmpty() && digit == "." -> "0."  // Normalize initial decimal
+                current.isEmpty() && digit == "00" -> "0"  // Normalize "00" as first input
                 digit == "." && current.contains(".") -> current  // only one decimal point
-                digit == "0" && current == "0"        -> current  // leading-zero guard
-                digit == "00" && current == "0"       -> current  // don't allow "000..."
+                (digit == "0" || digit == "00") && (current == "0" || current == "-0") -> current
                 current == "0" && digit != "." && digit != "00" -> digit
+                current == "-0" && digit != "." && digit != "00" -> "-$digit"
                 current.isEmpty()                     -> digit
                 else                                  -> current + digit
             }
-            newInternal = internal.copy(pendingInput = newInput)
+            newInternal = internal.copy(pendingInput = newInput, pendingIsResult = false)
             newDisplay = newInput
         }
 
@@ -130,6 +137,12 @@ object CalculatorEngine {
     fun onOperator(state: CalculatorState, op: String, internal: InternalState): Pair<CalculatorState, InternalState> {
         if (state.mode == CalculatorMode.CONSTRUCTION) return onOperatorConstruction(state, op, internal)
 
+        // After an error, reset rather than chaining "Error" into the expression
+        if (internal.pendingInput == "Error" || state.display == "Error") {
+            val (cleared, clearedInternal) = onClear(state)
+            return onOperator(cleared, op, clearedInternal)
+        }
+
         // If we have pending input, add it and the operator to the expression
         val newTokens = if (internal.pendingInput.isNotEmpty()) {
             internal.expressionTokens + internal.pendingInput + op
@@ -151,7 +164,8 @@ object CalculatorEngine {
         val newInternal = internal.copy(
             expressionTokens = newTokens,
             pendingInput = "",
-            justEvaluated = false
+            justEvaluated = false,
+            pendingIsResult = false
         )
 
         val expressionStr = buildExpressionString(newTokens, "")
@@ -169,6 +183,9 @@ object CalculatorEngine {
      */
     fun onEquals(state: CalculatorState, internal: InternalState): Pair<CalculatorState, InternalState> {
         if (state.mode == CalculatorMode.CONSTRUCTION) return onEqualsConstruction(state, internal)
+
+        // Pressing "=" while showing an error just clears it
+        if (internal.pendingInput == "Error" || state.display == "Error") return onClear(state)
 
         // Build the complete expression including any pending input
         val completeTokens = if (internal.pendingInput.isNotEmpty()) {
@@ -227,7 +244,7 @@ object CalculatorEngine {
         if (internal.pendingInput.isNotEmpty()) {
             // Delete from pending input
             val trimmed = internal.pendingInput.dropLast(1)
-            newInternal = internal.copy(pendingInput = trimmed)
+            newInternal = internal.copy(pendingInput = trimmed, pendingIsResult = false)
             newDisplay = if (trimmed.isEmpty() && internal.expressionTokens.isNotEmpty()) {
                 // Show the last number from tokens
                 internal.expressionTokens.findLast { !isOperator(it) } ?: "0"
@@ -261,12 +278,30 @@ object CalculatorEngine {
      */
     fun onPercent(state: CalculatorState, internal: InternalState): Pair<CalculatorState, InternalState> {
         if (state.mode == CalculatorMode.CONSTRUCTION) return onPercentConstruction(state, internal)
-        
-        val currentValue = state.display.toDoubleOrNull() ?: 0.0
-        val percentValue = currentValue / 100.0
-        
+        if (internal.pendingInput == "Error" || state.display == "Error") {
+            val (cleared, clearedInternal) = onClear(state)
+            return onPercent(cleared, clearedInternal)
+        }
+
+        // The operand is the pending input, or the displayed value if nothing is being typed
+        val operand = internal.pendingInput.ifEmpty { state.display }.toDoubleOrNull() ?: 0.0
+
+        // Contextual percent: with a pending + or − it is a percentage of the left
+        // operand ("200 + 10 %" → 20); with ×, ÷, or no operator it is the value ÷ 100.
+        val lastToken = internal.expressionTokens.lastOrNull()
+        val percentValue = if (lastToken == "+" || lastToken == "−") {
+            calculateFromTokens(internal.expressionTokens.dropLast(1)) * operand / 100.0
+        } else {
+            operand / 100.0
+        }
+
         val str = formatNumber(percentValue)
-        val newInternal = internal.copy(pendingInput = str, justEvaluated = false)
+        // Committed result — the next digit press replaces it rather than appending
+        val newInternal = internal.copy(
+            pendingInput = str,
+            justEvaluated = false,
+            pendingIsResult = true
+        )
         
         val expressionStr = buildExpressionString(newInternal.expressionTokens, str)
         val liveResult = evaluateExpression(newInternal.expressionTokens, str)
@@ -283,13 +318,23 @@ object CalculatorEngine {
      */
     fun onSignFlip(state: CalculatorState, internal: InternalState): Pair<CalculatorState, InternalState> {
         if (state.mode == CalculatorMode.CONSTRUCTION) return onSignFlipConstruction(state, internal)
-        val value = (state.display.toDoubleOrNull() ?: 0.0) * -1.0
-        val str = formatNumber(value)
-        val newInternal = internal.copy(pendingInput = str, justEvaluated = false)
-        
+        if (internal.pendingInput == "Error" || state.display == "Error") {
+            val (cleared, clearedInternal) = onClear(state)
+            return onSignFlip(cleared, clearedInternal)
+        }
+
+        // Toggle the sign as a string so typed input like "5." or "5.10" is preserved
+        val base = internal.pendingInput.ifEmpty { state.display }
+        val str = if (base.startsWith("-")) base.removePrefix("-") else "-$base"
+        val newInternal = internal.copy(
+            pendingInput = str,
+            justEvaluated = false,
+            pendingIsResult = false
+        )
+
         val expressionStr = buildExpressionString(newInternal.expressionTokens, str)
         val liveResult = evaluateExpression(newInternal.expressionTokens, str)
-        
+
         return state.copy(
             display = str,
             expression = expressionStr,
@@ -341,37 +386,39 @@ object CalculatorEngine {
         if (tokens.isEmpty()) return 0.0
         if (tokens.size == 1) return tokens[0].toDoubleOrNull() ?: 0.0
 
-        // First pass: handle × and ÷ (higher precedence)
-        val afterMultDiv = mutableListOf<String>()
+        // First pass: handle × and ÷ (higher precedence). Intermediates stay as
+        // Doubles — reformatting to a string here would truncate precision and
+        // turn NaN ("Error") into 0.0 on the second pass.
+        val afterMultDiv = mutableListOf<Any>()
         var i = 0
         while (i < tokens.size) {
             val token = tokens[i]
             when {
                 token == "×" && i > 0 && i < tokens.size - 1 -> {
-                    val left = afterMultDiv.removeLastOrNull()?.toDoubleOrNull() ?: 0.0
+                    val left = (afterMultDiv.removeLastOrNull() as? Double) ?: 0.0
                     val right = tokens[i + 1].toDoubleOrNull() ?: 0.0
-                    afterMultDiv.add(formatNumber(left * right))
+                    afterMultDiv.add(left * right)
                     i += 2
                 }
                 token == "÷" && i > 0 && i < tokens.size - 1 -> {
-                    val left = afterMultDiv.removeLastOrNull()?.toDoubleOrNull() ?: 0.0
+                    val left = (afterMultDiv.removeLastOrNull() as? Double) ?: 0.0
                     val right = tokens[i + 1].toDoubleOrNull() ?: 1.0
-                    afterMultDiv.add(formatNumber(if (right == 0.0) Double.NaN else left / right))
+                    afterMultDiv.add(if (right == 0.0) Double.NaN else left / right)
                     i += 2
                 }
                 else -> {
-                    afterMultDiv.add(token)
+                    afterMultDiv.add(token.toDoubleOrNull() ?: token)
                     i++
                 }
             }
         }
 
         // Second pass: handle + and − (lower precedence)
-        var result = afterMultDiv[0].toDoubleOrNull() ?: 0.0
+        var result = (afterMultDiv[0] as? Double) ?: 0.0
         i = 1
         while (i < afterMultDiv.size) {
             val operator = afterMultDiv[i]
-            val nextValue = afterMultDiv.getOrNull(i + 1)?.toDoubleOrNull() ?: 0.0
+            val nextValue = (afterMultDiv.getOrNull(i + 1) as? Double) ?: 0.0
             result = when (operator) {
                 "+" -> result + nextValue
                 "−" -> result - nextValue
@@ -472,6 +519,11 @@ data class InternalState(
     val pendingInput: String = "",
     /** True immediately after "=" so the next digit starts a fresh expression. */
     val justEvaluated: Boolean = false,
+    /**
+     * True when [pendingInput] holds a committed result (e.g. after "%") that
+     * the next digit press replaces rather than appends to.
+     */
+    val pendingIsResult: Boolean = false,
     /** Legacy fields for backward compatibility - to be removed */
     val leftOperand: Double? = null,
     val pendingOperator: String? = null

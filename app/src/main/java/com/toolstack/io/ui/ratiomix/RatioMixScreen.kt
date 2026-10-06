@@ -42,6 +42,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -197,6 +198,7 @@ fun RatioMixScreen(
                     parts = uiState.parts,
                     knownPartIndex = uiState.knownPartIndex,
                     volumeText = uiState.totalVolumeText,
+                    volumeError = uiState.volumeError,
                     selectedUnit = uiState.selectedUnit,
                     onVolumeChanged = viewModel::onTotalVolumeChanged,
                     onUnitSelected = viewModel::onUnitSelected
@@ -247,6 +249,7 @@ private fun SavePresetDialog(
     onDismiss: () -> Unit
 ) {
     val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -479,6 +482,10 @@ private fun RatioPartRow(
             value = part.ratioText,
             onValueChange = onRatioChanged,
             singleLine = true,
+            isError = part.ratioError,
+            supportingText = if (part.ratioError) {
+                { Text(text = stringResource(R.string.ratio_mix_error_positive)) }
+            } else null,
             label = { Text(text = stringResource(R.string.ratio_mix_ratio_value)) },
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Decimal,
@@ -512,6 +519,7 @@ private fun VolumeInputRow(
     parts: List<RatioPart>,
     knownPartIndex: Int,
     volumeText: String,
+    volumeError: Boolean,
     selectedUnit: VolumeUnit,
     onVolumeChanged: (String) -> Unit,
     onUnitSelected: (VolumeUnit) -> Unit
@@ -536,6 +544,10 @@ private fun VolumeInputRow(
                 value = volumeText,
                 onValueChange = onVolumeChanged,
                 singleLine = true,
+                isError = volumeError,
+                supportingText = if (volumeError) {
+                    { Text(text = stringResource(R.string.ratio_mix_error_positive)) }
+                } else null,
                 label = { Text(text = fieldLabel, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Decimal,

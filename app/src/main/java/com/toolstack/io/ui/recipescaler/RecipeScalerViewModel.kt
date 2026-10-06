@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
+import android.util.Log
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -162,21 +163,30 @@ class RecipeScalerViewModel @Inject constructor(
 
     fun onIngredientQuantityChanged(id: String, text: String) {
         _uiState.update { state ->
-            val updated = state.ingredients.map { if (it.id == id) it.copy(qtyString = text) else it }
+            val updated = state.ingredients.map {
+                if (it.id == id) it.copy(qtyString = text, lowConfidence = false) else it
+            }
             state.copy(ingredients = updated).recalculate()
         }
     }
 
     fun onIngredientUnitChanged(id: String, unit: String) {
         _uiState.update { state ->
-            val updated = state.ingredients.map { if (it.id == id) it.copy(unit = unit) else it }
+            val updated = state.ingredients.map {
+                if (it.id == id) it.copy(
+                    unit = RecipeScalerCalculator.canonicalUnit(unit),
+                    lowConfidence = false
+                ) else it
+            }
             state.copy(ingredients = updated).recalculate()
         }
     }
 
     fun onIngredientNameChanged(id: String, name: String) {
         _uiState.update { state ->
-            val updated = state.ingredients.map { if (it.id == id) it.copy(name = name) else it }
+            val updated = state.ingredients.map {
+                if (it.id == id) it.copy(name = name, lowConfidence = false) else it
+            }
             state.copy(ingredients = updated).recalculate()
         }
     }
@@ -316,7 +326,7 @@ class RecipeScalerViewModel @Inject constructor(
             IngredientItem(
                 id        = UUID.randomUUID().toString(),
                 qtyString = saved.qtyString,
-                unit      = saved.unit,
+                unit      = RecipeScalerCalculator.canonicalUnit(saved.unit),
                 name      = saved.name
             )
         }
@@ -384,11 +394,16 @@ class RecipeScalerViewModel @Inject constructor(
     }
 
     /**
-     * Called when the camera or gallery activity returns with a [uri] pointing to
-     * the selected/captured image. Runs ML Kit text recognition on the image,
-     * parses the result with [RecipeOcrParser], then either replaces the current
-     * ingredient list (when it's entirely blank) or stores the result in
-     * [RecipeScalerUiState.pendingScanResult] for the user to confirm.
+     * Called when the camera, gallery, or ML Kit Document Scanner activity
+     * returns with a [uri] pointing to the selected/captured image. Runs ML Kit
+     * text recognition on the image, parses the result with [RecipeOcrParser],
+     * then either replaces the current ingredient list (when it's entirely
+     * blank) or stores the result in [RecipeScalerUiState.pendingScanResult]
+     * for the user to confirm.
+     *
+     * When [deleteWhenDone] is true and [uri] is a `file://` URI (the Document
+     * Scanner's output JPEG), the file is recorded in [pendingScanFile] so the
+     * existing `finally` cleanup deletes it after processing.
      *
      * State transitions:
      *   isScanProcessing = true  → ML Kit running
@@ -396,9 +411,12 @@ class RecipeScalerViewModel @Inject constructor(
      *   scanError                → non-null on failure, null on success
      *   pendingScanResult        → non-null when confirmation is needed
      */
-    fun onImageCaptured(uri: Uri) {
+    fun onImageCaptured(uri: Uri, deleteWhenDone: Boolean = false) {
         viewModelScope.launch {
             _uiState.update { it.copy(isScanProcessing = true, scanError = null) }
+            if (deleteWhenDone && uri.scheme == "file") {
+                pendingScanFile = uri.path?.let(::File)
+            }
             var scanBitmap: Bitmap? = null
             try {
                 val (image, bitmap) = loadScanImage(uri)
@@ -453,6 +471,15 @@ class RecipeScalerViewModel @Inject constructor(
                 deletePendingScanFile()
             }
         }
+    }
+
+    /**
+     * Called while `getStartScanIntent` is pending — the Document Scanner flow
+     * is downloaded by Play Services on first use, which can take a while.
+     * Cleared by [onScanCancelled], [onCameraUnavailable], or [onImageCaptured].
+     */
+    fun onScanLaunchStarted() {
+        _uiState.update { it.copy(isScanProcessing = true, scanError = null) }
     }
 
     /** Called when the user cancels the camera/gallery without selecting an image. */
@@ -523,7 +550,19 @@ class RecipeScalerViewModel @Inject constructor(
      * bounding box; falls back to plain text parsing otherwise.
      */
     private fun parseVisionText(visionText: Text): List<IngredientItem> {
+        // Raw text goes to logcat so mis-parse reports can be diagnosed against
+        // what ML Kit actually returned rather than the cleaned-up result.
+        if (com.toolstack.io.BuildConfig.DEBUG) {
+            Log.d(TAG, "OCR raw text:\n${visionText.text}")
+        }
         val lines = visionText.textBlocks.flatMap { it.lines }
+        if (com.toolstack.io.BuildConfig.DEBUG) {
+            // One line per OCR line: "<confidence>  <text>" — used to tune
+            // RecipeOcrParser.LOW_CONFIDENCE_THRESHOLD from real scans.
+            lines.forEach { line ->
+                Log.d(TAG, "%.2f  %s".format(line.confidence, line.text))
+            }
+        }
         if (lines.isNotEmpty() && lines.all { it.boundingBox != null }) {
             return RecipeOcrParser.parseLines(
                 lines.map { line ->
@@ -533,7 +572,8 @@ class RecipeScalerViewModel @Inject constructor(
                         left   = box.left,
                         top    = box.top,
                         right  = box.right,
-                        bottom = box.bottom
+                        bottom = box.bottom,
+                        confidence = line.confidence
                     )
                 },
                 MAX_INGREDIENTS
@@ -582,6 +622,7 @@ class RecipeScalerViewModel @Inject constructor(
     }
 
     companion object {
+        private const val TAG = "RecipeScaler"
         const val MAX_INGREDIENTS = 50
         /** Longest-edge pixel cap for scan images; large photos waste memory/OCR time. */
         const val MAX_SCAN_EDGE_PX = 2048

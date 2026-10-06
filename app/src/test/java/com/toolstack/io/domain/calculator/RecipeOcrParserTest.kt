@@ -443,6 +443,279 @@ class RecipeOcrParserTest {
         assertEquals("lb", item?.unit)
     }
 
+    // ── Handwritten-card: t/T/c unit conventions ─────────────────────────────
+    //
+    // Bare "t" = teaspoon, "T" = tablespoon, "c"/"C." = cup — the convention
+    // used on handwritten index-card recipes.
+
+    @Test fun `handwritten T period → tbsp`() {
+        val item = parseLine("1 T. oil")
+        assertEquals("1",    item?.qtyString)
+        assertEquals("tbsp", item?.unit)
+        assertEquals("Oil",  item?.name)
+    }
+
+    @Test fun `handwritten bare T → tbsp`() {
+        val item = parseLine("1 T olive oil")
+        assertEquals("1",         item?.qtyString)
+        assertEquals("tbsp",      item?.unit)
+        assertEquals("Olive oil", item?.name)
+    }
+
+    @Test fun `handwritten bare t → tsp`() {
+        val item = parseLine("1 t salt")
+        assertEquals("1",     item?.qtyString)
+        assertEquals("tsp",   item?.unit)
+        assertEquals("Salt",  item?.name)
+    }
+
+    @Test fun `handwritten bare C no period → cup`() {
+        val item = parseLine("2 C sugar")
+        assertEquals("2",     item?.qtyString)
+        assertEquals("cup",   item?.unit)
+        assertEquals("Sugar", item?.name)
+    }
+
+    @Test fun `cent sign mis-read of c → cup`() {
+        // Handwritten "c." is often OCR'd as a cent sign.
+        val item = parseLine("1 ¢ sugar")
+        assertEquals("1",     item?.qtyString)
+        assertEquals("cup",   item?.unit)
+        assertEquals("Sugar", item?.name)
+    }
+
+    // ── Handwritten-card: unit punctuation mis-reads ─────────────────────────
+    //
+    // The dot after a handwritten unit letter frequently OCRs as a comma,
+    // colon, or semicolon instead of a period.
+
+    @Test fun `handwritten C comma → cup`() {
+        val item = parseLine("3/4 C, butter")
+        val qty  = RecipeScalerCalculator.parseQuantity(item?.qtyString ?: "")
+        assertEquals("qty should be 0.75", 0.75, qty, 0.001)
+        assertEquals("cup",    item?.unit)
+        assertEquals("Butter", item?.name)
+    }
+
+    @Test fun `handwritten t colon → tsp`() {
+        val item = parseLine("1 t: vanilla extract")
+        assertEquals("1",               item?.qtyString)
+        assertEquals("tsp",             item?.unit)
+        assertEquals("Vanilla extract", item?.name)
+    }
+
+    @Test fun `handwritten T comma → tbsp`() {
+        val item = parseLine("2 T, sugar")
+        assertEquals("tbsp", item?.unit)
+    }
+
+    // ── Handwritten-card: margin artefacts ───────────────────────────────────
+    //
+    // Ruled index cards with a printed checkbox column can produce stray
+    // glyphs at the start of every line.
+
+    @Test fun `leading pipe artefact stripped`() {
+        val item = parseLine("| 1/2 C. honey")
+        val qty  = RecipeScalerCalculator.parseQuantity(item?.qtyString ?: "")
+        assertEquals("qty should be 0.5", 0.5, qty, 0.001)
+        assertEquals("cup",   item?.unit)
+        assertEquals("Honey", item?.name)
+    }
+
+    @Test fun `leading checkbox glyph stripped`() {
+        val item = parseLine("☐ 1 t. vanilla extract")
+        assertEquals("1",               item?.qtyString)
+        assertEquals("tsp",             item?.unit)
+        assertEquals("Vanilla extract", item?.name)
+    }
+
+    @Test fun `leading bracket pair stripped`() {
+        val item = parseLine("[ ] 2 tbsp sugar")
+        assertEquals("2",     item?.qtyString)
+        assertEquals("tbsp",  item?.unit)
+        assertEquals("Sugar", item?.name)
+    }
+
+    @Test fun `leading check mark stripped`() {
+        val item = parseLine("✓ 1 C. chocolate chips")
+        assertEquals("1",               item?.qtyString)
+        assertEquals("cup",             item?.unit)
+        assertEquals("Chocolate chips", item?.name)
+    }
+
+    // ── Real-scan mis-reads from a handwritten index card ────────────────────
+    //
+    // Tokens below are drawn from an actual ML Kit scan of the "3/4 C. butter"
+    // style card: "Lt Vanilla extra" (= "1 t. vanilla extract"),
+    // "4 YaColled ts" (= "4 ½ C. rolled oats").
+
+    @Test fun `ml-kit Lt fused at line start → 1 tsp`() {
+        val item = parseLine("Lt Vanilla extra")
+        assertEquals("1",              item?.qtyString)
+        assertEquals("tsp",            item?.unit)
+        assertEquals("Vanilla extra",  item?.name)
+    }
+
+    @Test fun `ml-kit lt period fused at line start → 1 tsp`() {
+        val item = parseLine("lt. baking soda")
+        assertEquals("tsp",         item?.unit)
+        assertEquals("Baking soda", item?.name)
+    }
+
+    @Test fun `ml-kit l space t period → 1 tsp`() {
+        val item = parseLine("l t. vanilla extract")
+        assertEquals("1",               item?.qtyString)
+        assertEquals("tsp",             item?.unit)
+        assertEquals("Vanilla extract", item?.name)
+    }
+
+    @Test fun `ml-kit 1t period fused → 1 tsp`() {
+        val item = parseLine("1t. vanilla")
+        assertEquals("1",       item?.qtyString)
+        assertEquals("tsp",     item?.unit)
+        assertEquals("Vanilla", item?.name)
+    }
+
+    @Test fun `ml-kit V1T period fused → 1 tbsp`() {
+        val item = parseLine("V1T. oil")
+        assertEquals("1",    item?.qtyString)
+        assertEquals("tbsp", item?.unit)
+        assertEquals("Oil",  item?.name)
+    }
+
+    @Test fun `ml-kit YaColled → 4 and a half cup`() {
+        // "4 YaColled ts" — handwritten "4 ½ C. rolled oats" mis-read with the
+        // fraction fused to the capital C. The fused C confirms the cup token,
+        // so the fix re-emits it: unit is recovered, name keeps the fused C.
+        val item = parseLine("4 YaColled ts")
+        val qty  = RecipeScalerCalculator.parseQuantity(item?.qtyString ?: "")
+        assertEquals("qty should be 4.5", 4.5, qty, 0.001)
+        assertEquals("cup",        item?.unit)
+        // Post-OCR correction turns "Colled" into "Rolled"; "ts" is ≤3 chars
+        // and is left alone.
+        assertEquals("Rolled ts",  item?.name)
+    }
+
+    @Test fun `ml-kit Jy fused → three quarter cup`() {
+        // "Jy buter, meltd (2 sthcks)" — "¾ C. butter, melted (1½ sticks)" with
+        // "3/4 C." compressed into "Jy".
+        val item = parseLine("Jy buter, meltd (2 sthcks)")
+        val qty  = RecipeScalerCalculator.parseQuantity(item?.qtyString ?: "")
+        assertEquals("qty should be 0.75", 0.75, qty, 0.001)
+        assertEquals("cup",   item?.unit)
+        assertEquals("Butter", item?.name)
+    }
+
+    @Test fun `ml-kit Vaci fused → third cup blank name`() {
+        // A whole line collapsed to "Vaci" — "⅓ C." fused; the ingredient name
+        // was lost by OCR entirely. Keeping the qty+unit row lets the user
+        // fill the name in instead of silently dropping the line.
+        val item = parseLine("Vaci")
+        val qty  = RecipeScalerCalculator.parseQuantity(item?.qtyString ?: "")
+        assertEquals("qty should be ~0.333", 1.0 / 3.0, qty, 0.002)
+        assertEquals("cup", item?.unit)
+    }
+
+    @Test fun `leading pipe fused to letter → 1`() {
+        // "|C whole wheat flocor" — "|" is the digit 1 mis-read, fused to "C".
+        val item = parseLine("|C whole wheat flocor")
+        assertEquals("1",                  item?.qtyString)
+        assertEquals("cup",                item?.unit)
+        assertEquals("Whole wheat flour",  item?.name)
+    }
+
+    @Test fun `ml-kit 1t fused no period → 1 tsp`() {
+        val item = parseLine("1t bakina sOda")
+        assertEquals("1",           item?.qtyString)
+        assertEquals("tsp",         item?.unit)
+        // "bakina" → "baking"; "sOda" lowercases to a dictionary word so its
+        // odd capitalization is left alone.
+        assertEquals("Baking sOda", item?.name)
+    }
+
+    @Test fun `paren or-note mis-read as Cor is stripped`() {
+        // "chips Cor any exas" = "chips (or any extras)" with '(' → 'C'.
+        val item = parseLine("lc chocolat chps Cor any exas")
+        assertEquals("1",               item?.qtyString)
+        assertEquals("cup",             item?.unit)
+        assertEquals("Chocolate chips", item?.name)
+    }
+
+    @Test fun `real ml-kit scan of handwritten card parses all lines`() {
+        // Exact logcat output from a real scan of the "¾ C. butter" index card.
+        val raw = """
+            Jy buter, meltd (2 sthcks)
+            Vaci
+            Lt Vanilla extract
+            |C whole wheat flocor
+            1t bakina sOda
+            4 YaColled ts
+            lc chocolat chps Cor any exas
+        """.trimIndent()
+        val items = RecipeOcrParser.parse(raw)
+        assertEquals("should parse 7 rows", 7, items.size)
+
+        val q0 = RecipeScalerCalculator.parseQuantity(items[0].qtyString)
+        assertEquals(0.75, q0, 0.001); assertEquals("cup", items[0].unit)
+
+        val q1 = RecipeScalerCalculator.parseQuantity(items[1].qtyString)
+        assertEquals(1.0 / 3.0, q1, 0.002); assertEquals("cup", items[1].unit)
+
+        assertEquals("1",   items[2].qtyString); assertEquals("tsp", items[2].unit)
+        assertEquals("Vanilla extract", items[2].name)
+
+        assertEquals("1",   items[3].qtyString); assertEquals("cup", items[3].unit)
+
+        assertEquals("1",   items[4].qtyString); assertEquals("tsp", items[4].unit)
+
+        val q5 = RecipeScalerCalculator.parseQuantity(items[5].qtyString)
+        assertEquals(4.5, q5, 0.001); assertEquals("cup", items[5].unit)
+
+        assertEquals("1",   items[6].qtyString); assertEquals("cup", items[6].unit)
+        assertEquals("Chocolate chips", items[6].name)
+    }
+
+    @Test fun `mid-line it is NOT rewritten to 1 tsp`() {
+        // Guard: the fused [LI]t rule is line-start only — a real "it" mid-line
+        // must survive untouched.
+        val item = parseLine("add it to taste")
+        assertEquals("",                  item?.qtyString)
+        assertEquals("none",              item?.unit)
+        assertEquals("Add it to taste",   item?.name)
+    }
+
+    @Test fun `chicken not split into cup hicken`() {
+        // Guard: a capital C fused to lowercase text is a real word, not "C.".
+        val item = parseLine("2 Chicken breasts")
+        assertEquals("2",               item?.qtyString)
+        assertEquals("Chicken breasts", item?.name)
+    }
+
+    @Test fun `ml-kit 14 C comma → 1 quarter cup`() {
+        // Digit-collapse now anchors through trailing punctuation too.
+        val item = parseLine("14 C, sugar")
+        val qty  = RecipeScalerCalculator.parseQuantity(item?.qtyString ?: "")
+        assertEquals("qty should be 1.25", 1.25, qty, 0.001)
+        assertEquals("cup",   item?.unit)
+        assertEquals("Sugar", item?.name)
+    }
+
+    @Test fun `ml-kit 12 t period → 1 and a half tsp`() {
+        // "t." is a valid volume anchor for digit-collapse.
+        val item = parseLine("12 t. salt")
+        val qty  = RecipeScalerCalculator.parseQuantity(item?.qtyString ?: "")
+        assertEquals("qty should be 1.5", 1.5, qty, 0.001)
+        assertEquals("tsp",  item?.unit)
+        assertEquals("Salt", item?.name)
+    }
+
+    @Test fun `ml-kit Lcup comma → 1 cup`() {
+        val item = parseLine("Lcup, shredded cheddar")
+        assertEquals("1",                item?.qtyString)
+        assertEquals("cup",              item?.unit)
+        assertEquals("Shredded cheddar", item?.name)
+    }
+
     // ── Layout-aware parsing (parseLines) ─────────────────────────────────────
     //
     // OcrLine coordinates simulate a ~40px line height. Column detection sweeps
@@ -506,6 +779,41 @@ class RecipeOcrParserTest {
         assertEquals("Shredded cheddar and mozzarella", items[0].name)
     }
 
+    @Test fun `parseLines flags rows below the confidence threshold`() {
+        val lines = listOf(
+            OcrLine("1 cup flour",         left = 0, top = 0,  right = 300, bottom = 40,  confidence = 0.95f),
+            OcrLine("1 tsp bakina soda",   left = 0, top = 50, right = 300, bottom = 90,  confidence = 0.3f)
+        )
+        val items = RecipeOcrParser.parseLines(lines)
+        assertEquals(2, items.size)
+        assertEquals(false, items[0].lowConfidence)
+        assertEquals(true,  items[1].lowConfidence)
+    }
+
+    @Test fun `parseLines leaves flag false when confidence is null`() {
+        val lines = listOf(
+            OcrLine("1 cup flour", left = 0, top = 0, right = 300, bottom = 40)
+        )
+        val items = RecipeOcrParser.parseLines(lines)
+        assertEquals(1, items.size)
+        assertEquals(false, items[0].lowConfidence)
+    }
+
+    @Test fun `parseLines merged wrapped line takes the lower confidence`() {
+        val lines = listOf(
+            OcrLine("1 cup cheddar and", left = 0, top = 0,  right = 390, bottom = 40, confidence = 0.9f),
+            OcrLine("mozzarella",        left = 0, top = 45, right = 200, bottom = 85, confidence = 0.2f)
+        )
+        val items = RecipeOcrParser.parseLines(lines)
+        assertEquals(1, items.size)
+        assertEquals(true, items[0].lowConfidence)
+    }
+
+    @Test fun `parse from raw text never flags rows`() {
+        val item = RecipeOcrParser.parse("1 cup flour").firstOrNull()
+        assertEquals(false, item?.lowConfidence)
+    }
+
     @Test fun `parseLines merges indented lowercase continuation`() {
         val lines = listOf(
             OcrLine("1 cup flour", left = 0,  top = 0,  right = 300, bottom = 40),
@@ -549,6 +857,38 @@ class RecipeOcrParserTest {
         assertEquals("Sugar",   items[0].name)
         assertEquals("Vanilla", items[1].name)
         assertEquals("Flour",   items[2].name)
+    }
+
+    // ── Post-OCR ingredient name correction (plan item 5) ───────────────────
+    //
+    // Garbled name words are corrected against the bounded ingredient
+    // dictionary after name extraction, before capitalization.
+
+    @Test fun `ocr garbled name buter corrected to Butter`() {
+        val item = parseLine("1 cup buter")
+        assertEquals("1",       item?.qtyString)
+        assertEquals("cup",     item?.unit)
+        assertEquals("Butter",  item?.name)
+    }
+
+    @Test fun `ocr garbled multi-word name corrected`() {
+        // "lc." = fused "1 c." mis-read; "Cor any extras" is the existing
+        // "(or …" paren-note rule. Corrector fixes "chcolate chps".
+        val item = parseLine("lc. chcolate chps Cor any extras")
+        assertEquals("1",               item?.qtyString)
+        assertEquals("cup",             item?.unit)
+        assertEquals("Chocolate chips", item?.name)
+    }
+
+    @Test fun `ocr YaColled name corrected to Rolled`() {
+        // "4 YaColled ts" — the Ya(?=C) rule recovers qty 4½ + cup; the
+        // corrector then fixes "Colled" → "Rolled". "ts" is ≤3 chars and
+        // is left untouched.
+        val item = parseLine("4 YaColled ts")
+        val qty  = RecipeScalerCalculator.parseQuantity(item?.qtyString ?: "")
+        assertEquals("qty should be 4.5", 4.5, qty, 0.001)
+        assertEquals("cup",       item?.unit)
+        assertEquals("Rolled ts", item?.name)
     }
 }
 

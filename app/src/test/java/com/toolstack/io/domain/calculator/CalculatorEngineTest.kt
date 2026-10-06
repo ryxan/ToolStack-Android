@@ -254,4 +254,136 @@ class CalculatorEngineTest {
         val (s6, i6) = CalculatorEngine.onEquals(s5, i5)
         assertEquals("11", s6.display)
     }
+
+    @Test
+    fun `divide by zero mid-expression propagates error`() {
+        // 5 ÷ 0 + 3 must be Error, not 3 (NaN must not collapse to 0 on the second pass)
+        val (s1, i1) = CalculatorEngine.onDigit(CalculatorState(), "5", InternalState())
+        val (s2, i2) = CalculatorEngine.onOperator(s1, "÷", i1)
+        val (s3, i3) = CalculatorEngine.onDigit(s2, "0", i2)
+        val (s4, i4) = CalculatorEngine.onOperator(s3, "+", i3)
+        val (s5, i5) = CalculatorEngine.onDigit(s4, "3", i4)
+        val (s6, _) = CalculatorEngine.onEquals(s5, i5)
+
+        assertEquals("Error", s6.display)
+        assertEquals("5 ÷ 0 + 3 = Error", s6.history[0])
+    }
+
+    @Test
+    fun `chained operations keep full precision`() {
+        // 1 ÷ 3 × 3 = 1 — intermediates must not round-trip through a 10-digit string
+        val (s1, i1) = CalculatorEngine.onDigit(CalculatorState(), "1", InternalState())
+        val (s2, i2) = CalculatorEngine.onOperator(s1, "÷", i1)
+        val (s3, i3) = CalculatorEngine.onDigit(s2, "3", i2)
+        val (s4, i4) = CalculatorEngine.onOperator(s3, "×", i3)
+        val (s5, i5) = CalculatorEngine.onDigit(s4, "3", i4)
+        val (s6, _) = CalculatorEngine.onEquals(s5, i5)
+
+        assertEquals("1", s6.display)
+    }
+
+    @Test
+    fun `operator after error resets instead of chaining`() {
+        // 5 ÷ 0 = → Error; pressing + must start fresh, not produce "Error +"
+        val (s1, i1) = CalculatorEngine.onDigit(CalculatorState(), "5", InternalState())
+        val (s2, i2) = CalculatorEngine.onOperator(s1, "÷", i1)
+        val (s3, i3) = CalculatorEngine.onDigit(s2, "0", i2)
+        val (s4, i4) = CalculatorEngine.onEquals(s3, i3)
+        assertEquals("Error", s4.display)
+
+        val (s5, _) = CalculatorEngine.onOperator(s4, "+", i4)
+        assertEquals("0", s5.display)
+        assertEquals("0 +", s5.expression)
+    }
+
+    @Test
+    fun `equals after error just clears`() {
+        val (s1, i1) = CalculatorEngine.onDigit(CalculatorState(), "5", InternalState())
+        val (s2, i2) = CalculatorEngine.onOperator(s1, "÷", i1)
+        val (s3, i3) = CalculatorEngine.onDigit(s2, "0", i2)
+        val (s4, i4) = CalculatorEngine.onEquals(s3, i3)
+
+        val (s5, _) = CalculatorEngine.onEquals(s4, i4)
+        assertEquals("0", s5.display)
+    }
+
+    @Test
+    fun `sign flip preserves typed decimal input`() {
+        // Round-tripping through Double would lose the trailing "." and "0"
+        val (s1, i1) = CalculatorEngine.onSignFlip(
+            CalculatorState(display = "5."),
+            InternalState(pendingInput = "5.")
+        )
+        assertEquals("-5.", s1.display)
+        assertEquals("-5.", i1.pendingInput)
+
+        val (s2, i2) = CalculatorEngine.onSignFlip(
+            CalculatorState(display = "5.10"),
+            InternalState(pendingInput = "5.10")
+        )
+        assertEquals("-5.10", s2.display)
+
+        // Flipping again restores the original string
+        val (s3, _) = CalculatorEngine.onSignFlip(s2, i2)
+        assertEquals("5.10", s3.display)
+    }
+
+    @Test
+    fun `digit after negative zero replaces it`() {
+        // 0 → ± → -0 → 5 must give "-5", not "-05"
+        val (s1, i1) = CalculatorEngine.onSignFlip(
+            CalculatorState(display = "0"),
+            InternalState(pendingInput = "0")
+        )
+        assertEquals("-0", s1.display)
+
+        val (s2, i2) = CalculatorEngine.onDigit(s1, "5", i1)
+        assertEquals("-5", s2.display)
+    }
+
+    @Test
+    fun `percent with pending addition uses left operand`() {
+        // 200 + 10 % → operand becomes 20 (10% of 200), result 220
+        val (s1, i1) = CalculatorEngine.onDigit(CalculatorState(), "2", InternalState())
+        val (s2, i2) = CalculatorEngine.onDigit(s1, "0", i1)
+        val (s3, i3) = CalculatorEngine.onDigit(s2, "0", i2)
+        val (s4, i4) = CalculatorEngine.onOperator(s3, "+", i3)
+        val (s5, i5) = CalculatorEngine.onDigit(s4, "1", i4)
+        val (s6, i6) = CalculatorEngine.onDigit(s5, "0", i5)
+        val (s7, i7) = CalculatorEngine.onPercent(s6, i6)
+
+        assertEquals("20", s7.display)
+        assertEquals("200 + 20", s7.expression)
+        assertEquals("220", s7.liveResult)
+
+        val (s8, _) = CalculatorEngine.onEquals(s7, i7)
+        assertEquals("220", s8.display)
+    }
+
+    @Test
+    fun `percent with pending subtraction uses left operand`() {
+        // 200 − 10 % → 200 − 20 → 180
+        val (s1, i1) = CalculatorEngine.onDigit(CalculatorState(), "2", InternalState())
+        val (s2, i2) = CalculatorEngine.onDigit(s1, "0", i1)
+        val (s3, i3) = CalculatorEngine.onDigit(s2, "0", i2)
+        val (s4, i4) = CalculatorEngine.onOperator(s3, "−", i3)
+        val (s5, i5) = CalculatorEngine.onDigit(s4, "1", i4)
+        val (s6, i6) = CalculatorEngine.onDigit(s5, "0", i5)
+        val (s7, _) = CalculatorEngine.onPercent(s6, i6)
+
+        assertEquals("20", s7.display)
+        assertEquals("180", s7.liveResult)
+    }
+
+    @Test
+    fun `digit after percent replaces the result`() {
+        // 50 % → 0.5 (committed); typing 3 must give "3", not "0.53"
+        val (s1, i1) = CalculatorEngine.onDigit(CalculatorState(), "5", InternalState())
+        val (s2, i2) = CalculatorEngine.onDigit(s1, "0", i1)
+        val (s3, i3) = CalculatorEngine.onPercent(s2, i2)
+        assertEquals("0.5", s3.display)
+
+        val (s4, _) = CalculatorEngine.onDigit(s3, "3", i3)
+        assertEquals("3", s4.display)
+    }
 }

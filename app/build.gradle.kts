@@ -129,6 +129,7 @@ dependencies {
 
     // ML Kit — on-device text recognition (used by recipe scan feature)
     implementation(libs.mlkit.text.recognition)
+    implementation(libs.mlkit.document.scanner)
 
     val composeBom = platform(libs.compose.bom)
     implementation(composeBom)

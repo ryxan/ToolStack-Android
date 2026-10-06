@@ -25,6 +25,14 @@ import java.util.UUID
  */
 object RecipeOcrParser {
 
+    /**
+     * Lines whose ML Kit recognition confidence falls below this are surfaced
+     * as `lowConfidence` on the parsed [IngredientItem]. Starting point only —
+     * tune from real scans (see plan item 4 in
+     * docs/recipe-scaler-ocr-accuracy-plan.md).
+     */
+    const val LOW_CONFIDENCE_THRESHOLD = 0.6f
+
     // ── OCR mis-read normalization map ───────────────────────────────────────
     //
     // ML Kit sometimes reads "1¼" as "14" (the ¼ glyph collapses into its
@@ -47,8 +55,8 @@ object RecipeOcrParser {
         // trailing (?:\s|$) anchor ensures we match a full unit word, not a prefix.
         append("(?i)(?=\\s+(?:")
         append("tablespoons|tablespoon|teaspoons|teaspoon|")
-        append("tbsps|tbsp|tbls|tsps|tsp|cups|cup|c\\.|c|T|t")
-        append(")(?:\\s|\$))")
+        append("tbsps|tbsp|tbls|tsps|tsp|cups|cup|c\\.|c|t\\.|T|t")
+        append(")(?:[\\s.,:;]|\$))")
     }
 
     private val OCR_FRACTION_FIXES: List<Pair<Regex, String>> = listOf(
@@ -77,6 +85,21 @@ object RecipeOcrParser {
         Pair(Regex("""\b3A\b"""), "3/4"),
         // "2/3" rendered as "2/s"
         Pair(Regex("""(?i)\b2/[sz]\b"""), "2/3"),
+        // "½ C." fused mis-read — a handwritten "1/2" before a capital "C" can
+        // come back as "Ya" fused to it ("4 YaColled" = "4 ½ C. rolled"). The
+        // fused C is a confirmed cup token, so the replacement re-emits it as
+        // the unit. Scoped to a capital C immediately after "Ya" so real words
+        // like "Yams" or "yacon" cannot false-positive.
+        Pair(Regex("""\bYa(?=C)"""), "1/2 c "),
+        // "¾ C." fused — same compression pattern: cursive "3/4 C" read as
+        // "Jy" (J≈3, y≈4) with the unit letter swallowed into the token.
+        // Observed: "Jy buter, meltd (2 sthcks)" = "¾ C. butter, melted".
+        Pair(Regex("""\bJy\b"""), "3/4 c "),
+        // "⅓ C." fused — "Va" (the 1/3 mis-read above) + "ci" ("C." with the
+        // period read as "i"). The ingredient name is typically lost entirely;
+        // emitting qty+unit preserves the row so the user can fill it in.
+        // Observed: a bare "Vaci" line on the same handwritten card.
+        Pair(Regex("""\bVaci?\b"""), "1/3 c "),
 
         // ── Digit-1 read as standalone "L" or "I" before a unit word ────────
         //
@@ -92,7 +115,7 @@ object RecipeOcrParser {
         // English words — the lookahead on both sides is tight enough to prevent
         // false-positives.
         Pair(
-            Regex("""(?:(?<=^)|(?<=\s))[LI]\s(tablespoons|tablespoon|teaspoons|teaspoon|tbsps|tbsp|tbls|tsps|tsp|cups|cup|grams|gram|ounces|ounce|pounds|pound|litres|liters|litre|liter|milliliters|millilitres|milliliter|millilitre|pieces|piece|lbs|mls|oz|lb|ml|g|c)(?=\s|$)""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)),
+            Regex("""(?:(?<=^)|(?<=\s))[LI]\s(tablespoons|tablespoon|teaspoons|teaspoon|tbsps|tbsp|tbls|tsps|tsp|cups|cup|grams|gram|ounces|ounce|pounds|pound|litres|liters|litre|liter|milliliters|millilitres|milliliter|millilitre|pieces|piece|lbs|mls|oz|lb|ml|g|c|t\.?)(?=[\s.,:;]|$)""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)),
             "1 $1"
         ),
 
@@ -113,8 +136,23 @@ object RecipeOcrParser {
         //
         // The unit alternation mirrors UNIT_SYNONYMS (longest first for greedy match).
         // "Lcup" → "1 cup", "Ltbsp" → "1 tbsp", "Itsp" → "1 tsp", etc.
+        // Bare "t" is deliberately NOT in this alternation — a mid-line "it"/"lt"
+        // could be a real word ("add it to taste"); see the line-start rule below.
         Pair(
-            Regex("""(?:(?<=^)|(?<=\s))[LI](tablespoons|tablespoon|teaspoons|teaspoon|tbsps|tbsp|tbls|tsps|tsp|cups|cup|grams|gram|ounces|ounce|pounds|pound|litres|liters|litre|liter|milliliters|millilitres|milliliter|millilitre|pieces|piece|lbs|mls|oz|lb|ml|g|c)(?=\s|$)""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)),
+            Regex("""(?:(?<=^)|(?<=\s))[LI](tablespoons|tablespoon|teaspoons|teaspoon|tbsps|tbsp|tbls|tsps|tsp|cups|cup|grams|gram|ounces|ounce|pounds|pound|litres|liters|litre|liter|milliliters|millilitres|milliliter|millilitre|pieces|piece|lbs|mls|oz|lb|ml|g|c)(?=[\s.,:;]|$)""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)),
+            "1 $1"
+        ),
+
+        // ── "Lt"/"It"/"lt" at line start — fused "1 t" (teaspoon) ─────────────
+        //
+        // On handwritten cards "1 t." is frequently read with the digit fused to
+        // the unit letter and the period dropped: "Lt Vanilla extra". Anchored
+        // to line start only, where "[LI]t" cannot be a real word.
+        //
+        //   "Lt Vanilla extra"  → "1 t Vanilla extra"
+        //   "lt. baking soda"   → "1 t. baking soda"
+        Pair(
+            Regex("""(?<=^)[LI](t\.?)(?=[\s.,:;]|$)""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)),
             "1 $1"
         ),
 
@@ -127,7 +165,7 @@ object RecipeOcrParser {
         //   "V1Tbsp chopped parsley" → "1 Tbsp chopped parsley"
         //   "V2cup flour"            → "2 cup flour"
         Pair(
-            Regex("""(?:(?<=^)|(?<=\s))V(\d+)(tablespoons|tablespoon|teaspoons|teaspoon|tbsps|tbsp|tbls|tsps|tsp|cups|cup|grams|gram|ounces|ounce|pounds|pound|litres|liters|litre|liter|milliliters|millilitres|milliliter|millilitre|pieces|piece|lbs|mls|oz|lb|ml|g|c)(?=\s|$)""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)),
+            Regex("""(?:(?<=^)|(?<=\s))V(\d+)(tablespoons|tablespoon|teaspoons|teaspoon|tbsps|tbsp|tbls|tsps|tsp|cups|cup|grams|gram|ounces|ounce|pounds|pound|litres|liters|litre|liter|milliliters|millilitres|milliliter|millilitre|pieces|piece|lbs|mls|oz|lb|ml|g|c|t\.?)(?=[\s.,:;]|$)""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)),
             "$1 $2"
         ),
 
@@ -138,8 +176,9 @@ object RecipeOcrParser {
         //
         //   "1cup shredded cheddar" → "1 cup shredded cheddar"
         //   "2tbsp butter"          → "2 tbsp butter"
+        //   "1t. vanilla"           → "1 t. vanilla"  (digit fused to bare "t")
         Pair(
-            Regex("""(?<=\d)(tablespoons|tablespoon|teaspoons|teaspoon|tbsps|tbsp|tbls|tsps|tsp|cups|cup|grams|gram|ounces|ounce|pounds|pound|litres|liters|litre|liter|milliliters|millilitres|milliliter|millilitre|pieces|piece|lbs|mls|oz|lb|ml|g|c)(?=\s|$)""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)),
+            Regex("""(?<=\d)(tablespoons|tablespoon|teaspoons|teaspoon|tbsps|tbsp|tbls|tsps|tsp|cups|cup|grams|gram|ounces|ounce|pounds|pound|litres|liters|litre|liter|milliliters|millilitres|milliliter|millilitre|pieces|piece|lbs|mls|oz|lb|ml|g|c|t\.?)(?=[\s.,:;]|$)""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)),
             " $1"
         ),
 
@@ -209,6 +248,9 @@ object RecipeOcrParser {
         "cups" to "cup",
         "c"    to "cup",
         "c."   to "cup",
+        // "¢" is a common OCR mis-read of a handwritten "c." (the stroke through
+        // the letter reads as a cent sign). Only safe as a bare unit token.
+        "¢"    to "cup",
         // millilitre
         "ml"           to "ml",
         "mls"          to "ml",
@@ -277,15 +319,29 @@ object RecipeOcrParser {
     // Per-line cleanup regexes, hoisted so they are compiled once rather than
     // on every line of every scan.
     // Explicit Unicode escapes keep the patterns ASCII-safe: U+2022=bullet,
-    // U+2013=en-dash, U+2014=em-dash, U+00B7=middle-dot. Leading periods are
-    // stripped too — OCR sometimes renders a bullet as a plain dot — except a
-    // period immediately followed by a digit, which is a leading-decimal
-    // quantity (".5 cup" → 0.5), not a marker.
-    private val LEADING_MARKERS_REGEX = Regex("^(?:[\\s\\u2022\\u2013\\u2014*\\u00B7-]|\\.(?!\\d))+")
+    // U+2013=en-dash, U+2014=em-dash, U+00B7=middle-dot, U+25A1/25A2=empty
+    // squares, U+25CB/25CF=circles, U+2610=ballot box, U+2751=lower-right
+    // shadowed square, U+2713/2714=check marks. "|", "[", "]", "_", "~" cover
+    // margin artefacts from ruled index cards and printed checkbox columns.
+    // Leading periods are stripped too — OCR sometimes renders a bullet as a
+    // plain dot — except a period immediately followed by a digit, which is a
+    // leading-decimal quantity (".5 cup" → 0.5), not a marker.
+    private val LEADING_MARKERS_REGEX = Regex(
+        "^(?:[\\s\\u2022\\u2013\\u2014*\\u00B7|\\[\\]_~\\u25A1\\u25A2\\u25CB\\u25CF\\u2610\\u2751\\u2713\\u2714-]|\\.(?!\\d))+"
+    )
     private val MULTI_SPACE_REGEX     = Regex("\\s{2,}")
     private val WHITESPACE_SPLIT      = Regex("\\s+")
     private val TRAILING_COMMA_REGEX  = Regex("\\s*,.*$")      // "flour, sifted" → "flour"
     private val PAREN_NOTE_REGEX      = Regex("\\s*\\(.*?\\)") // "(optional)" → ""
+    // "(or ...)" note with the open-paren mis-read as a capital C — common on
+    // handwritten cards ("chips Cor any exas" = "chips (or any extras)").
+    // Case-sensitive on purpose: a capital C is what the paren reads as.
+    private val PAREN_COR_REGEX       = Regex("\\s+Cor\\b.*$")
+    // A leading "|" fused directly to a letter is a mis-read digit 1
+    // ("|C whole wheat" = "1 C. whole wheat"). Converted in cleanLine BEFORE
+    // the marker strip would otherwise delete the pipe. A spaced "|" remains
+    // a bullet artefact and is stripped normally.
+    private val LEADING_PIPE_DIGIT_REGEX = Regex("^\\|(?=[A-Za-z])")
 
     // Conjunctions/prepositions that signal a wrapped continuation line:
     // an ingredient line ending in one of these almost certainly continues on
@@ -322,7 +378,7 @@ object RecipeOcrParser {
      * manually.
      */
     fun parse(rawText: String, maxIngredients: Int = 50): List<IngredientItem> {
-        return parseRawLines(rawText.lines().asSequence(), maxIngredients)
+        return parseRawLines(rawText.lines().asSequence().map { RawLine(it, null) }, maxIngredients)
     }
 
     /**
@@ -377,7 +433,7 @@ object RecipeOcrParser {
         //   - B is indented right of A by more than half a line height
         // The wrap signal guards against swallowing standalone lowercase
         // ingredient lines ("salt and pepper to taste") at normal line spacing.
-        val orderedTexts = mutableListOf<String>()
+        val orderedTexts = mutableListOf<RawLine>()
         for (column in columns) {
             var previous: OcrLine? = null
             for (line in column.sortedBy { it.top }) {
@@ -400,15 +456,25 @@ object RecipeOcrParser {
                     (prevLooksUnfinished || isIndented)
                 if (prev != null && isContinuation) {
                     // Expand A's bounds and append B's text with a single space.
+                    // The merged line keeps the lower of the two confidences —
+                    // a poorly-recognised continuation shouldn't be masked by a
+                    // confident first line. Null counts as "unknown", so a lone
+                    // null doesn't drag the merge down to null.
+                    val mergedConfidence = when {
+                        prev.confidence == null  -> line.confidence
+                        line.confidence == null  -> prev.confidence
+                        else -> minOf(prev.confidence, line.confidence)
+                    }
                     val merged = prev.copy(
                         text  = prev.text.trimEnd() + " " + line.text.trim(),
                         right = maxOf(prev.right, line.right),
-                        bottom = maxOf(prev.bottom, line.bottom)
+                        bottom = maxOf(prev.bottom, line.bottom),
+                        confidence = mergedConfidence
                     )
-                    orderedTexts[orderedTexts.lastIndex] = merged.text
+                    orderedTexts[orderedTexts.lastIndex] = RawLine(merged.text, merged.confidence)
                     previous = merged
                 } else {
-                    orderedTexts.add(line.text)
+                    orderedTexts.add(RawLine(line.text, line.confidence))
                     previous = line
                 }
             }
@@ -424,12 +490,12 @@ object RecipeOcrParser {
      * Shared pipeline for [parse] and [parseLines]: cleans each raw line, drops
      * blanks and section headers, parses what remains, and caps the result.
      */
-    private fun parseRawLines(rawLines: Sequence<String>, maxIngredients: Int): List<IngredientItem> {
+    private fun parseRawLines(rawLines: Sequence<RawLine>, maxIngredients: Int): List<IngredientItem> {
         return rawLines
-            .map   { cleanLine(it) }
-            .filter { it.isNotBlank() }
-            .filter { line -> SKIP_LINE_PATTERNS.none { it.containsMatchIn(line) } }
-            .mapNotNull { parseLine(it) }
+            .map   { it.copy(text = cleanLine(it.text)) }
+            .filter { it.text.isNotBlank() }
+            .filter { line -> SKIP_LINE_PATTERNS.none { it.containsMatchIn(line.text) } }
+            .mapNotNull { parseLine(it.text, it.confidence) }
             .filter { it.name.isNotBlank() || it.qtyString.isNotBlank() }
             .take(maxIngredients)
             .toList()
@@ -443,7 +509,8 @@ object RecipeOcrParser {
      */
     private fun cleanLine(line: String): String {
         return line
-            .replace(LEADING_MARKERS_REGEX, "") // leading list markers + dots
+            .replace(LEADING_PIPE_DIGIT_REGEX, "1 ") // "|C" → "1 C" (| mis-read as 1)
+            .replace(LEADING_MARKERS_REGEX, "")      // leading list markers + dots
             .replace(MULTI_SPACE_REGEX, " ")    // collapsed whitespace
             .trim()
     }
@@ -451,8 +518,12 @@ object RecipeOcrParser {
     /**
      * Parse a single cleaned line into an [IngredientItem], or return `null`
      * if the line cannot be interpreted as an ingredient at all.
+     *
+     * [confidence] is ML Kit's recognition confidence for the line (null when
+     * unavailable, e.g. the plain-text [parse] path); below
+     * [LOW_CONFIDENCE_THRESHOLD] the item is flagged `lowConfidence`.
      */
-    private fun parseLine(line: String): IngredientItem? {
+    private fun parseLine(line: String, confidence: Float?): IngredientItem? {
         var remaining = line
 
         // ── 0. Normalize OCR fraction mis-reads ───────────────────────────────
@@ -487,11 +558,14 @@ object RecipeOcrParser {
         val tokens = remaining.split(WHITESPACE_SPLIT, limit = 2)
         val firstToken = tokens.firstOrNull().orEmpty()
         // Resolve bare "T" (tablespoon) and "t" / "t." (teaspoon) case-sensitively
-        // BEFORE lowercasing, so punctuation trimming cannot collapse the distinction.
-        val lookedUpUnit = when (firstToken.trimEnd('.')) {
+        // BEFORE lowercasing, so punctuation trimming cannot collapse the
+        // distinction. Trailing ',', ':', ';' are trimmed alongside '.' because
+        // handwritten unit dots frequently OCR as those characters
+        // ("3/4 C, butter", "1 t: vanilla").
+        val lookedUpUnit = when (firstToken.trimEnd('.', ',', ':', ';')) {
             "T"  -> "tbsp"
             "t"  -> "tsp"
-            else -> UNIT_SYNONYMS[firstToken.lowercase().trimEnd('.')]
+            else -> UNIT_SYNONYMS[firstToken.lowercase().trimEnd('.', ',', ':', ';')]
         }
         if (lookedUpUnit != null) {
             unitKey   = lookedUpUnit
@@ -502,11 +576,15 @@ object RecipeOcrParser {
         }
 
         // ── 3. Name ───────────────────────────────────────────────────────────
-        val name = remaining
+        val cleaned = remaining
             .replace(TRAILING_COMMA_REGEX, "") // strip trailing comma clauses ("flour, sifted")
             .replace(PAREN_NOTE_REGEX, "")     // strip parenthetical notes ("(optional)")
+            .replace(PAREN_COR_REGEX, "")      // strip "(or …" notes mis-read as "Cor …"
             .replace(MULTI_SPACE_REGEX, " ")
             .trim()
+        // Plan item 5: bounded-dictionary correction of garbled name words
+        // ("buter" → "butter") — applied after cleanup, before capitalization.
+        val name = IngredientNameCorrector.correctWords(cleaned)
             .replaceFirstChar { it.uppercaseChar() }
 
         // ── 4. Drop lines that carry no useful information ────────────────────
@@ -520,9 +598,13 @@ object RecipeOcrParser {
             id        = UUID.randomUUID().toString(),
             qtyString = qtyString,
             unit      = unitKey,
-            name      = name
+            name      = name,
+            lowConfidence = confidence != null && confidence < LOW_CONFIDENCE_THRESHOLD
         )
     }
+
+    /** A raw OCR text line paired with its recognition confidence, if known. */
+    private data class RawLine(val text: String, val confidence: Float?)
 }
 
 /**
@@ -530,4 +612,11 @@ object RecipeOcrParser {
  * by ML Kit's `Text.Line`. Consumed by [RecipeOcrParser.parseLines] for
  * layout-aware (column detection + wrapped-line merge) parsing.
  */
-data class OcrLine(val text: String, val left: Int, val top: Int, val right: Int, val bottom: Int)
+data class OcrLine(
+    val text: String,
+    val left: Int,
+    val top: Int,
+    val right: Int,
+    val bottom: Int,
+    val confidence: Float? = null
+)
