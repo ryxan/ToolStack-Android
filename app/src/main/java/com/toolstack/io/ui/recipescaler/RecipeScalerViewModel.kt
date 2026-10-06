@@ -169,7 +169,9 @@ class RecipeScalerViewModel @Inject constructor(
 
     fun onIngredientUnitChanged(id: String, unit: String) {
         _uiState.update { state ->
-            val updated = state.ingredients.map { if (it.id == id) it.copy(unit = unit) else it }
+            val updated = state.ingredients.map {
+                if (it.id == id) it.copy(unit = RecipeScalerCalculator.canonicalUnit(unit)) else it
+            }
             state.copy(ingredients = updated).recalculate()
         }
     }
@@ -316,7 +318,7 @@ class RecipeScalerViewModel @Inject constructor(
             IngredientItem(
                 id        = UUID.randomUUID().toString(),
                 qtyString = saved.qtyString,
-                unit      = saved.unit,
+                unit      = RecipeScalerCalculator.canonicalUnit(saved.unit),
                 name      = saved.name
             )
         }

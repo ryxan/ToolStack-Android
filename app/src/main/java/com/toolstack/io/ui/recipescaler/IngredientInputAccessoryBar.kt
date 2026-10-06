@@ -98,9 +98,9 @@ private fun UnitAccessoryContent(
     onNextClick: () -> Unit
 ) {
     val volumeUnits = listOf(
-        "tsp" to "tsp", "Tbsp" to "Tbsp", "cup" to "cup",
+        "tsp" to "tsp", "tbsp" to "Tbsp", "cup" to "cup",
         "pt" to "pt", "qt" to "qt", "gal" to "gal",
-        "mL" to "mL", "L" to "L", "fl oz" to "fl oz"
+        "ml" to "mL", "L" to "L", "fl oz" to "fl oz"
     )
     val weightUnits = listOf(
         "oz" to "oz", "lb" to "lb", "g" to "g", "kg" to "kg", "mg" to "mg"

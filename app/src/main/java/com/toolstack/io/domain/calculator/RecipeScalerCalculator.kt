@@ -7,22 +7,44 @@ import kotlin.math.roundToInt
 object RecipeScalerCalculator {
 
     // ── Unit catalogue ────────────────────────────────────────────────────────
-    // Used by the ingredient row display ("was X unit") and the accessory bar lookup.
+    // Canonical key → display label. Used by the ingredient row display,
+    // the "was X unit" caption, and the accessory bar lookup.
     val ALL_UNITS = listOf(
         Pair("none", "-"),
         // US volume
-        Pair("tsp",  "tsp"),
-        Pair("tbsp", "tbsp"),
-        Pair("cup",  "cup"),
+        Pair("tsp",   "tsp"),
+        Pair("tbsp",  "Tbsp"),
+        Pair("cup",   "cup"),
+        Pair("pt",    "pt"),
+        Pair("qt",    "qt"),
+        Pair("gal",   "gal"),
+        Pair("fl oz", "fl oz"),
         // Metric volume
-        Pair("ml",   "ml"),
-        Pair("L",    "L"),
-        // Weight / other
-        Pair("g",    "g"),
-        Pair("oz",   "oz"),
-        Pair("lb",   "lb"),
-        Pair("each", "each")
+        Pair("ml",    "mL"),
+        Pair("L",     "L"),
+        // Weight
+        Pair("g",     "g"),
+        Pair("kg",    "kg"),
+        Pair("mg",    "mg"),
+        Pair("oz",    "oz"),
+        Pair("lb",    "lb"),
+        // Other
+        Pair("each",  "each"),
+        Pair("whole", "whole"),
+        Pair("pinch", "pinch"),
+        Pair("dash",  "dash"),
+        Pair("clove", "clove"),
+        Pair("can",   "can"),
+        Pair("pkg",   "pkg")
     )
+
+    /** Display label for a canonical unit key (e.g. "tbsp" → "Tbsp"); unknown keys pass through. */
+    private fun displayLabel(unit: String): String =
+        ALL_UNITS.find { it.first == unit }?.second ?: unit
+
+    /** Normalise a stored/UI unit string to a canonical [ALL_UNITS] key (e.g. "Tbsp" → "tbsp"). */
+    fun canonicalUnit(unit: String): String =
+        ALL_UNITS.find { it.first.equals(unit.trim(), ignoreCase = true) }?.first ?: unit.trim()
 
     // ── Unit families ─────────────────────────────────────────────────────────
 
@@ -64,7 +86,7 @@ object RecipeScalerCalculator {
         val (cups, tbsp, tsp) = decompose(totalTsp)
         val parts = mutableListOf<String>()
         if (cups > 0) parts += "$cups cup"
-        if (tbsp > 0) parts += "$tbsp tbsp"
+        if (tbsp > 0) parts += "$tbsp Tbsp"
         if (tsp  > 0) parts += "$tsp tsp"
         return parts.joinToString(" ")
     }
@@ -74,13 +96,13 @@ object RecipeScalerCalculator {
      * whole numbers only.
      */
     private fun formatMetricVolume(totalMl: Int): String {
-        if (totalMl <= 0) return "0 ml"
+        if (totalMl <= 0) return "0 mL"
         return if (totalMl >= 1000) {
             val litres = totalMl / 1000
             val ml     = totalMl % 1000
-            if (ml > 0) "$litres L $ml ml" else "$litres L"
+            if (ml > 0) "$litres L $ml mL" else "$litres L"
         } else {
-            "$totalMl ml"
+            "$totalMl mL"
         }
     }
 
@@ -91,7 +113,7 @@ object RecipeScalerCalculator {
      */
     private fun formatOther(scaledQty: Double, unit: String): String {
         val qty = scaledQty.roundToInt().coerceAtLeast(if (scaledQty > 0.0) 1 else 0)
-        val unitLabel = if (unit == "none" || unit.isBlank()) "" else " $unit"
+        val unitLabel = if (unit == "none" || unit.isBlank()) "" else " ${displayLabel(unit)}"
         return "$qty$unitLabel"
     }
 
@@ -129,18 +151,21 @@ object RecipeScalerCalculator {
      * the raw quantity to the nearest whole number in [unit].
      */
     fun formatQuantity(scaledQty: Double, unit: String, keepOriginalUnits: Boolean = false): String {
-        if (scaledQty == 0.0) return "0${if (unit.isNotBlank() && unit != "none") " $unit" else ""}"
+        val key = canonicalUnit(unit)
+        if (scaledQty == 0.0) {
+            return "0${if (key.isNotBlank() && key != "none") " ${displayLabel(key)}" else ""}"
+        }
 
         // ── Keep-original-units path ──────────────────────────────────────────
         if (keepOriginalUnits) {
             val whole = scaledQty.roundToInt().coerceAtLeast(if (scaledQty > 0.0) 1 else 0)
-            val label = if (unit == "none" || unit.isBlank()) "" else " $unit"
+            val label = if (key == "none" || key.isBlank()) "" else " ${displayLabel(key)}"
             return "$whole$label"
         }
 
         // ── US volume family ──────────────────────────────────────────────────
-        if (unit in US_VOLUME_UNITS) {
-            val totalTspDouble = toTsp(scaledQty, unit)
+        if (key in US_VOLUME_UNITS) {
+            val totalTspDouble = toTsp(scaledQty, key)
             val totalTsp       = totalTspDouble.roundToInt()
 
             // Pinch rule: result is non-zero but rounds to 0 tsp
@@ -150,8 +175,8 @@ object RecipeScalerCalculator {
         }
 
         // ── Metric volume family ──────────────────────────────────────────────
-        if (unit in METRIC_VOLUME_UNITS) {
-            val totalMlDouble = when (unit) {
+        if (key in METRIC_VOLUME_UNITS) {
+            val totalMlDouble = when (key) {
                 "L"  -> scaledQty * 1000.0
                 else -> scaledQty               // ml
             }
@@ -160,7 +185,7 @@ object RecipeScalerCalculator {
         }
 
         // ── Everything else ───────────────────────────────────────────────────
-        return formatOther(scaledQty, unit)
+        return formatOther(scaledQty, key)
     }
 
     // ── Batch scaling ─────────────────────────────────────────────────────────
