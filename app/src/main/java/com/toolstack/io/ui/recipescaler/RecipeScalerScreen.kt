@@ -433,9 +433,14 @@ fun RecipeScalerScreen(
                             viewModel.onScanLaunchStarted()
                             scanner.getStartScanIntent(activity)
                                 .addOnSuccessListener { intentSender ->
-                                    scannerLauncher.launch(
-                                        IntentSenderRequest.Builder(intentSender).build()
-                                    )
+                                    try {
+                                        scannerLauncher.launch(
+                                            IntentSenderRequest.Builder(intentSender).build()
+                                        )
+                                    } catch (e: Exception) {
+                                        viewModel.onScanCancelled()
+                                        showScanSourceDialog = true
+                                    }
                                 }
                                 .addOnFailureListener {
                                     viewModel.onScanCancelled()
