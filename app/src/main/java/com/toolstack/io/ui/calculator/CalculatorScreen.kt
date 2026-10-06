@@ -1,5 +1,11 @@
 package com.toolstack.io.ui.calculator
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,8 +17,11 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -21,6 +30,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.AlertDialog
@@ -34,8 +44,12 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -44,12 +58,21 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,6 +83,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.toolstack.io.R
 import com.toolstack.io.ui.theme.CalcColors
 import com.toolstack.io.ui.theme.calcColors
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 /**
@@ -141,11 +165,22 @@ fun CalculatorScreen(
     val uiState by viewModel.uiState.collectAsState()
     val calcState = uiState.calculatorState
     val colors = calcColors()
-    
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val copiedMessage = stringResource(R.string.calculator_copied_toast)
+
     var showMenu by remember { mutableStateOf(false) }
     var showClearHistoryDialog by remember { mutableStateOf(false) }
+    var showHistorySheet by remember { mutableStateOf(false) }
+
+    val onCopy: (String) -> Unit = { text ->
+        copyToClipboard(context, text)
+        scope.launch { snackbarHostState.showSnackbar(copiedMessage) }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
@@ -191,6 +226,20 @@ fun CalculatorScreen(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false }
                         ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.calculator_history)) },
+                                onClick = {
+                                    showMenu = false
+                                    showHistorySheet = true
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Filled.History,
+                                        contentDescription = null
+                                    )
+                                },
+                                enabled = calcState.history.isNotEmpty()
+                            )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.calculator_clear_history)) },
                                 onClick = {
@@ -257,6 +306,8 @@ fun CalculatorScreen(
                     display = calcState.display,
                     liveResult = calcState.liveResult,
                     colors = colors,
+                    onHistoryRecall = viewModel::onHistoryRecall,
+                    onCopy = onCopy,
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -308,10 +359,24 @@ fun CalculatorScreen(
             }
         )
     }
+
+    // Full history sheet — tap recalls the result, long-press copies the entry
+    if (showHistorySheet) {
+        HistorySheet(
+            history = calcState.history,
+            onRecall = {
+                viewModel.onHistoryRecall(it)
+                showHistorySheet = false
+            },
+            onCopy = onCopy,
+            onDismiss = { showHistorySheet = false }
+        )
+    }
 }
 
 // ── Display panel ─────────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun DisplayPanel(
     history: List<String>,
@@ -319,6 +384,8 @@ private fun DisplayPanel(
     display: String,
     liveResult: String,
     colors: CalcColors,
+    onHistoryRecall: (String) -> Unit,
+    onCopy: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val historyScrollState = rememberScrollState()
@@ -368,7 +435,11 @@ private fun DisplayPanel(
                         text = item,
                         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
                         color = colors.display.copy(alpha = 0.6f),
-                        maxLines = 1
+                        maxLines = 1,
+                        modifier = Modifier.combinedClickable(
+                            onClick = { onHistoryRecall(item) },
+                            onLongClick = { onCopy(item) }
+                        )
                     )
                 }
             }
@@ -377,12 +448,17 @@ private fun DisplayPanel(
             Spacer(modifier = Modifier.height(32.dp))
         }
         
-        // Main Expression Area - scrollable and multi-line with dynamic sizing
+        // Main Expression Area - scrollable and multi-line with dynamic sizing.
+        // Long-press copies the current value; a live region announces updates.
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(100.dp)
                 .verticalScroll(expressionScrollState)
+                .pointerInput(display) {
+                    detectTapGestures(onLongPress = { onCopy(display) })
+                }
+                .semantics { liveRegion = LiveRegionMode.Polite }
         ) {
             val maxWidth = this.maxWidth
             
@@ -390,8 +466,9 @@ private fun DisplayPanel(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.End
             ) {
-                // Main Expression Line - dynamic font size based on content length
-                val formattedExpression = formatExpression(expression.ifEmpty { " " })
+                // Main Expression Line - dynamic font size based on content length.
+                // `expression` is empty on first launch; fall back to `display`.
+                val formattedExpression = formatExpression(expression.ifEmpty { display })
                 val baseFontSize = 40.sp
                 val dynamicFontSize = when {
                     formattedExpression.length < 12 -> baseFontSize
@@ -469,7 +546,7 @@ private fun Keypad(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             CalcKey(label = stringResource(R.string.calculator_key_clear), containerColor = colors.clear, fontSize = 24.sp, modifier = Modifier.weight(1f), onClick = onClear)
-            CalcKey(icon = Icons.AutoMirrored.Filled.Backspace, contentDescription = stringResource(R.string.content_description_backspace), containerColor = colors.function, modifier = Modifier.weight(1f), onClick = onBackspace)
+            CalcKey(icon = Icons.AutoMirrored.Filled.Backspace, contentDescription = stringResource(R.string.content_description_backspace), containerColor = colors.function, modifier = Modifier.weight(1f), onLongClick = onClear, onLongClickLabel = stringResource(R.string.calculator_key_clear), onClick = onBackspace)
             CalcKey(label = stringResource(R.string.calculator_key_pct), containerColor = colors.function, fontSize = 28.sp, modifier = Modifier.weight(1f), onClick = onPercent)
             CalcKey(label = "÷", containerColor = colors.operator, fontSize = 40.sp, modifier = Modifier.weight(1f)) { onOperator("÷") }
         }
@@ -526,8 +603,12 @@ private fun CalcKey(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
+    val haptics = LocalHapticFeedback.current
     Button(
-        onClick = onClick,
+        onClick = {
+            haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+            onClick()
+        },
         modifier = modifier.aspectRatio(1f),
         colors = ButtonDefaults.buttonColors(
             containerColor = containerColor,
@@ -544,27 +625,91 @@ private fun CalcKey(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CalcKey(
     icon: ImageVector,
     contentDescription: String,
     containerColor: Color,
     modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
+    onLongClickLabel: String? = null,
     onClick: () -> Unit
 ) {
-    Button(
-        onClick = onClick,
+    val haptics = LocalHapticFeedback.current
+    // Surface + combinedClickable instead of Button so long-press works — a
+    // Button's own clickable would fire onClick again after the long-press.
+    Surface(
         modifier = modifier.aspectRatio(1f),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = containerColor,
-            contentColor = Color.White
-        )
+        shape = ButtonDefaults.shape,
+        color = containerColor,
+        contentColor = Color.White
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = Color.White,
-            modifier = Modifier.padding(4.dp)
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .combinedClickable(
+                    role = Role.Button,
+                    onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+                        onClick()
+                    },
+                    onLongClick = onLongClick,
+                    onLongClickLabel = onLongClickLabel
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = Color.White,
+                modifier = Modifier.padding(4.dp)
+            )
+        }
     }
+}
+
+// ── Full history sheet ────────────────────────────────────────────────────────
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@Composable
+private fun HistorySheet(
+    history: List<String>,
+    onRecall: (String) -> Unit,
+    onCopy: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Text(
+            text = stringResource(R.string.calculator_history),
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        LazyColumn {
+            items(history) { entry ->
+                Text(
+                    text = formatExpression(entry),
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .combinedClickable(
+                            onClick = { onRecall(entry) },
+                            onLongClick = { onCopy(entry) }
+                        )
+                        .padding(horizontal = 24.dp, vertical = 12.dp)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.navigationBarsPadding())
+    }
+}
+
+// ── Clipboard helper ──────────────────────────────────────────────────────────
+
+private fun copyToClipboard(context: Context, text: String) {
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    clipboard.setPrimaryClip(ClipData.newPlainText("Calculator", text))
 }

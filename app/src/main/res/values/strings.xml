@@ -200,6 +200,8 @@
     <string name="calculator_switch_to_unit_converter">Switch to Unit Converter</string>
     <string name="unit_converter_switch_to_calculator">Switch to Calculator</string>
     <string name="calculator_more_options">More options</string>
+    <string name="calculator_history">History</string>
+    <string name="calculator_copied_toast">Copied to clipboard</string>
     <string name="calculator_clear_history">Clear History</string>
     <string name="calculator_clear_history_title">Clear History?</string>
     <string name="calculator_clear_history_message">This will permanently delete all calculation history.</string>

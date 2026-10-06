@@ -11,6 +11,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -39,13 +40,21 @@ class CalculatorViewModel @Inject constructor(
     private var historyLoaded = false
 
     init {
-        // Load persisted history on startup
+        // One-shot load: a permanent collector would echo our own writes back and
+        // overwrite entries added before the first emission. Merging instead keeps
+        // an "=" press that races the initial load.
         viewModelScope.launch {
-            userPreferencesRepository.calculatorHistory.collect { history ->
-                historyLoaded = true
-                _uiState.update { it.copy(
-                    calculatorState = it.calculatorState.copy(history = history)
-                ) }
+            val stored = userPreferencesRepository.calculatorHistory.first()
+            var merged: List<String> = emptyList()
+            _uiState.update { ui ->
+                merged = (ui.calculatorState.history + stored)
+                    .distinct()
+                    .take(CalculatorEngine.HISTORY_LIMIT)
+                ui.copy(calculatorState = ui.calculatorState.copy(history = merged))
+            }
+            historyLoaded = true
+            if (merged != stored) {
+                userPreferencesRepository.saveCalculatorHistory(merged)
             }
         }
     }
@@ -79,6 +88,9 @@ class CalculatorViewModel @Inject constructor(
     }
 
     fun onClearHistory() {
+        _uiState.update {
+            it.copy(calculatorState = it.calculatorState.copy(history = emptyList()))
+        }
         viewModelScope.launch {
             userPreferencesRepository.clearCalculatorHistory()
         }
@@ -94,6 +106,10 @@ class CalculatorViewModel @Inject constructor(
 
     fun onSignFlip() = applyEngine { state ->
         CalculatorEngine.onSignFlip(state, internal)
+    }
+
+    fun onHistoryRecall(entry: String) = applyEngine { state ->
+        CalculatorEngine.onHistoryRecall(state, entry, internal)
     }
 
     // ── private helpers ───────────────────────────────────────────────────────

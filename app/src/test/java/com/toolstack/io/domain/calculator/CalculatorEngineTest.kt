@@ -459,4 +459,42 @@ class CalculatorEngineTest {
         val (s6, _) = CalculatorEngine.onDigit(s5, "3", i5)
         assertEquals("3", s6.display)
     }
+
+    @Test
+    fun `history is capped at the limit`() {
+        var state = CalculatorState()
+        var internal = InternalState()
+
+        repeat(CalculatorEngine.HISTORY_LIMIT + 5) {
+            val (s1, i1) = CalculatorEngine.onDigit(state, "1", internal)
+            val (s2, i2) = CalculatorEngine.onOperator(s1, "+", i1)
+            val (s3, i3) = CalculatorEngine.onDigit(s2, "1", i2)
+            val (s4, i4) = CalculatorEngine.onEquals(s3, i3)
+            state = s4; internal = i4
+        }
+
+        assertEquals(CalculatorEngine.HISTORY_LIMIT, state.history.size)
+    }
+
+    @Test
+    fun `history recall loads the result as a fresh value`() {
+        val state = CalculatorState(history = listOf("5 + 5 = 10"))
+        val internal = InternalState()
+
+        val (s1, i1) = CalculatorEngine.onHistoryRecall(state, "5 + 5 = 10", internal)
+        assertEquals("10", s1.display)
+
+        // An operator chains the recalled result as the left operand
+        val (s2, _) = CalculatorEngine.onOperator(s1, "+", i1)
+        assertEquals("10 +", s2.expression)
+
+        // A digit instead starts a fresh expression
+        val (r1, ri1) = CalculatorEngine.onHistoryRecall(state, "5 + 5 = 10", internal)
+        val (r2, _) = CalculatorEngine.onDigit(r1, "3", ri1)
+        assertEquals("3", r2.display)
+
+        // Entries without a result are ignored
+        val (e1, _) = CalculatorEngine.onHistoryRecall(state, "no result here", internal)
+        assertEquals(state, e1)
+    }
 }

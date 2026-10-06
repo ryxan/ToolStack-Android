@@ -58,6 +58,9 @@ data class CalculatorState(
  */
 object CalculatorEngine {
 
+    /** Maximum number of history entries kept (and persisted). */
+    const val HISTORY_LIMIT = 50
+
     // ── internal working state (not exposed in CalculatorState) ──────────────
     // We embed it in a private data class and carry it through the state so the
     // engine remains stateless while preserving the full arithmetic context.
@@ -154,7 +157,7 @@ object CalculatorEngine {
         } else if (internal.expressionTokens.isEmpty()) {
             // Starting with just an operator after "="? Use the last result
             listOf(state.display, op)
-        } else if (internal.expressionTokens.isNotEmpty()) {
+        } else {
             // Replace the last operator if we just pressed an operator
             val last = internal.expressionTokens.last()
             if (isOperator(last)) {
@@ -162,8 +165,6 @@ object CalculatorEngine {
             } else {
                 internal.expressionTokens + op
             }
-        } else {
-            listOf(op)
         }
 
         val newInternal = internal.copy(
@@ -211,7 +212,7 @@ object CalculatorEngine {
         val newHistory = if (
             completeTokens.size >= 3 && !isOperator(completeTokens.last())
         ) {
-            listOf(historyEntry) + state.history
+            (listOf(historyEntry) + state.history).take(HISTORY_LIMIT)
         } else {
             state.history
         }
@@ -347,6 +348,27 @@ object CalculatorEngine {
         ) to newInternal
     }
 
+    /**
+     * Recalls a history entry's result as the current value. The recalled value
+     * behaves like a result right after "=": a digit press starts a fresh
+     * expression, an operator chains it as the left operand.
+     *
+     * Entries without an "= result" suffix are ignored.
+     */
+    fun onHistoryRecall(state: CalculatorState, entry: String, internal: InternalState): Pair<CalculatorState, InternalState> {
+        if (state.mode == CalculatorMode.CONSTRUCTION) return onHistoryRecallConstruction(state, entry, internal)
+
+        val result = entry.substringAfterLast("= ", "")
+        if (result.isEmpty()) return state to internal
+
+        val newInternal = InternalState(pendingInput = result, justEvaluated = true)
+        return state.copy(
+            display = result,
+            expression = result,
+            liveResult = ""
+        ) to newInternal
+    }
+
     // ── formatting ────────────────────────────────────────────────────────────
 
     /**
@@ -436,16 +458,6 @@ object CalculatorEngine {
     }
 
     /**
-     * Computes the live result preview for the current expression.
-     * Returns empty string if the expression is incomplete or invalid.
-     * @deprecated Use evaluateExpression instead
-     */
-    private fun computeLiveResult(internal: InternalState, currentDisplay: String): String {
-        // Legacy function - redirect to new implementation
-        return evaluateExpression(internal.expressionTokens, currentDisplay)
-    }
-
-    /**
      * Formats a [Double] for display: strips trailing zeros from decimals,
      * caps at 15 significant digits (matching the input limit), and falls
      * back to "Error" for NaN/Infinity. Scientific notation is only used
@@ -477,17 +489,6 @@ object CalculatorEngine {
 
     // ── private helpers ───────────────────────────────────────────────────────
 
-    private fun evaluate(left: Double?, op: String?, right: Double): Double {
-        val l = left ?: right
-        return when (op) {
-            "+"  -> l + right
-            "−"  -> l - right
-            "×"  -> l * right
-            "÷"  -> if (right == 0.0) Double.NaN else l / right
-            else -> right
-        }
-    }
-
     // ── construction mode stubs (ready to implement) ─────────────────────────
 
     private fun onDigitConstruction(state: CalculatorState, digit: String, internal: InternalState) =
@@ -512,6 +513,10 @@ object CalculatorEngine {
 
     private fun onSignFlipConstruction(state: CalculatorState, internal: InternalState) =
         onSignFlip(state.copy(mode = CalculatorMode.BASIC), internal)
+            .let { (s, i) -> s.copy(mode = CalculatorMode.CONSTRUCTION) to i }
+
+    private fun onHistoryRecallConstruction(state: CalculatorState, entry: String, internal: InternalState) =
+        onHistoryRecall(state.copy(mode = CalculatorMode.BASIC), entry, internal)
             .let { (s, i) -> s.copy(mode = CalculatorMode.CONSTRUCTION) to i }
 }
 

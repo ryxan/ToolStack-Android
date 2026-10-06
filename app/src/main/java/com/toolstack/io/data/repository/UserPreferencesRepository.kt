@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.toolstack.io.domain.calculator.CalculatorEngine
 import com.toolstack.io.domain.model.SavedRecipe
 import com.toolstack.io.domain.model.SavedRecipeIngredient
 import kotlinx.coroutines.flow.Flow
@@ -206,6 +207,7 @@ class UserPreferencesRepository @Inject constructor(
             preferences[KEY_CALCULATOR_HISTORY]
                 ?.split("\n")
                 ?.filter { it.isNotBlank() }
+                ?.take(CalculatorEngine.HISTORY_LIMIT)
                 ?: emptyList()
         }
 
