@@ -325,5 +325,6 @@
     <string name="recipe_scaler_scan_import_message">Your current list already has ingredients. Replace it with the scanned ingredients, or add them to the end?</string>
     <string name="recipe_scaler_scan_replace_action">Replace</string>
     <string name="recipe_scaler_scan_add_to_list_action">Add to list</string>
+    <string name="recipe_scaler_low_confidence_hint">Scan was unsure about this row — please check it</string>
 </resources>
 

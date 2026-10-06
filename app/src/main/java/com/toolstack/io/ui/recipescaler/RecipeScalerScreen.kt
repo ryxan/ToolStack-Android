@@ -1,5 +1,6 @@
 package com.toolstack.io.ui.recipescaler
 
+import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -7,6 +8,7 @@ import android.content.Context
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
@@ -91,6 +93,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -107,6 +110,10 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanner
+import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
 import com.toolstack.io.R
 import com.toolstack.io.domain.calculator.CopyFormat
 import com.toolstack.io.domain.calculator.RecipeScalerCalculator
@@ -117,6 +124,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val RecipeCardShape = RoundedCornerShape(16.dp)
+private val LowConfidenceAmber = Color(0xFFF59E0B)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -176,6 +184,35 @@ fun RecipeScalerScreen(
             viewModel.onScanCancelled()
         }
         pendingCameraUri = null
+    }
+
+    // ── ML Kit Document Scanner launcher ──────────────────────────────────────
+    // Play-Services-provided scan flow: live edge detection, auto-capture,
+    // perspective correction, cleanup filters, and built-in gallery import.
+    // Requires no CAMERA permission and no activity result contract of our own.
+    val scanner = remember {
+        val options = GmsDocumentScannerOptions.Builder()
+            .setGalleryImportAllowed(true)
+            .setPageLimit(1)
+            .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_JPEG)
+            .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL)
+            .build()
+        GmsDocumentScanning.getClient(options)
+    }
+    val scannerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        val uri = if (result.resultCode == Activity.RESULT_OK) {
+            GmsDocumentScanningResult.fromActivityResultIntent(result.data)
+                ?.pages?.firstOrNull()?.imageUri
+        } else {
+            null
+        }
+        if (uri != null) {
+            viewModel.onImageCaptured(uri, deleteWhenDone = true)
+        } else {
+            viewModel.onScanCancelled()
+        }
     }
 
     // ── Dialogs ───────────────────────────────────────────────────────────────
@@ -326,8 +363,29 @@ fun RecipeScalerScreen(
                 },
                 actions = {
                     // ── Scan button ──────────────────────────────────────────
+                    // Prefer the ML Kit Document Scanner; on failure
+                    // (UNSUPPORTED <1.7 GB RAM, missing Play Services) fall
+                    // back silently to the camera/gallery source dialog.
+                    val startScan: () -> Unit = {
+                        val activity = context as? Activity
+                        if (activity == null) {
+                            showScanSourceDialog = true
+                        } else {
+                            viewModel.onScanLaunchStarted()
+                            scanner.getStartScanIntent(activity)
+                                .addOnSuccessListener { intentSender ->
+                                    scannerLauncher.launch(
+                                        IntentSenderRequest.Builder(intentSender).build()
+                                    )
+                                }
+                                .addOnFailureListener {
+                                    viewModel.onScanCancelled()
+                                    showScanSourceDialog = true
+                                }
+                        }
+                    }
                     IconButton(
-                        onClick = { showScanSourceDialog = true },
+                        onClick = startScan,
                         enabled = !uiState.isScanProcessing
                     ) {
                         if (uiState.isScanProcessing) {
@@ -496,7 +554,9 @@ fun RecipeScalerScreen(
 // ── Scan source picker dialog ─────────────────────────────────────────────────
 
 /**
- * Simple dialog that lets the user choose between the camera and the gallery.
+ * Fallback source picker — shown when the ML Kit Document Scanner is
+ * unavailable (unsupported device, missing Play Services, or no Activity
+ * context). Lets the user choose between the camera and the gallery.
  *
  * No CAMERA permission is required: TakePicture grants the camera app a scoped
  * URI permission for the photo file. [onTakePhoto] launches the camera
@@ -918,6 +978,15 @@ private fun CompactIngredientRow(
         unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
         focusedContainerColor = MaterialTheme.colorScheme.surface
     )
+    // Amber-outlined variant for qty/name fields on rows the OCR flagged as
+    // low-confidence — a subtle "please check this" hint. Cleared on any edit.
+    val lowConfidenceFieldColors = OutlinedTextFieldDefaults.colors(
+        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        focusedContainerColor = MaterialTheme.colorScheme.surface,
+        unfocusedBorderColor = LowConfidenceAmber,
+        focusedBorderColor = LowConfidenceAmber
+    )
+    val flaggedFieldColors = if (ingredient.lowConfidence) lowConfidenceFieldColors else fieldColors
 
     fun bringRowIntoView() {
         scope.launch {
@@ -985,7 +1054,7 @@ private fun CompactIngredientRow(
                     unitFocusRequester.requestFocus()
                 }
             ),
-            colors = fieldColors,
+            colors = flaggedFieldColors,
             modifier = Modifier
                 .weight(1.1f)
                 .heightIn(max = 48.dp)
@@ -1060,7 +1129,19 @@ private fun CompactIngredientRow(
             keyboardActions = KeyboardActions(
                 onNext = { onDone() }
             ),
-            colors = fieldColors,
+            colors = flaggedFieldColors,
+            trailingIcon = if (ingredient.lowConfidence) {
+                {
+                    Icon(
+                        imageVector = Icons.Filled.Warning,
+                        contentDescription = stringResource(R.string.recipe_scaler_low_confidence_hint),
+                        tint = LowConfidenceAmber,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            } else {
+                null
+            },
             modifier = Modifier
                 .weight(2.2f)
                 .heightIn(max = 48.dp)
