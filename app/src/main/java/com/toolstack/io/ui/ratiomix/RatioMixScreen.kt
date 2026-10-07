@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -37,6 +38,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -47,11 +52,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -62,6 +69,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.toolstack.io.R
 import com.toolstack.io.data.repository.RatioMixPreset
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,11 +80,17 @@ fun RatioMixScreen(
     viewModel: RatioMixViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
+    val context = LocalContext.current
+    val undoLabel = stringResource(R.string.action_undo)
 
     // Save-preset dialog — rendered outside the LazyColumn so it floats above everything.
     if (uiState.showSaveDialog) {
         SavePresetDialog(
             name = uiState.saveDialogName,
+            replacesExisting = uiState.savedPresets.any { it.name == uiState.saveDialogName.trim() },
             onNameChanged = viewModel::onSaveDialogNameChanged,
             onConfirm = viewModel::onSaveDialogConfirmed,
             onDismiss = viewModel::onSaveDialogDismissed
@@ -84,6 +98,7 @@ fun RatioMixScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -123,6 +138,7 @@ fun RatioMixScreen(
         modifier = modifier.fillMaxSize()
     ) { padding ->
         LazyColumn(
+            state = listState,
             contentPadding = PaddingValues(
                 top = padding.calculateTopPadding() + 16.dp,
                 bottom = padding.calculateBottomPadding() + 24.dp,
@@ -221,8 +237,26 @@ fun RatioMixScreen(
             item {
                 SavedPresetsSection(
                     presets = uiState.savedPresets,
-                    onLoad = viewModel::onLoadPreset,
-                    onDelete = viewModel::onDeletePreset
+                    onLoad = { preset ->
+                        viewModel.onLoadPreset(preset)
+                        // Parts live at the top; scroll there so the change is visible.
+                        scope.launch { listState.animateScrollToItem(0) }
+                    },
+                    onDelete = { preset ->
+                        viewModel.onDeletePreset(preset.name)
+                        scope.launch {
+                            val result = snackbarHostState.showSnackbar(
+                                message = context.getString(
+                                    R.string.ratio_mix_preset_deleted, preset.name
+                                ),
+                                actionLabel = undoLabel,
+                                duration = SnackbarDuration.Short
+                            )
+                            if (result == SnackbarResult.ActionPerformed) {
+                                viewModel.onRestorePreset(preset)
+                            }
+                        }
+                    }
                 )
             }
 
@@ -244,6 +278,7 @@ fun RatioMixScreen(
 @Composable
 private fun SavePresetDialog(
     name: String,
+    replacesExisting: Boolean,
     onNameChanged: (String) -> Unit,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
@@ -265,6 +300,9 @@ private fun SavePresetDialog(
                     onValueChange = onNameChanged,
                     singleLine = true,
                     label = { Text(text = stringResource(R.string.ratio_mix_preset_name_hint)) },
+                    supportingText = if (replacesExisting) {
+                        { Text(text = stringResource(R.string.ratio_mix_save_replaces_existing)) }
+                    } else null,
                     keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Words,
                         imeAction = ImeAction.Done
@@ -298,7 +336,7 @@ private fun SavePresetDialog(
 private fun SavedPresetsSection(
     presets: List<RatioMixPreset>,
     onLoad: (RatioMixPreset) -> Unit,
-    onDelete: (String) -> Unit
+    onDelete: (RatioMixPreset) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
@@ -318,7 +356,7 @@ private fun SavedPresetsSection(
                 PresetRow(
                     preset = preset,
                     onLoad = { onLoad(preset) },
-                    onDelete = { onDelete(preset.name) }
+                    onDelete = { onDelete(preset) }
                 )
             }
         }
@@ -638,14 +676,22 @@ private fun ResultsCard(
             results.forEachIndexed { index, result ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = result.label.ifBlank { stringResource(R.string.ratio_mix_part_fallback, index + 1) },
                         style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.weight(1f)
                     )
+                    if (result.percentText.isNotEmpty()) {
+                        Text(
+                            text = result.percentText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                    }
                     Text(
                         text = result.volumeText,
                         style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),

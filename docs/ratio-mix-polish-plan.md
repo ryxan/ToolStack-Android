@@ -78,26 +78,29 @@ Note: the litres round-trip in `recalculate` (`× toLitres … ÷ toLitres`) is 
 a no-op since ratio splitting is unit-agnostic — it only adds floating-point noise.
 Keep it if auto-scaling picks units by litres magnitude; otherwise simplify.
 
-- [ ] Auto-downshift small results (e.g. < 0.1 of the selected unit) to mL / fl oz,
+- [x] Auto-downshift small results (e.g. < 0.1 of the selected unit) to mL / fl oz,
   or show a secondary smaller-unit value in parentheses.
-- [ ] Alternative: per-row unit picker on results (heavier; probably unnecessary).
+  *(`VolumeUnit.smaller` chain; `formatVolumeAuto` downshifts while value < 1)*
+- [x] ~~Alternative: per-row unit picker on results (heavier; probably unnecessary).~~
+  *(not taken — auto-downshift chosen)*
 
 Where: `recalculate` ~L240–L267.
 
 ### 7. Missing practical units
 No US fl oz, cups, tbsp, tsp, or pints — what fertilizer/concentrate labels actually use.
 
-- [ ] Add at least `US_FL_OZ` (0.0295735 L) and `US_CUPS` (0.236588 L);
-  tbsp/tsp optional (0.0147868 / 0.00492892 L).
-- [ ] Consider `PINTS` (0.473176 L).
-- [ ] Rename `Igal` symbol → `imp gal`; "Cubic m" label → "Cubic metres" for consistency.
+- [x] Add at least `US_FL_OZ` (0.0295735 L) and `US_CUPS` (0.236588 L);
+  tbsp/tsp optional (0.0147868 / 0.00492892 L). *(all four added)*
+- [x] Consider `PINTS` (0.473176 L). *(added)*
+- [x] Rename `Igal` symbol → `imp gal`; "Cubic m" label → "Cubic metres" for consistency.
 
 Where: `VolumeUnit` enum ~L178–L185.
 
 ### 8. Percentage per part in results
 `Water 75% · 7.5 L` is a cheap, useful addition and lets users sanity-check the ratio.
 
-- [ ] Add `ratio / ratioSum` percentage to each `RatioResult` row.
+- [x] Add `ratio / ratioSum` percentage to each `RatioResult` row.
+  *(`RatioResult.percentText`, one-decimal trimmed, `<0.1%` floor)*
 
 Where: `recalculate` ~L241, `ResultsCard` ~L626–L643.
 
@@ -105,10 +108,12 @@ Where: `recalculate` ~L241, `ResultsCard` ~L626–L643.
 The trash `IconButton` is immediately adjacent to the Load `TextButton` on every card;
 a mis-tap deletes a preset with no recovery.
 
-- [ ] "Deleted X — Undo" snackbar (Recipe Scaler already has a `SnackbarHost` pattern,
+- [x] "Deleted X — Undo" snackbar (Recipe Scaler already has a `SnackbarHost` pattern,
   `RecipeScalerScreen.kt` ~L483), or a confirmation AlertDialog.
-- [ ] Save dialog: when the name matches an existing preset, note "Replaces existing
+  *(snackbar + `onRestorePreset` re-save chosen)*
+- [x] Save dialog: when the name matches an existing preset, note "Replaces existing
   preset" (currently a silent overwrite — `saveRatioMixPreset` ~L124–L127).
+  *(`supportingText` on the name field)*
 
 Where: `PresetRow` ~L366–L378, `SavePresetDialog` ~L251–L289.
 
@@ -116,7 +121,8 @@ Where: `PresetRow` ~L366–L378, `SavePresetDialog` ~L251–L289.
 Presets render at the bottom while the parts they replace are at the top — tapping
 Load changes nothing in the current viewport.
 
-- [ ] Scroll-to-top (`LazyListState.animateScrollToItem(0)`) or a "Loaded X" snackbar.
+- [x] Scroll-to-top (`LazyListState.animateScrollToItem(0)`) or a "Loaded X" snackbar.
+  *(scroll-to-top chosen)*
 
 Where: `RatioMixScreen` ~L124–L236, `PresetRow` ~L366.
 
@@ -125,8 +131,10 @@ On process death the user is back to `Water 3 : Fertilizer 1`. The converter mod
 persists its last category/units; this screen could persist last parts + unit + mode
 using the same Base64-record format already used for presets.
 
-- [ ] Persist `parts`, `selectedUnit`, `mode` (and arguably `knownPartIndex`) to
+- [x] Persist `parts`, `selectedUnit`, `mode` (and arguably `knownPartIndex`) to
   DataStore on change; restore in `init`.
+  *(`lastRatioMixState`/`saveRatioMixState`, Base64 record incl. `volumeText`,
+  400 ms debounced; persist starts only after restore read)*
 
 ---
 
@@ -175,17 +183,17 @@ Where: `RatioMixViewModel.kt` ~L99–L101.
 
 `recalculate()` is pure — every other UiState in the app already has a `*UiStateTest`.
 
-- [ ] Total→Parts: `3:1` over `40 L` → `30 / 10`
-- [ ] Part→Total: `3:1` with known `30` on part 0 → results `30/10`, total `40`
-- [ ] Invalid ratio (`0`, `-1`, `abc`, blank) → `hasError`, empty results (#2)
-- [ ] Comma decimal `3,5` parses (#3)
-- [ ] Sub-`%.2f` ratios don't collapse to `0` in the summary (#5)
+- [x] Total→Parts: `3:1` over `40 L` → `30 / 10`
+- [x] Part→Total: `3:1` with known `30` on part 0 → results `30/10`, total `40`
+- [x] Invalid ratio (`0`, `-1`, `abc`, blank) → `hasError`, empty results (#2)
+- [x] Comma decimal `3,5` parses (#3)
+- [x] Sub-`%.2f` ratios don't collapse to `0` in the summary (#5)
 - [ ] `onRemovePart` shifts/clamps `knownPartIndex` correctly (all three branches)
 - [ ] `onLoadPreset` clamps `knownPartIndex` to `newParts.lastIndex`
 - [ ] Preset decode: fewer than `MIN_PARTS` pads with defaults; more than `MAX_PARTS` truncates
 
 Test file: `app/src/test/java/com/toolstack/io/ui/ratiomix/RatioMixUiStateTest.kt`
-(new). Verify with `.\gradlew.bat :app:test` — baseline is 362 tests, 0 failures.
+Verify with `.\gradlew.bat :app:test` — baseline is 395 tests, 0 failures.
 
 ---
 

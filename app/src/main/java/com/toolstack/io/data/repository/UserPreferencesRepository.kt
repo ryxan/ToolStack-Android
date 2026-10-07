@@ -145,6 +145,33 @@ class UserPreferencesRepository @Inject constructor(
     }
 
     /**
+     * Persisted last-used ratio-mix setup (parts, unit, mode, known-part index,
+     * and volume text) so the screen survives process death. Stored as a single
+     * tab-separated Base64 record:
+     *
+     *   B64(mode)\tB64(unit)\tB64(knownPartIndex)\tB64(volumeText)\tB64(label1)\uFFFEB64(ratio1)\t...
+     *
+     * Field encoding matches [ratioMixPresets]. Null when nothing has been saved.
+     */
+    val lastRatioMixState: Flow<RatioMixStateSnapshot?> = dataStore.data
+        .catch { e ->
+            if (e is IOException) emit(emptyPreferences()) else throw e
+        }
+        .map { preferences ->
+            preferences[KEY_RATIO_MIX_STATE]?.let { decodeRatioMixState(it) }
+        }
+
+    suspend fun saveRatioMixState(snapshot: RatioMixStateSnapshot) {
+        try {
+            dataStore.edit { preferences ->
+                preferences[KEY_RATIO_MIX_STATE] = encodeRatioMixState(snapshot)
+            }
+        } catch (e: IOException) {
+            // Log error if needed
+        }
+    }
+
+    /**
      * Last unit-converter category accessed by the user (e.g. "Weight / Mass").
      * Null if the user has not used the converter yet.
      */
@@ -301,6 +328,7 @@ class UserPreferencesRepository @Inject constructor(
         private val KEY_HIDDEN_HOME_MODULES = stringPreferencesKey("hidden_home_modules")
         private val KEY_CONVERTER_CATEGORY_ORDER = stringPreferencesKey("converter_category_order")
         private val KEY_RATIO_MIX_PRESETS = stringPreferencesKey("ratio_mix_presets")
+        private val KEY_RATIO_MIX_STATE = stringPreferencesKey("ratio_mix_state")
         private val KEY_LAST_CONVERTER_CATEGORY = stringPreferencesKey("last_converter_category")
         private val KEY_CONVERTER_UNITS = stringPreferencesKey("converter_units")
         private val KEY_CALCULATOR_HISTORY = stringPreferencesKey("calculator_history")
@@ -345,6 +373,41 @@ class UserPreferencesRepository @Inject constructor(
                     if (parts.isEmpty()) null
                     else RatioMixPreset(name = name, parts = parts)
                 }
+
+        private fun encodeRatioMixState(s: RatioMixStateSnapshot): String =
+            (listOf(
+                b64enc(s.mode),
+                b64enc(s.unit),
+                b64enc(s.knownPartIndex.toString()),
+                b64enc(s.volumeText)
+            ) + s.parts.map { "${b64enc(it.label)}$PART_SEP${b64enc(it.ratioText)}" })
+                .joinToString("\t")
+
+        private fun decodeRatioMixState(encoded: String): RatioMixStateSnapshot? {
+            val tokens = encoded.split("\t")
+            if (tokens.size < 5) return null
+            val mode = b64dec(tokens[0]) ?: return null
+            val unit = b64dec(tokens[1]) ?: return null
+            val knownPartIndex = b64dec(tokens[2])?.toIntOrNull() ?: return null
+            val volumeText = b64dec(tokens[3]) ?: return null
+            val parts = tokens.drop(4).mapNotNull { partToken ->
+                val idx = partToken.indexOf(PART_SEP)
+                if (idx < 0) null
+                else {
+                    val label = b64dec(partToken.substring(0, idx)) ?: return@mapNotNull null
+                    val ratio = b64dec(partToken.substring(idx + PART_SEP.length)) ?: return@mapNotNull null
+                    RatioMixPresetPart(label = label, ratioText = ratio)
+                }
+            }
+            if (parts.isEmpty()) return null
+            return RatioMixStateSnapshot(
+                mode = mode,
+                unit = unit,
+                knownPartIndex = knownPartIndex,
+                volumeText = volumeText,
+                parts = parts
+            )
+        }
 
         private fun encodeConverterUnits(unitsMap: Map<String, Pair<String, String>>): String =
             unitsMap.entries.joinToString("\n") { (category, units) ->
@@ -415,4 +478,17 @@ data class RatioMixPreset(
 data class RatioMixPresetPart(
     val label: String,
     val ratioText: String
+)
+
+/**
+ * Last-used ratio-mix setup, persisted so the screen survives process death.
+ * [mode] and [unit] store enum names (`Mode.name`, `VolumeUnit.name`); the
+ * ViewModel resolves them back to enum entries.
+ */
+data class RatioMixStateSnapshot(
+    val mode: String,
+    val unit: String,
+    val knownPartIndex: Int,
+    val volumeText: String,
+    val parts: List<RatioMixPresetPart>
 )

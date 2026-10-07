@@ -97,9 +97,43 @@ class RatioMixUiStateTest {
 
     @Test
     fun `tiny result volumes show floor marker instead of zero`() {
-        // 0.0002 L total at 1:1 → 0.0001 L per part
-        val s = state("1", "1", volume = "0.0002")
-        assertEquals(listOf("<0.001 L", "<0.001 L"), s.results.map { it.volumeText })
+        // 0.0000002 L total at 1:1 → 0.0001 mL per part after downshifting
+        val s = state("1", "1", volume = "0.0000002")
+        assertEquals(listOf("<0.001 mL", "<0.001 mL"), s.results.map { it.volumeText })
+    }
+
+    @Test
+    fun `sub-litre results downshift to millilitres`() {
+        // 0.5 L total at 1:1 → 0.25 L per part → shown as 250 mL
+        val s = state("1", "1", volume = "0.5")
+        assertEquals(listOf("250 mL", "250 mL"), s.results.map { it.volumeText })
+    }
+
+    @Test
+    fun `sub-gallon results downshift through US units`() {
+        // 1 gal at 3:1 → 0.75 gal = 3 qt and 0.25 gal = 1 qt
+        val s = state("3", "1", volume = "1", unit = VolumeUnit.US_GALLONS)
+        assertEquals(listOf("3 qt", "1 qt"), s.results.map { it.volumeText })
+    }
+
+    @Test
+    fun `very small US results reach fl oz`() {
+        // 1 gal at 127:1 → the small part is 1/128 gal = exactly 1 fl oz
+        val s = state("127", "1", volume = "1", unit = VolumeUnit.US_GALLONS)
+        assertEquals("1 fl oz", s.results[1].volumeText)
+    }
+
+    @Test
+    fun `results show per-part percentage`() {
+        val s = state("3", "1", volume = "40")
+        assertEquals(listOf("75%", "25%"), s.results.map { it.percentText })
+    }
+
+    @Test
+    fun `fractional percentages keep one decimal`() {
+        val s = state("199", "1", volume = "200")
+        assertEquals("99.5%", s.results[0].percentText)
+        assertEquals("0.5%", s.results[1].percentText)
     }
 
     @Test

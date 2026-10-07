@@ -4,11 +4,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.toolstack.io.data.repository.RatioMixPreset
 import com.toolstack.io.data.repository.RatioMixPresetPart
+import com.toolstack.io.data.repository.RatioMixStateSnapshot
 import com.toolstack.io.data.repository.UserPreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
@@ -16,6 +20,7 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 import javax.inject.Inject
 
+@OptIn(FlowPreview::class)
 @HiltViewModel
 class RatioMixViewModel @Inject constructor(
     private val preferencesRepository: UserPreferencesRepository
@@ -29,7 +34,39 @@ class RatioMixViewModel @Inject constructor(
         preferencesRepository.ratioMixPresets
             .onEach { presets -> _uiState.update { it.copy(savedPresets = presets) } }
             .launchIn(viewModelScope)
+
+        // Restore the last-used mix once, then keep persisting changes.
+        // Persistence only starts after the stored snapshot is read, so the
+        // default state can't clobber it on startup.
+        viewModelScope.launch {
+            preferencesRepository.lastRatioMixState.first()?.let { restoreSnapshot(it) }
+            _uiState
+                .debounce(PERSIST_DEBOUNCE_MS)
+                .collect { preferencesRepository.saveRatioMixState(it.toSnapshot()) }
+        }
     }
+
+    private fun restoreSnapshot(snapshot: RatioMixStateSnapshot) {
+        val restoredParts = toRatioParts(snapshot.parts)
+        _uiState.update { state ->
+            state.copy(
+                parts = restoredParts,
+                totalVolumeText = snapshot.volumeText,
+                selectedUnit = VolumeUnit.entries.firstOrNull { it.name == snapshot.unit }
+                    ?: state.selectedUnit,
+                mode = Mode.entries.firstOrNull { it.name == snapshot.mode } ?: state.mode,
+                knownPartIndex = snapshot.knownPartIndex.coerceIn(restoredParts.indices)
+            ).recalculate()
+        }
+    }
+
+    private fun RatioMixUiState.toSnapshot() = RatioMixStateSnapshot(
+        mode = mode.name,
+        unit = selectedUnit.name,
+        knownPartIndex = knownPartIndex,
+        volumeText = totalVolumeText,
+        parts = parts.map { RatioMixPresetPart(it.label, it.ratioText) }
+    )
 
     // ── part label edits ──────────────────────────────────────────────────────
 
@@ -139,16 +176,7 @@ class RatioMixViewModel @Inject constructor(
      * may want to reuse the same volume with a different mix.
      */
     fun onLoadPreset(preset: RatioMixPreset) {
-        val newParts = preset.parts
-            .take(MAX_PARTS)
-            .map { RatioPart(label = it.label, ratioText = it.ratioText) }
-            .let { parts ->
-                // Ensure we always have at least MIN_PARTS
-                if (parts.size >= MIN_PARTS) parts
-                else parts + List(MIN_PARTS - parts.size) { i ->
-                    RatioPart(label = defaultLabel(parts.size + i), ratioText = "1")
-                }
-            }
+        val newParts = toRatioParts(preset.parts)
         _uiState.update { state ->
             // Preserve the selected known-part index when it falls within the new
             // parts list; otherwise clamp to the last available part.
@@ -164,9 +192,31 @@ class RatioMixViewModel @Inject constructor(
         }
     }
 
+    /** Re-saves a deleted preset — backs the snackbar's Undo action. */
+    fun onRestorePreset(preset: RatioMixPreset) {
+        viewModelScope.launch {
+            preferencesRepository.saveRatioMixPreset(preset)
+        }
+    }
+
+    /**
+     * Converts stored preset/snapshot parts into UI parts: truncates to
+     * [MAX_PARTS] and pads up to [MIN_PARTS] with defaults.
+     */
+    private fun toRatioParts(stored: List<RatioMixPresetPart>): List<RatioPart> =
+        stored.take(MAX_PARTS)
+            .map { RatioPart(label = it.label, ratioText = it.ratioText) }
+            .let { parts ->
+                if (parts.size >= MIN_PARTS) parts
+                else parts + List(MIN_PARTS - parts.size) { i ->
+                    RatioPart(label = defaultLabel(parts.size + i), ratioText = "1")
+                }
+            }
+
     companion object {
         const val MAX_PARTS = 6
         const val MIN_PARTS = 2
+        private const val PERSIST_DEBOUNCE_MS = 400L
 
         private val defaultLabels = listOf("Water", "Fertilizer", "Part C", "Part D", "Part E", "Part F")
         fun defaultLabel(index: Int) = defaultLabels.getOrElse(index) { "Part ${index + 1}" }
@@ -176,12 +226,36 @@ class RatioMixViewModel @Inject constructor(
 // ── Domain types ──────────────────────────────────────────────────────────────
 
 enum class VolumeUnit(val label: String, val symbol: String, val toLitres: Double) {
-    LITRES("Litres",           "L",      1.0),
-    MILLILITRES("Millilitres", "mL",     0.001),
-    US_GALLONS("US Gallons",   "gal",    3.785411784),
-    IMP_GALLONS("Imp Gallons", "Igal",   4.54609),
-    US_QUARTS("US Quarts",     "qt",     0.946352946),
-    CUBIC_METRES("Cubic m",    "m³",     1000.0);
+    MILLILITRES("Millilitres",    "mL",      0.001),
+    LITRES("Litres",              "L",       1.0),
+    CUBIC_METRES("Cubic metres",  "m³",      1000.0),
+    US_TSP("US Teaspoons",        "tsp",     0.00492892159375),
+    US_TBSP("US Tablespoons",     "tbsp",    0.01478676478125),
+    US_FL_OZ("US Fluid Ounces",   "fl oz",   0.0295735295625),
+    US_CUPS("US Cups",            "cup",     0.2365882365),
+    US_PINTS("US Pints",          "pt",      0.473176473),
+    US_QUARTS("US Quarts",        "qt",      0.946352946),
+    US_GALLONS("US Gallons",      "gal",     3.785411784),
+    IMP_GALLONS("Imp Gallons",    "imp gal", 4.54609);
+
+    /**
+     * Next-smaller unit used when a result is too small to read in this unit.
+     * Follows the unit's own family (metric / US customary); imperial gallons
+     * fall back to litres since no smaller imperial unit is offered.
+     */
+    val smaller: VolumeUnit?
+        get() = when (this) {
+            CUBIC_METRES -> LITRES
+            LITRES -> MILLILITRES
+            US_GALLONS -> US_QUARTS
+            US_QUARTS -> US_PINTS
+            US_PINTS -> US_CUPS
+            US_CUPS -> US_FL_OZ
+            US_FL_OZ -> US_TBSP
+            US_TBSP -> US_TSP
+            IMP_GALLONS -> LITRES
+            else -> null
+        }
 }
 
 enum class Mode { TOTAL_TO_PARTS, PART_TO_TOTAL }
@@ -253,8 +327,11 @@ data class RatioMixUiState(
                     val results = markedParts.mapIndexed { i, part ->
                         val vol = totalInLitres * (ratioValues[i] / ratioSum)
                         if (!vol.isFinite()) return withFlags.copy(results = emptyList(), totalResultText = "", ratioSummary = summary, hasError = true)
-                        val display = formatVolume(vol / selectedUnit.toLitres)
-                        RatioResult(label = part.label, volumeText = "$display ${selectedUnit.symbol}")
+                        RatioResult(
+                            label = part.label,
+                            volumeText = formatVolumeAuto(vol, selectedUnit),
+                            percentText = formatPercent(ratioValues[i] / ratioSum)
+                        )
                     }
                     withFlags.copy(results = results, totalResultText = "", ratioSummary = summary, hasError = false)
                 }
@@ -273,13 +350,15 @@ data class RatioMixUiState(
                     val results = markedParts.mapIndexed { i, part ->
                         val vol = litresPerRatioPart * ratioValues[i]
                         if (!vol.isFinite()) return withFlags.copy(results = emptyList(), totalResultText = "", ratioSummary = summary, hasError = true)
-                        val display = formatVolume(vol / selectedUnit.toLitres)
-                        RatioResult(label = part.label, volumeText = "$display ${selectedUnit.symbol}")
+                        RatioResult(
+                            label = part.label,
+                            volumeText = formatVolumeAuto(vol, selectedUnit),
+                            percentText = formatPercent(ratioValues[i] / ratioSum)
+                        )
                     }
-                    val totalDisplay = formatVolume(totalLitres / selectedUnit.toLitres)
                     withFlags.copy(
                         results = results,
-                        totalResultText = "$totalDisplay ${selectedUnit.symbol}",
+                        totalResultText = formatVolumeAuto(totalLitres, selectedUnit),
                         ratioSummary = summary,
                         hasError = false
                     )
@@ -291,19 +370,44 @@ data class RatioMixUiState(
     private fun parseDecimal(text: String): Double? =
         text.trim().replace(',', '.').toDoubleOrNull()
 
+    /**
+     * Format a litres amount for display, downshifting to a smaller unit
+     * (see [VolumeUnit.smaller]) while the value is below 1 — so a
+     * "0.01 gal" result shows as e.g. "1.28 fl oz" instead.
+     */
+    private fun formatVolumeAuto(litres: Double, preferred: VolumeUnit): String {
+        var unit = preferred
+        while (litres / unit.toLitres < 1.0 && unit.smaller != null) {
+            unit = unit.smaller!!
+        }
+        return "${formatVolume(litres / unit.toLitres)} ${unit.symbol}"
+    }
+
     private fun formatVolume(v: Double): String {
         if (v <= 0.0) return "0"
         return if (v >= 100.0) {
             String.format(Locale.US, "%.1f", v).trimEnd('0').trimEnd('.')
         } else {
             val s = String.format(Locale.US, "%.3f", v).trimEnd('0').trimEnd('.')
-            // Sub-millilitre results would format as "0"; show a floor instead.
+            // Results below the unit's smallest step would format as "0"; show a floor.
             if (s == "0") "<0.001" else s
+        }
+    }
+
+    private fun formatPercent(fraction: Double): String {
+        val pct = fraction * 100
+        return when {
+            pct <= 0.0 -> "0%"
+            pct < 0.05 -> "<0.1%"
+            else -> String.format(Locale.US, "%.1f", pct)
+                .trimEnd('0').trimEnd('.') + "%"
         }
     }
 }
 
 data class RatioResult(
     val label: String,
-    val volumeText: String
+    val volumeText: String,
+    /** Share of the mix this part represents, e.g. "75%", "33.3%", "<0.1%". */
+    val percentText: String = ""
 )
