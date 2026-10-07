@@ -50,52 +50,33 @@ class UnitConverterListViewModel @Inject constructor(
         current.add(to, current.removeAt(from))
         _uiState.update { it.copy(categories = current) }
         viewModelScope.launch {
-            preferencesRepository.saveConverterCategoryOrder(current.map { it.name })
+            preferencesRepository.saveConverterCategoryOrder(current.map { it.id })
         }
     }
-
-    /**
-     * Returns the index into [UnitConverterData.categories] for the given [category].
-     * This is the stable original index used by [UnitConverterDetailScreen] to look
-     * up the correct category regardless of user-defined display order.
-     */
-    fun originalIndexOf(category: UnitCategory): Int =
-        UnitConverterData.categories.indexOf(category)
 
     companion object {
         private val DEFAULT_CATEGORIES: List<UnitCategory> = UnitConverterData.categories
 
         /**
-         * Normalizes legacy category names to current names for backward compatibility.
+         * Reorder [defaults] according to [savedKeys]. Persisted keys are stable
+         * category ids; keys written by older versions (current or legacy display
+         * names) are normalized via [UnitConverterData.idFor]. Unknown keys are
+         * dropped; categories absent from [savedKeys] are appended at the end.
          */
-        private fun normalizeCategoryName(name: String): String = when (name) {
-            "Weight / Mass" -> "Mass"
-            "Fuel Economy" -> "Fuel"
-            "Data Size" -> "Data"
-            else -> name
-        }
-
-        /**
-         * Reorder [defaults] according to [savedNames]. Any name no longer present in
-         * [defaults] is dropped; any new category added to [defaults] that is absent
-         * from [savedNames] is appended at the end.
-         * Legacy category names are automatically normalized to current names.
-         */
-        fun applyOrder(defaults: List<UnitCategory>, savedNames: List<String>): List<UnitCategory> {
-            if (savedNames.isEmpty()) return defaults
-            val byName = defaults.associateBy { it.name }
-            // Normalize legacy names before lookup and deduplicate
-            val seenNames = mutableSetOf<String>()
-            val ordered = savedNames.mapNotNull { savedName ->
-                val normalized = normalizeCategoryName(savedName)
-                if (normalized in seenNames) {
-                    null  // Skip duplicate
+        fun applyOrder(defaults: List<UnitCategory>, savedKeys: List<String>): List<UnitCategory> {
+            if (savedKeys.isEmpty()) return defaults
+            val byId = defaults.associateBy { it.id }
+            val seenIds = mutableSetOf<String>()
+            val ordered = savedKeys.mapNotNull { savedKey ->
+                val id = UnitConverterData.idFor(savedKey)
+                if (id == null || id in seenIds) {
+                    null  // Unknown key or duplicate after normalization
                 } else {
-                    seenNames.add(normalized)
-                    byName[normalized]
+                    seenIds.add(id)
+                    byId[id]
                 }
             }
-            val missing = defaults.filter { it.name !in seenNames }
+            val missing = defaults.filter { it.id !in seenIds }
             return ordered + missing
         }
     }

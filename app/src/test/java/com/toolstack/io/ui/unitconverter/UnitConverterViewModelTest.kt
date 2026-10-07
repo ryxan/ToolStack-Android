@@ -30,8 +30,8 @@ class UnitConverterViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     private val weightCategory = UnitConverterData.categories.first { it.name == "Mass" }
-    private val ounceUnit = weightCategory.units.first { it.label == "Ounce" }
-    private val poundUnit = weightCategory.units.first { it.label == "Pound" }
+    private val ounceUnit = weightCategory.units.first { it.label == "Ounces" }
+    private val poundUnit = weightCategory.units.first { it.label == "Pounds" }
 
     @Test
     fun `default units loaded when no saved preference exists`() =
@@ -41,8 +41,8 @@ class UnitConverterViewModelTest {
             val viewModel = UnitConverterViewModel(weightCategory, repository)
             advanceUntilIdle()
 
-            assertEquals("Pound", viewModel.uiState.value.fromUnit.label)
-            assertEquals("Kilogram", viewModel.uiState.value.toUnit.label)
+            assertEquals("Pounds", viewModel.uiState.value.fromUnit.label)
+            assertEquals("Kilograms", viewModel.uiState.value.toUnit.label)
         }
 
     @Test
@@ -50,13 +50,13 @@ class UnitConverterViewModelTest {
         runTest(mainDispatcherRule.dispatcher) {
             val dataStore = FakeDataStore()
             val repository = UserPreferencesRepository(dataStore)
-            repository.saveConverterUnits(weightCategory.name, "Ounce", "Pound")
+            repository.saveConverterUnits(weightCategory.name, "Ounces", "Pounds")
 
             val viewModel = UnitConverterViewModel(weightCategory, repository)
             advanceUntilIdle()
 
-            assertEquals("Ounce", viewModel.uiState.value.fromUnit.label)
-            assertEquals("Pound", viewModel.uiState.value.toUnit.label)
+            assertEquals("Ounces", viewModel.uiState.value.fromUnit.label)
+            assertEquals("Pounds", viewModel.uiState.value.toUnit.label)
         }
 
     @Test
@@ -65,13 +65,13 @@ class UnitConverterViewModelTest {
             val dataStore = FakeDataStore()
             val repository = UserPreferencesRepository(dataStore)
             // Save with legacy name
-            repository.saveConverterUnits("Weight / Mass", "Ounce", "Pound")
+            repository.saveConverterUnits("Weight / Mass", "Ounces", "Pounds")
 
             val viewModel = UnitConverterViewModel(weightCategory, repository)
             advanceUntilIdle()
 
-            assertEquals("Ounce", viewModel.uiState.value.fromUnit.label)
-            assertEquals("Pound", viewModel.uiState.value.toUnit.label)
+            assertEquals("Ounces", viewModel.uiState.value.fromUnit.label)
+            assertEquals("Pounds", viewModel.uiState.value.toUnit.label)
         }
 
     @Test
@@ -81,13 +81,13 @@ class UnitConverterViewModelTest {
             val repository = UserPreferencesRepository(dataStore)
             val fuelCategory = UnitConverterData.categories.first { it.name == "Fuel" }
             // Save with legacy name
-            repository.saveConverterUnits("Fuel Economy", "mpg (US)", "L/100km")
+            repository.saveConverterUnits("Fuel Economy", "Miles per gallon (US)", "Litres per 100 km")
 
             val viewModel = UnitConverterViewModel(fuelCategory, repository)
             advanceUntilIdle()
 
-            assertEquals("mpg (US)", viewModel.uiState.value.fromUnit.label)
-            assertEquals("L/100km", viewModel.uiState.value.toUnit.label)
+            assertEquals("Miles per gallon (US)", viewModel.uiState.value.fromUnit.label)
+            assertEquals("Litres per 100 km", viewModel.uiState.value.toUnit.label)
         }
 
     @Test
@@ -97,13 +97,13 @@ class UnitConverterViewModelTest {
             val repository = UserPreferencesRepository(dataStore)
             val dataCategory = UnitConverterData.categories.first { it.name == "Data" }
             // Save with legacy name
-            repository.saveConverterUnits("Data Size", "Byte", "Kilobyte")
+            repository.saveConverterUnits("Data Size", "Bytes", "Kilobytes")
 
             val viewModel = UnitConverterViewModel(dataCategory, repository)
             advanceUntilIdle()
 
-            assertEquals("Byte", viewModel.uiState.value.fromUnit.label)
-            assertEquals("Kilobyte", viewModel.uiState.value.toUnit.label)
+            assertEquals("Bytes", viewModel.uiState.value.fromUnit.label)
+            assertEquals("Kilobytes", viewModel.uiState.value.toUnit.label)
         }
 
     @Test
@@ -112,15 +112,16 @@ class UnitConverterViewModelTest {
             val dataStore = FakeDataStore()
             val repository = UserPreferencesRepository(dataStore)
             // Save with both legacy and current names (current should win)
-            repository.saveConverterUnits("Weight / Mass", "Ounce", "Pound")
-            repository.saveConverterUnits("Mass", "Gram", "Kilogram")
+            repository.saveConverterUnits("Weight / Mass", "Ounces", "Pounds")
+            repository.saveConverterUnits("Mass", "Grams", "Kilograms")
+            repository.saveConverterUnits("mass", "Grams", "Kilograms")
 
             val viewModel = UnitConverterViewModel(weightCategory, repository)
             advanceUntilIdle()
 
             // Should use the current name's values
-            assertEquals("Gram", viewModel.uiState.value.fromUnit.label)
-            assertEquals("Kilogram", viewModel.uiState.value.toUnit.label)
+            assertEquals("Grams", viewModel.uiState.value.fromUnit.label)
+            assertEquals("Kilograms", viewModel.uiState.value.toUnit.label)
         }
 
     @Test
@@ -135,8 +136,8 @@ class UnitConverterViewModelTest {
             viewModel.onToUnitSelected(poundUnit)
             advanceUntilIdle()
 
-            val savedUnits = repository.converterUnits.first()[weightCategory.name]
-            assertEquals(Pair("Ounce", "Pound"), savedUnits)
+            val savedUnits = repository.converterUnits.first()[weightCategory.id]
+            assertEquals(Pair("Ounces", "Pounds"), savedUnits)
         }
 
     @Test
@@ -147,7 +148,7 @@ class UnitConverterViewModelTest {
             UnitConverterViewModel(weightCategory, repository)
             advanceUntilIdle()
 
-            assertEquals("Mass", repository.lastConverterCategory.first())
+            assertEquals("mass", repository.lastConverterCategory.first())
         }
 
     @Test
@@ -155,14 +156,14 @@ class UnitConverterViewModelTest {
         runTest(mainDispatcherRule.dispatcher) {
             val dataStore = FakeDataStore()
             val repository = UserPreferencesRepository(dataStore)
-            repository.saveConverterUnits(weightCategory.name, "Kilogram", "Tonne (metric)")
+            repository.saveConverterUnits(weightCategory.name, "Kilograms", "Tonnes (metric)")
 
             val viewModel = UnitConverterViewModel(weightCategory, repository)
             // User immediately selects Ounce before advanceUntilIdle() processes the read
             viewModel.onFromUnitSelected(ounceUnit)
             advanceUntilIdle()
 
-            assertEquals("Ounce", viewModel.uiState.value.fromUnit.label)
+            assertEquals("Ounces", viewModel.uiState.value.fromUnit.label)
         }
 
     class MainDispatcherRule(

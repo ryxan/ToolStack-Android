@@ -135,6 +135,7 @@
     <string name="unit_converter">Unit Converter</string>
     <string name="unit_converter_from">From</string>
     <string name="unit_converter_to">To</string>
+    <string name="unit_converter_unit">unit</string>
     <string name="unit_converter_input_hint">Enter value…</string>
 
     <!-- Ratio Mix Calculator -->

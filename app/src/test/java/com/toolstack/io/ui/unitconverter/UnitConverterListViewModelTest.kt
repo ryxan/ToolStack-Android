@@ -16,6 +16,16 @@ class UnitConverterListViewModelTest {
 
     @Test
     fun `applyOrder preserves saved order`() {
+        val savedNames = listOf("data", "mass", "length")
+        val result = UnitConverterListViewModel.applyOrder(allCategories, savedNames)
+
+        assertEquals("Data", result[0].name)
+        assertEquals("Mass", result[1].name)
+        assertEquals("Length", result[2].name)
+    }
+
+    @Test
+    fun `applyOrder resolves current display names written by older versions`() {
         val savedNames = listOf("Data", "Mass", "Length")
         val result = UnitConverterListViewModel.applyOrder(allCategories, savedNames)
 
@@ -26,7 +36,7 @@ class UnitConverterListViewModelTest {
 
     @Test
     fun `applyOrder appends new categories not in saved order`() {
-        val savedNames = listOf("Length", "Mass")
+        val savedNames = listOf("length", "mass")
         val result = UnitConverterListViewModel.applyOrder(allCategories, savedNames)
 
         // First two match saved order
@@ -102,5 +112,17 @@ class UnitConverterListViewModelTest {
         assertEquals("Length", result[1].name)
         // Mass should not appear twice
         assertEquals(allCategories.size, result.size)
+    }
+
+    @Test
+    fun `applyOrder deduplicates id and legacy name`() {
+        // "mass" is the current id, "Weight / Mass" is the legacy name — same category
+        val savedNames = listOf("mass", "Weight / Mass", "length")
+        val result = UnitConverterListViewModel.applyOrder(allCategories, savedNames)
+
+        assertEquals("mass", result[0].id)
+        assertEquals("length", result[1].id)
+        assertEquals(allCategories.size, result.size)
+        assertEquals(1, result.count { it.id == "mass" })
     }
 }

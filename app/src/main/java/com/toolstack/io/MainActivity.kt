@@ -197,14 +197,14 @@ class MainActivity : ComponentActivity() {
                         composable(Screen.UnitConverter.route) { navBackStackEntry ->
                             UnitConverterScreen(
                                 onBack = { navController.popBackStack() },
-                                onCategorySelected = { categoryIndex ->
+                                onCategorySelected = { categoryId ->
                                     // Guard against double-taps and taps during the back
                                     // transition — only navigate when this entry is RESUMED.
                                     if (navBackStackEntry.lifecycle.currentState
                                         == androidx.lifecycle.Lifecycle.State.RESUMED
                                     ) {
                                         navController.navigate(
-                                            Screen.UnitConverterDetail.routeWithArg(categoryIndex)
+                                            Screen.UnitConverterDetail.routeWithArg(categoryId)
                                         )
                                     }
                                 },
@@ -218,12 +218,8 @@ class MainActivity : ComponentActivity() {
                                 onAddShortcut = addShortcutFor(Screen.UnitConverter.route)
                             )
                         }
-                        composable(Screen.UnitConverterDetail.route) { backStackEntry ->
-                            val categoryIndex = backStackEntry.arguments
-                                ?.getString(UnitConverterViewModel.ARG_CATEGORY_INDEX)
-                                ?.toIntOrNull() ?: 0
+                        composable(Screen.UnitConverterDetail.route) {
                             UnitConverterDetailScreen(
-                                categoryIndex = categoryIndex,
                                 onBack = { navController.popBackStack() }
                             )
                         }
@@ -287,8 +283,8 @@ sealed class Screen(val route: String) {
     data object Bearings : Screen("bearings")
     data object ConduitBends : Screen("conduit_bends")
     data object UnitConverter : Screen("unit_converter")
-    data object UnitConverterDetail : Screen("unit_converter_detail/{${UnitConverterViewModel.ARG_CATEGORY_INDEX}}") {
-        fun routeWithArg(categoryIndex: Int) = "unit_converter_detail/$categoryIndex"
+    data object UnitConverterDetail : Screen("unit_converter_detail/{${UnitConverterViewModel.ARG_CATEGORY_ID}}") {
+        fun routeWithArg(categoryId: String) = "unit_converter_detail/$categoryId"
     }
     data object RatioMix : Screen("ratio_mix")
     data object Calculator : Screen("calculator")
