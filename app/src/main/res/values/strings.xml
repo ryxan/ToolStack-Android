@@ -8,6 +8,7 @@
     <string name="content_description_edit_modules">Edit modules</string>
     <string name="content_description_hide_module">Hide module</string>
     <string name="content_description_show_module">Show module</string>
+    <string name="action_undo">Undo</string>
     <string name="sae_to_metric">SAE to Metric</string>
     <string name="wrench_fastener">Wrench / Fastener Size</string>
     <string name="taps_and_drills">Taps and Drills</string>
@@ -160,6 +161,8 @@
     <string name="ratio_mix_save_dialog_body">Give this combination of parts a name so you can reload it later.</string>
     <string name="ratio_mix_save_confirm">Save</string>
     <string name="ratio_mix_load_action">Load</string>
+    <string name="ratio_mix_preset_deleted">Deleted "%1$s"</string>
+    <string name="ratio_mix_save_replaces_existing">Replaces existing preset</string>
     <string name="ratio_mix_load_preset">Load %1$s</string>
     <string name="ratio_mix_delete_preset">Delete %1$s</string>
     <string name="ratio_mix_no_saved_presets">No saved presets yet. Set up a mix above and tap Save preset.</string>
@@ -199,6 +202,14 @@
     <string name="calculator_key_pct">%</string>
     <string name="calculator_switch_to_unit_converter">Switch to Unit Converter</string>
     <string name="unit_converter_switch_to_calculator">Switch to Calculator</string>
+    <string name="calculator_more_options">More options</string>
+    <string name="calculator_history">History</string>
+    <string name="calculator_copied_toast">Copied to clipboard</string>
+    <string name="calculator_clear_history">Clear History</string>
+    <string name="calculator_clear_history_title">Clear History?</string>
+    <string name="calculator_clear_history_message">This will permanently delete all calculation history.</string>
+    <string name="calculator_clear_history_confirm">Clear</string>
+    <string name="calculator_save_on_clear">Save to history on AC</string>
 
     <!-- Paywall copy shown when a non-premium user taps Add to Home Screen -->
     <string name="shortcut_premium_required_body">Home screen shortcuts are a Pro feature. Upgrade to pin any tool directly to your launcher.</string>
