@@ -422,6 +422,13 @@ object CalculatorEngine {
         }
 
         val tokens = exprPart.split(" ")
+        // Recall only well-formed expressions: odd-length token list with
+        // operands and operators in alternating positions.
+        val isWellFormed = tokens.size % 2 == 1 && tokens.withIndex().all { (index, token) ->
+            if (index % 2 == 0) isOperand(token) else isOperator(token)
+        }
+        if (!isWellFormed) return committed to internal
+
         val newInternal = InternalState(
             expressionTokens = tokens.dropLast(1),
             pendingInput = tokens.last(),
@@ -451,6 +458,12 @@ object CalculatorEngine {
      */
     private fun isOperator(token: String): Boolean =
         token in listOf("+", "−", "×", "÷")
+
+    /**
+     * Checks if a token is a numeric operand (optionally %-suffixed).
+     */
+    private fun isOperand(token: String): Boolean =
+        token.removeSuffix("%").toDoubleOrNull()?.isFinite() == true
 
     /**
      * Evaluates an expression from tokens and pending input, returns formatted result or empty string.

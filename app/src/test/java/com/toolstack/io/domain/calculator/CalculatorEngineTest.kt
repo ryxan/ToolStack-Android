@@ -559,6 +559,23 @@ class CalculatorEngineTest {
         assertEquals("240", s2.display)
     }
 
+    @Test
+    fun `history recall rejects malformed expressions`() {
+        val internal = InternalState()
+
+        for (entry in listOf(
+            "5 + + 3 = 8",     // two operators in a row
+            "5 + 3 + = 8",     // trailing operator / even token count
+            "foo + bar = baz", // non-numeric operands
+            "5 + Error = 8"    // "Error" is not an operand
+        )) {
+            val state = CalculatorState(history = listOf(entry))
+            val (s, i) = CalculatorEngine.onHistoryRecall(state, entry, internal)
+            assertEquals(state, s)
+            assertEquals(internal, i)
+        }
+    }
+
     // ── soft history (commitPendingExpression) ──────────────────────────────
 
     @Test

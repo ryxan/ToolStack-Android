@@ -265,13 +265,21 @@ class UserPreferencesRepository @Inject constructor(
      * Soft commits on leaving the screen are unaffected — this only controls
      * the explicit AC gesture. Defaults to true.
      */
-    val calculatorClearCommitsHistory: Flow<Boolean> = dataStore.data.map { preferences ->
-        preferences[KEY_CALCULATOR_CLEAR_COMMITS_HISTORY] ?: true
-    }
+    val calculatorClearCommitsHistory: Flow<Boolean> = dataStore.data
+        .catch { e ->
+            if (e is IOException) emit(emptyPreferences()) else throw e
+        }
+        .map { preferences ->
+            preferences[KEY_CALCULATOR_CLEAR_COMMITS_HISTORY] ?: true
+        }
 
     suspend fun saveCalculatorClearCommitsHistory(enabled: Boolean) {
-        dataStore.edit { preferences ->
-            preferences[KEY_CALCULATOR_CLEAR_COMMITS_HISTORY] = enabled
+        try {
+            dataStore.edit { preferences ->
+                preferences[KEY_CALCULATOR_CLEAR_COMMITS_HISTORY] = enabled
+            }
+        } catch (e: IOException) {
+            // Log error if needed
         }
     }
 
