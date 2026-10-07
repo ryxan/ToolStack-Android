@@ -155,12 +155,17 @@ fun UnitConverterDetailScreen(
                 }
             }
 
-            // Summary line — always shows from → to direction for readability.
+            // Summary line — active field (the "From") leads for readability.
             if (uiState.fromText.isNotEmpty() && uiState.toText.isNotEmpty() &&
                 uiState.toText != "—" && uiState.fromText != "—"
             ) {
+                val summary = if (uiState.activeField == ActiveField.TO) {
+                    "${uiState.toText} ${uiState.toUnit.symbol}  =  ${uiState.fromText} ${uiState.fromUnit.symbol}"
+                } else {
+                    "${uiState.fromText} ${uiState.fromUnit.symbol}  =  ${uiState.toText} ${uiState.toUnit.symbol}"
+                }
                 Text(
-                    text = "${uiState.fromText} ${uiState.fromUnit.symbol}  =  ${uiState.toText} ${uiState.toUnit.symbol}",
+                    text = summary,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
