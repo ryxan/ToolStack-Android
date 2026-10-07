@@ -15,7 +15,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
@@ -116,14 +115,17 @@ fun UnitConverterDetailScreen(
                 ) {
                     UnitInputRow(
                         value = uiState.fromText,
-                        label = stringResource(R.string.unit_converter_from),
+                        // Labels follow role, not position: the field being
+                        // typed in is always "From", the computed one "To".
+                        label = stringResource(
+                            if (uiState.activeField == ActiveField.FROM)
+                                R.string.unit_converter_from else R.string.unit_converter_to
+                        ),
                         unit = uiState.fromUnit,
                         units = uiState.category.units,
-                        isActive = uiState.activeField == ActiveField.FROM,
                         autoFocus = true,
                         onValueChange = viewModel::onFromTextChanged,
                         onUnitSelected = viewModel::onFromUnitSelected,
-                        onBackspace = viewModel::onBackspace,
                         onFocused = {
                             // Clear the computed value when the user taps into this field
                             // so they start with a blank slate rather than editing a result.
@@ -135,14 +137,15 @@ fun UnitConverterDetailScreen(
 
                     UnitInputRow(
                         value = uiState.toText,
-                        label = stringResource(R.string.unit_converter_to),
+                        label = stringResource(
+                            if (uiState.activeField == ActiveField.TO)
+                                R.string.unit_converter_from else R.string.unit_converter_to
+                        ),
                         unit = uiState.toUnit,
                         units = uiState.category.units,
-                        isActive = uiState.activeField == ActiveField.TO,
                         autoFocus = false,
                         onValueChange = viewModel::onToTextChanged,
                         onUnitSelected = viewModel::onToUnitSelected,
-                        onBackspace = viewModel::onBackspace,
                         onFocused = {
                             if (uiState.activeField == ActiveField.FROM) {
                                 viewModel.onToTextChanged("")
@@ -192,11 +195,9 @@ private fun UnitInputRow(
     label: String,
     unit: UnitEntry,
     units: List<UnitEntry>,
-    isActive: Boolean,
     autoFocus: Boolean,
     onValueChange: (String) -> Unit,
     onUnitSelected: (UnitEntry) -> Unit,
-    onBackspace: () -> Unit,
     onFocused: () -> Unit
 ) {
     var dropdownExpanded by remember { mutableStateOf(false) }
@@ -221,17 +222,6 @@ private fun UnitInputRow(
             label = { Text(label) },
             placeholder = { Text(stringResource(R.string.unit_converter_input_hint)) },
             textStyle = MaterialTheme.typography.bodyLarge,
-            trailingIcon = {
-                if (isActive && value.isNotEmpty()) {
-                    IconButton(onClick = onBackspace) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Backspace,
-                            contentDescription = stringResource(R.string.content_description_backspace),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            },
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Decimal,
                 imeAction = ImeAction.Done

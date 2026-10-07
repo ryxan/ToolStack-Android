@@ -60,10 +60,11 @@ Ranked by severity. Check the box when an item is fixed and verified.
 
 ## Medium
 
-- [x] **M1 — Accessibility.** ✅ DONE — value fields now show
+- [x] **M1 — Accessibility.** ✅ DONE — value fields show
   `unit_converter_from`/`unit_converter_to` labels + `input_hint` placeholder;
   unit pickers labeled "From unit"/"To unit" (new `unit_converter_unit`
-  string). TalkBack now announces field purpose.
+  string). Labels follow *role*, not position: the active (typed) field is
+  always "From" since both fields are editable.
 
 - [ ] **M2 — Partial-input flicker.** `-`, `.`, `1e` transiently show `—` as if
   invalid. Treat numeric prefixes as "pending"; reserve `—` (+ `isError`) for
@@ -76,8 +77,9 @@ Ranked by severity. Check the box when an item is fixed and verified.
   `1 mm→km` → `1e-06` but `1 GB→B` → `1000000000` (no grouping); small values get
   8 decimals vs 6 for ≥1. Format to fixed significant digits with locale grouping.
 
-- [ ] **M5 — Backspace icon ignores cursor.** Always `dropLast(1)`; redundant with
-  IME backspace. Replace with clear (×) action.
+- [x] **M5 — Backspace icon.** ✅ DONE — removed entirely (IME already has
+  backspace); dropped `onBackspace` from screen + ViewModel and the now-unused
+  `isActive` param.
 
 - [ ] **M6 — No swap button.** ⏸ SKIPPED (deferred by user)
   Standard converter affordance missing; requires two dropdown trips to
