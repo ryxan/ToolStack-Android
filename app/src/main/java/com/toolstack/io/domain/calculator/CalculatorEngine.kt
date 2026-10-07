@@ -121,7 +121,7 @@ object CalculatorEngine {
                 // Recovering from an error discards the invalid expression too
                 InternalState(pendingInput = newInput)
             } else {
-                internal.copy(pendingInput = newInput, pendingIsResult = false)
+                internal.copy(pendingInput = newInput, pendingIsResult = false, softCommitted = false)
             }
             newDisplay = newInput
         }
@@ -147,7 +147,7 @@ object CalculatorEngine {
 
         // After an error, reset rather than chaining "Error" into the expression
         if (internal.pendingInput == "Error" || state.display == "Error") {
-            val (cleared, clearedInternal) = onClear(state)
+            val (cleared, clearedInternal) = onClearSilent(state)
             return onOperator(cleared, op, clearedInternal)
         }
 
@@ -171,7 +171,8 @@ object CalculatorEngine {
             expressionTokens = newTokens,
             pendingInput = "",
             justEvaluated = false,
-            pendingIsResult = false
+            pendingIsResult = false,
+            softCommitted = false
         )
 
         val expressionStr = buildExpressionString(newTokens, "")
@@ -191,7 +192,7 @@ object CalculatorEngine {
         if (state.mode == CalculatorMode.CONSTRUCTION) return onEqualsConstruction(state, internal)
 
         // Pressing "=" while showing an error just clears it
-        if (internal.pendingInput == "Error" || state.display == "Error") return onClear(state)
+        if (internal.pendingInput == "Error" || state.display == "Error") return onClearSilent(state)
 
         // Build the complete expression including any pending input
         val completeTokens = if (internal.pendingInput.isNotEmpty()) {
@@ -208,9 +209,11 @@ object CalculatorEngine {
         val exprStr = completeTokens.joinToString(" ")
         val historyEntry = if (completeTokens.isNotEmpty()) "$exprStr = $resultStr" else resultStr
 
-        // Add to history only if there was a complete expression
+        // Add to history only if there was a complete expression. Skip when
+        // the expression was already soft-committed (see commitPendingExpression)
+        // so pressing "=" afterwards doesn't record a duplicate.
         val newHistory = if (
-            completeTokens.size >= 3 && !isOperator(completeTokens.last())
+            completeTokens.size >= 3 && !isOperator(completeTokens.last()) && !internal.softCommitted
         ) {
             (listOf(historyEntry) + state.history).take(HISTORY_LIMIT)
         } else {
@@ -232,17 +235,61 @@ object CalculatorEngine {
     }
 
     /**
-     * Clears all state (AC button).
+     * Clears all state (AC button). When [commitPending] is true, a complete
+     * in-progress expression is soft-committed to history first — see
+     * [commitPendingExpression]. The ViewModel binds the flag to the
+     * "save on AC" preference.
      */
-    fun onClear(state: CalculatorState): Pair<CalculatorState, InternalState> =
+    fun onClear(state: CalculatorState, internal: InternalState, commitPending: Boolean = true): Pair<CalculatorState, InternalState> {
+        val base = if (commitPending) commitPendingExpression(state, internal).first else state
+        return base.copy(display = "0", expression = "0", liveResult = "") to InternalState()
+    }
+
+    /**
+     * Clears all state without touching history — used internally on error
+     * paths and for the just-evaluated backspace, where there is either
+     * nothing new to record or it was already recorded by "=".
+     */
+    fun onClearSilent(state: CalculatorState): Pair<CalculatorState, InternalState> =
         state.copy(display = "0", expression = "0", liveResult = "") to InternalState()
+
+    /**
+     * Soft history: records the in-progress expression to history when it is
+     * a complete calculation ("5 + 3") that the user never committed with "=".
+     * Called when the user abandons the expression — pressing AC, recalling a
+     * history entry, or leaving the screen.
+     *
+     * Returns the inputs unchanged when there is nothing worth recording:
+     * incomplete expressions, errors, values already committed, or an entry
+     * identical to the most recent one.
+     */
+    fun commitPendingExpression(state: CalculatorState, internal: InternalState): Pair<CalculatorState, InternalState> {
+        if (internal.softCommitted || internal.justEvaluated || internal.pendingInput == "Error") {
+            return state to internal
+        }
+        val completeTokens = if (internal.pendingInput.isNotEmpty()) {
+            internal.expressionTokens + internal.pendingInput
+        } else {
+            internal.expressionTokens
+        }
+        if (completeTokens.size < 3 || isOperator(completeTokens.last())) {
+            return state to internal
+        }
+        val resultStr = formatNumber(calculateFromTokens(completeTokens))
+        if (resultStr == "Error") return state to internal
+        val entry = "${completeTokens.joinToString(" ")} = $resultStr"
+        if (entry == state.history.firstOrNull()) return state to internal
+        return state.copy(
+            history = (listOf(entry) + state.history).take(HISTORY_LIMIT)
+        ) to internal.copy(softCommitted = true)
+    }
 
     /**
      * Deletes the last character of the current input or last token.
      */
     fun onBackspace(state: CalculatorState, internal: InternalState): Pair<CalculatorState, InternalState> {
         if (state.mode == CalculatorMode.CONSTRUCTION) return onBackspaceConstruction(state, internal)
-        if (internal.justEvaluated) return onClear(state)
+        if (internal.justEvaluated) return onClearSilent(state)
 
         val newInternal: InternalState
         val newDisplay: String
@@ -250,7 +297,7 @@ object CalculatorEngine {
         if (internal.pendingInput.isNotEmpty()) {
             // Delete from pending input
             val trimmed = internal.pendingInput.dropLast(1)
-            newInternal = internal.copy(pendingInput = trimmed, pendingIsResult = false)
+            newInternal = internal.copy(pendingInput = trimmed, pendingIsResult = false, softCommitted = false)
             newDisplay = if (trimmed.isEmpty() && internal.expressionTokens.isNotEmpty()) {
                 // Show the last number from tokens
                 internal.expressionTokens.findLast { !isOperator(it) } ?: "0"
@@ -262,7 +309,7 @@ object CalculatorEngine {
         } else if (internal.expressionTokens.isNotEmpty()) {
             // Remove the last token
             val newTokens = internal.expressionTokens.dropLast(1)
-            newInternal = internal.copy(expressionTokens = newTokens)
+            newInternal = internal.copy(expressionTokens = newTokens, softCommitted = false)
             newDisplay = newTokens.findLast { !isOperator(it) } ?: "0"
         } else {
             // Nothing to delete
@@ -281,32 +328,30 @@ object CalculatorEngine {
 
     /**
      * Applies percentage in context of the current operation.
+     *
+     * The operand keeps its "%" suffix in the display and expression
+     * ("200 + 20%" stays "200 + 20%"); [calculateFromTokens] resolves it
+     * contextually at evaluation time — with +/− it is a percentage of the
+     * running left side, with ×/÷ or standalone it is the value ÷ 100.
      */
     fun onPercent(state: CalculatorState, internal: InternalState): Pair<CalculatorState, InternalState> {
         if (state.mode == CalculatorMode.CONSTRUCTION) return onPercentConstruction(state, internal)
         if (internal.pendingInput == "Error" || state.display == "Error") {
-            val (cleared, clearedInternal) = onClear(state)
+            val (cleared, clearedInternal) = onClearSilent(state)
             return onPercent(cleared, clearedInternal)
         }
 
         // The operand is the pending input, or the displayed value if nothing is being typed
-        val operand = internal.pendingInput.ifEmpty { state.display }.toDoubleOrNull() ?: 0.0
+        val operand = internal.pendingInput.ifEmpty { state.display }
+        if (operand.endsWith("%")) return state to internal
 
-        // Contextual percent: with a pending + or − it is a percentage of the left
-        // operand ("200 + 10 %" → 20); with ×, ÷, or no operator it is the value ÷ 100.
-        val lastToken = internal.expressionTokens.lastOrNull()
-        val percentValue = if (lastToken == "+" || lastToken == "−") {
-            calculateFromTokens(internal.expressionTokens.dropLast(1)) * operand / 100.0
-        } else {
-            operand / 100.0
-        }
-
-        val str = formatNumber(percentValue)
-        // Committed result — the next digit press replaces it rather than appending
+        val str = "$operand%"
+        // Committed operand — the next digit press replaces it rather than appending
         val newInternal = internal.copy(
             pendingInput = str,
             justEvaluated = false,
-            pendingIsResult = true
+            pendingIsResult = true,
+            softCommitted = false
         )
         
         val expressionStr = buildExpressionString(newInternal.expressionTokens, str)
@@ -325,7 +370,7 @@ object CalculatorEngine {
     fun onSignFlip(state: CalculatorState, internal: InternalState): Pair<CalculatorState, InternalState> {
         if (state.mode == CalculatorMode.CONSTRUCTION) return onSignFlipConstruction(state, internal)
         if (internal.pendingInput == "Error" || state.display == "Error") {
-            val (cleared, clearedInternal) = onClear(state)
+            val (cleared, clearedInternal) = onClearSilent(state)
             return onSignFlip(cleared, clearedInternal)
         }
 
@@ -335,7 +380,8 @@ object CalculatorEngine {
         val newInternal = internal.copy(
             pendingInput = str,
             justEvaluated = false,
-            pendingIsResult = internal.pendingIsResult || internal.justEvaluated
+            pendingIsResult = internal.pendingIsResult || internal.justEvaluated,
+            softCommitted = false
         )
 
         val expressionStr = buildExpressionString(newInternal.expressionTokens, str)
@@ -349,23 +395,44 @@ object CalculatorEngine {
     }
 
     /**
-     * Recalls a history entry's result as the current value. The recalled value
-     * behaves like a result right after "=": a digit press starts a fresh
-     * expression, an operator chains it as the left operand.
+     * Recalls a history entry's full expression so it can be edited or
+     * re-evaluated. The last operand becomes the pending input (a digit
+     * press replaces it); the rest goes back on the expression stack.
      *
-     * Entries without an "= result" suffix are ignored.
+     * Entries without an "= result" suffix load the entry itself if it is a
+     * plain number, and are ignored otherwise.
      */
     fun onHistoryRecall(state: CalculatorState, entry: String, internal: InternalState): Pair<CalculatorState, InternalState> {
         if (state.mode == CalculatorMode.CONSTRUCTION) return onHistoryRecallConstruction(state, entry, internal)
 
-        val result = entry.substringAfterLast("= ", "")
-        if (result.isEmpty()) return state to internal
+        // Soft-commit the in-progress expression first so replacing it with
+        // the recalled entry doesn't lose work the user never "="ed
+        val (committed, _) = commitPendingExpression(state, internal)
 
-        val newInternal = InternalState(pendingInput = result, justEvaluated = true)
-        return state.copy(
-            display = result,
-            expression = result,
-            liveResult = ""
+        val exprPart = entry.substringBeforeLast(" = ", "")
+        if (exprPart.isEmpty()) {
+            // Bare result (or junk) — load it only if it is a number
+            if (entry.trim().toDoubleOrNull() == null) return committed to internal
+            val bareInternal = InternalState(pendingInput = entry.trim(), justEvaluated = true)
+            return committed.copy(
+                display = entry.trim(),
+                expression = entry.trim(),
+                liveResult = ""
+            ) to bareInternal
+        }
+
+        val tokens = exprPart.split(" ")
+        val newInternal = InternalState(
+            expressionTokens = tokens.dropLast(1),
+            pendingInput = tokens.last(),
+            justEvaluated = false,
+            pendingIsResult = true
+        )
+        val liveResult = evaluateExpression(newInternal.expressionTokens, newInternal.pendingInput)
+        return committed.copy(
+            display = tokens.last(),
+            expression = exprPart,
+            liveResult = liveResult
         ) to newInternal
     }
 
@@ -411,25 +478,34 @@ object CalculatorEngine {
      */
     private fun calculateFromTokens(tokens: List<String>): Double {
         if (tokens.isEmpty()) return 0.0
-        if (tokens.size == 1) return tokens[0].toDoubleOrNull() ?: 0.0
+        if (tokens.size == 1) return resolveOperand(tokens[0])
 
         // First pass: handle × and ÷ (higher precedence). Intermediates stay as
         // Doubles — reformatting to a string here would truncate precision and
-        // turn NaN ("Error") into 0.0 on the second pass.
+        // turn NaN ("Error") into 0.0 on the second pass. "%"-suffixed operands
+        // stay Strings so the second pass can apply contextual +/− semantics.
         val afterMultDiv = mutableListOf<Any>()
         var i = 0
         while (i < tokens.size) {
             val token = tokens[i]
             when {
                 token == "×" && i > 0 && i < tokens.size - 1 -> {
-                    val left = (afterMultDiv.removeLastOrNull() as? Double) ?: 0.0
-                    val right = tokens[i + 1].toDoubleOrNull() ?: 0.0
+                    val left = when (val l = afterMultDiv.removeLastOrNull()) {
+                        is Double -> l
+                        is String -> resolveOperand(l)
+                        else -> 0.0
+                    }
+                    val right = resolveOperand(tokens[i + 1])
                     afterMultDiv.add(left * right)
                     i += 2
                 }
                 token == "÷" && i > 0 && i < tokens.size - 1 -> {
-                    val left = (afterMultDiv.removeLastOrNull() as? Double) ?: 0.0
-                    val right = tokens[i + 1].toDoubleOrNull() ?: 1.0
+                    val left = when (val l = afterMultDiv.removeLastOrNull()) {
+                        is Double -> l
+                        is String -> resolveOperand(l)
+                        else -> 0.0
+                    }
+                    val right = resolveOperand(tokens[i + 1])
                     afterMultDiv.add(if (right == 0.0) Double.NaN else left / right)
                     i += 2
                 }
@@ -440,12 +516,25 @@ object CalculatorEngine {
             }
         }
 
-        // Second pass: handle + and − (lower precedence)
-        var result = (afterMultDiv[0] as? Double) ?: 0.0
+        // Second pass: handle + and − (lower precedence). A "%"-suffixed
+        // operand here means a percentage of the running result (contextual
+        // percent): "200 + 20%" → 200 + 200 × 20/100.
+        var result = when (val first = afterMultDiv[0]) {
+            is Double -> first
+            is String -> resolveOperand(first)
+            else -> 0.0
+        }
         i = 1
         while (i < afterMultDiv.size) {
             val operator = afterMultDiv[i]
-            val nextValue = (afterMultDiv.getOrNull(i + 1) as? Double) ?: 0.0
+            val next = afterMultDiv.getOrNull(i + 1)
+            val nextValue = when {
+                next is Double -> next
+                next is String && next.endsWith("%") && (operator == "+" || operator == "−") ->
+                    result * (next.dropLast(1).toDoubleOrNull() ?: 0.0) / 100.0
+                next is String -> resolveOperand(next)
+                else -> 0.0
+            }
             result = when (operator) {
                 "+" -> result + nextValue
                 "−" -> result - nextValue
@@ -455,6 +544,16 @@ object CalculatorEngine {
         }
 
         return result
+    }
+
+    /**
+     * Resolves an operand token to a [Double]. A "%" suffix is plain percent
+     * (÷ 100); contextual +/− percent is handled in the second pass of
+     * [calculateFromTokens], which needs the running left side.
+     */
+    private fun resolveOperand(token: String): Double {
+        val base = token.removeSuffix("%").toDoubleOrNull() ?: 0.0
+        return if (token.endsWith("%")) base / 100.0 else base
     }
 
     /**
@@ -539,6 +638,12 @@ data class InternalState(
      * the next digit press replaces rather than appends to.
      */
     val pendingIsResult: Boolean = false,
+    /**
+     * True once the current expression has been soft-committed to history by
+     * [CalculatorEngine.commitPendingExpression], so a later "=" doesn't
+     * record a duplicate. Any edit resets it.
+     */
+    val softCommitted: Boolean = false,
     /** Legacy fields for backward compatibility - to be removed */
     val leftOperand: Double? = null,
     val pendingOperator: String? = null

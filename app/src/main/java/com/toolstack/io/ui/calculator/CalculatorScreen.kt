@@ -5,6 +5,8 @@ import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +31,7 @@ import androidx.compose.material.icons.automirrored.filled.AddToHomeScreen
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Backspace
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
@@ -54,6 +57,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -62,9 +66,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -80,10 +85,14 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.toolstack.io.R
 import com.toolstack.io.ui.theme.CalcColors
 import com.toolstack.io.ui.theme.calcColors
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
 
 /**
@@ -179,6 +188,25 @@ fun CalculatorScreen(
         scope.launch { snackbarHostState.showSnackbar(copiedMessage) }
     }
 
+    // Soft history: if the user leaves with a complete un-"="ed expression
+    // on screen (e.g. they relied on the live result), record it. Covers both
+    // app backgrounding and navigating away from the calculator.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            // ON_PAUSE too — it arrives earlier than ON_STOP, giving the async
+            // DataStore write more time before a possible process kill
+            if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
+                viewModel.commitPendingExpression()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            viewModel.commitPendingExpression()
+        }
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
@@ -253,6 +281,22 @@ fun CalculatorScreen(
                                     )
                                 },
                                 enabled = calcState.history.isNotEmpty()
+                            )
+                            // Toggle stays open so the check state is visible
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.calculator_save_on_clear)) },
+                                onClick = {
+                                    viewModel.setAcCommitsHistory(!uiState.acCommitsHistory)
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Filled.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.alpha(
+                                            if (uiState.acCommitsHistory) 1f else 0f
+                                        )
+                                    )
+                                }
                             )
                         }
                     }
@@ -546,7 +590,7 @@ private fun Keypad(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             CalcKey(label = stringResource(R.string.calculator_key_clear), containerColor = colors.clear, fontSize = 24.sp, modifier = Modifier.weight(1f), onClick = onClear)
-            CalcKey(icon = Icons.AutoMirrored.Filled.Backspace, contentDescription = stringResource(R.string.content_description_backspace), containerColor = colors.function, modifier = Modifier.weight(1f), onLongClick = onClear, onLongClickLabel = stringResource(R.string.calculator_key_clear), onClick = onBackspace)
+            BackspaceCalcKey(containerColor = colors.function, onBackspace = onBackspace, modifier = Modifier.weight(1f))
             CalcKey(label = stringResource(R.string.calculator_key_pct), containerColor = colors.function, fontSize = 28.sp, modifier = Modifier.weight(1f), onClick = onPercent)
             CalcKey(label = "÷", containerColor = colors.operator, fontSize = 40.sp, modifier = Modifier.weight(1f)) { onOperator("÷") }
         }
@@ -625,20 +669,24 @@ private fun CalcKey(
     }
 }
 
+private const val BACKSPACE_HOLD_DELAY_MS = 400L
+private const val BACKSPACE_REPEAT_INTERVAL_MS = 60L
+
+/**
+ * Backspace key that auto-repeats while held — like a keyboard — instead of
+ * long-press-to-clear. The repeat loop runs on the Initial pass so it sees
+ * raw events even though [combinedClickable] consumes them on the Main pass.
+ * If any repeats fired, the final "up" is consumed so the release doesn't
+ * trigger one extra delete through the click handler.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun CalcKey(
-    icon: ImageVector,
-    contentDescription: String,
+private fun BackspaceCalcKey(
     containerColor: Color,
-    modifier: Modifier = Modifier,
-    onLongClick: (() -> Unit)? = null,
-    onLongClickLabel: String? = null,
-    onClick: () -> Unit
+    onBackspace: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val haptics = LocalHapticFeedback.current
-    // Surface + combinedClickable instead of Button so long-press works — a
-    // Button's own clickable would fire onClick again after the long-press.
     Surface(
         modifier = modifier.aspectRatio(1f),
         shape = ButtonDefaults.shape,
@@ -648,20 +696,41 @@ private fun CalcKey(
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        awaitFirstDown(pass = PointerEventPass.Initial)
+                        var repeated = false
+                        var timeout = BACKSPACE_HOLD_DELAY_MS
+                        while (true) {
+                            val event = withTimeoutOrNull(timeout) {
+                                awaitPointerEvent(PointerEventPass.Initial)
+                            }
+                            if (event == null) {
+                                // Still held — fire another backspace
+                                repeated = true
+                                haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+                                onBackspace()
+                                timeout = BACKSPACE_REPEAT_INTERVAL_MS
+                            } else if (event.changes.none { it.pressed }) {
+                                if (repeated) event.changes.forEach { it.consume() }
+                                break
+                            }
+                            // Movement while held: keep waiting
+                        }
+                    }
+                }
                 .combinedClickable(
                     role = Role.Button,
                     onClick = {
                         haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
-                        onClick()
-                    },
-                    onLongClick = onLongClick,
-                    onLongClickLabel = onLongClickLabel
+                        onBackspace()
+                    }
                 ),
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = icon,
-                contentDescription = contentDescription,
+                imageVector = Icons.AutoMirrored.Filled.Backspace,
+                contentDescription = stringResource(R.string.content_description_backspace),
                 tint = Color.White,
                 modifier = Modifier.padding(4.dp)
             )

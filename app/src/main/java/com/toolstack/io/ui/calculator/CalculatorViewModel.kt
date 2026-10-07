@@ -45,12 +45,16 @@ class CalculatorViewModel @Inject constructor(
         // an "=" press that races the initial load.
         viewModelScope.launch {
             val stored = userPreferencesRepository.calculatorHistory.first()
+            val acCommits = userPreferencesRepository.calculatorClearCommitsHistory.first()
             var merged: List<String> = emptyList()
             _uiState.update { ui ->
                 merged = (ui.calculatorState.history + stored)
                     .distinct()
                     .take(CalculatorEngine.HISTORY_LIMIT)
-                ui.copy(calculatorState = ui.calculatorState.copy(history = merged))
+                ui.copy(
+                    calculatorState = ui.calculatorState.copy(history = merged),
+                    acCommitsHistory = acCommits
+                )
             }
             historyLoaded = true
             if (merged != stored) {
@@ -70,21 +74,31 @@ class CalculatorViewModel @Inject constructor(
     }
 
     fun onEquals() = applyEngine { state ->
-        val (newState, newInternal) = CalculatorEngine.onEquals(state, internal)
-        // Only persist history after initial load completes
-        if (historyLoaded) {
-            viewModelScope.launch {
-                userPreferencesRepository.saveCalculatorHistory(newState.history)
-                    .onFailure { /* Silently ignore save failures for now */ }
-            }
-        }
-        newState to newInternal
+        CalculatorEngine.onEquals(state, internal)
     }
 
-    fun onClear() {
-        val (newCalc, newInternal) = CalculatorEngine.onClear(_uiState.value.calculatorState)
-        internal = newInternal
-        _uiState.update { it.copy(calculatorState = newCalc) }
+    fun onClear() = applyEngine { state ->
+        CalculatorEngine.onClear(
+            state, internal,
+            commitPending = _uiState.value.acCommitsHistory
+        )
+    }
+
+    /** Toggles whether AC soft-commits the in-progress expression to history. */
+    fun setAcCommitsHistory(enabled: Boolean) {
+        _uiState.update { it.copy(acCommitsHistory = enabled) }
+        viewModelScope.launch {
+            userPreferencesRepository.saveCalculatorClearCommitsHistory(enabled)
+        }
+    }
+
+    /**
+     * Soft history: records the in-progress expression if it is a complete
+     * calculation the user never finished with "=". Called when the
+     * calculator screen stops or leaves composition — no-op otherwise.
+     */
+    fun commitPendingExpression() = applyEngine { state ->
+        CalculatorEngine.commitPendingExpression(state, internal)
     }
 
     fun onClearHistory() {
@@ -122,9 +136,19 @@ class CalculatorViewModel @Inject constructor(
     private inline fun applyEngine(
         block: (CalculatorState) -> Pair<CalculatorState, InternalState>
     ) {
-        val (newCalc, newInternal) = block(_uiState.value.calculatorState)
+        val prev = _uiState.value.calculatorState
+        val (newCalc, newInternal) = block(prev)
         internal = newInternal
         _uiState.update { it.copy(calculatorState = newCalc) }
+        // Persist whenever history changes — covers "=" as well as soft
+        // commits (AC, history recall, leaving the screen). Only persist
+        // after the initial load has been merged in.
+        if (historyLoaded && newCalc.history != prev.history) {
+            viewModelScope.launch {
+                userPreferencesRepository.saveCalculatorHistory(newCalc.history)
+                    .onFailure { /* Silently ignore save failures for now */ }
+            }
+        }
     }
 }
 
@@ -135,5 +159,7 @@ class CalculatorViewModel @Inject constructor(
  * [CalculatorState.mode] directly when the mode-switching UI is added.
  */
 data class CalculatorUiState(
-    val calculatorState: CalculatorState = CalculatorState()
+    val calculatorState: CalculatorState = CalculatorState(),
+    /** Whether pressing AC soft-commits the in-progress expression to history. */
+    val acCommitsHistory: Boolean = true
 )

@@ -261,6 +261,21 @@ class UserPreferencesRepository @Inject constructor(
     }
 
     /**
+     * Whether pressing AC soft-commits the in-progress expression to history.
+     * Soft commits on leaving the screen are unaffected — this only controls
+     * the explicit AC gesture. Defaults to true.
+     */
+    val calculatorClearCommitsHistory: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[KEY_CALCULATOR_CLEAR_COMMITS_HISTORY] ?: true
+    }
+
+    suspend fun saveCalculatorClearCommitsHistory(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[KEY_CALCULATOR_CLEAR_COMMITS_HISTORY] = enabled
+        }
+    }
+
+    /**
      * Persisted saved recipes. Each recipe is stored with its name, servings, and ingredient list.
      * Stored as newline-separated records; each record has the format:
      *
@@ -332,6 +347,7 @@ class UserPreferencesRepository @Inject constructor(
         private val KEY_LAST_CONVERTER_CATEGORY = stringPreferencesKey("last_converter_category")
         private val KEY_CONVERTER_UNITS = stringPreferencesKey("converter_units")
         private val KEY_CALCULATOR_HISTORY = stringPreferencesKey("calculator_history")
+        private val KEY_CALCULATOR_CLEAR_COMMITS_HISTORY = booleanPreferencesKey("calculator_clear_commits_history")
         private val KEY_SAVED_RECIPES = stringPreferencesKey("saved_recipes")
 
         /** Separator between a part's label and its ratio value. U+FFFE is a non-character. */
