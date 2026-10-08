@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -43,7 +43,7 @@ import com.toolstack.io.domain.model.UnitCategory
 @Composable
 fun UnitConverterScreen(
     onBack: () -> Unit,
-    onCategorySelected: (Int) -> Unit,
+    onCategorySelected: (String) -> Unit,
     onNavigateToCalculator: (() -> Unit)? = null,
     onAddShortcut: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -112,10 +112,10 @@ fun UnitConverterScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            itemsIndexed(uiState.categories, key = { _, category -> category.name }) { index, category ->
+            items(uiState.categories, key = { it.id }) { category ->
                 CategoryCard(
                     category = category,
-                    onClick = { onCategorySelected(viewModel.originalIndexOf(category)) }
+                    onClick = { onCategorySelected(category.id) }
                 )
             }
         }
