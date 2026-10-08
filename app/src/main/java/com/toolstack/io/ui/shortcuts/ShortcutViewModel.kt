@@ -71,9 +71,7 @@ class ShortcutViewModel @Inject constructor(
         label: String,
         @DrawableRes iconResId: Int
     ) {
-        // TODO: remove override before release — bypasses paywall for testing
-        val effectivelyPremium = true // _uiState.value.isPremium
-        if (effectivelyPremium) {
+        if (_uiState.value.isPremium) {
             ShortcutUtil.requestPinShortcut(context, route, label, iconResId)
         } else {
             viewModelScope.launch { billingRepository.queryProductDetails() }

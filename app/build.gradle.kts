@@ -67,7 +67,10 @@ android {
             isDebuggable = true
         }
         release {
-            isMinifyEnabled = true
+            // Disabled during internal testing to keep release builds fast.
+            // Re-enable before production — check proguard-rules.pro keeps the
+            // Retrofit/Gson billing-verification DTOs.
+            isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

@@ -1,6 +1,7 @@
 package com.toolstack.io
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -20,11 +21,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.toolstack.io.data.billing.BillingRepository
 import com.toolstack.io.data.repository.UserPreferencesRepository
 import com.toolstack.io.ui.bearings.BearingsScreen
 import com.toolstack.io.ui.calculator.CalculatorScreen
 import com.toolstack.io.ui.conduitbends.ConduitBendsScreen
 import com.toolstack.io.ui.home.HomeScreen
+import com.toolstack.io.ui.premium.PremiumScreen
 import com.toolstack.io.ui.saemetric.SaeMetricScreen
 import com.toolstack.io.ui.tapsanddrills.TapsAndDrillsScreen
 import com.toolstack.io.ui.ratiomix.RatioMixScreen
@@ -52,6 +55,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var preferencesRepository: UserPreferencesRepository
+
+    @Inject
+    lateinit var billingRepository: BillingRepository
 
     private var isAppReady = false
 
@@ -115,8 +121,27 @@ class MainActivity : ComponentActivity() {
                     // are set on the shared ViewModel.
                     ShortcutPaywallHost(
                         uiState = shortcutUiState,
-                        shortcutViewModel = shortcutViewModel
+                        shortcutViewModel = shortcutViewModel,
+                        onSeeDetails = {
+                            navController.navigate(Screen.Premium.route) {
+                                launchSingleTop = true
+                            }
+                        }
                     )
+
+                    // One-shot thank-you toast when a purchase completes in this
+                    // session. purchaseCompleted fires only from a fresh verified
+                    // purchase — not startup/resume queries — so it never shows
+                    // just because a Pro user opened the app.
+                    LaunchedEffect(Unit) {
+                        billingRepository.purchaseCompleted.collect {
+                            Toast.makeText(
+                                context,
+                                R.string.purchase_thank_you,
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
 
                     // Warm-launch handler: consume shortcut routes emitted by onNewIntent
                     // and navigate without restarting the Activity. We use popUpTo to
@@ -161,8 +186,16 @@ class MainActivity : ComponentActivity() {
                                     if (navController.graph.findNode(route) != null) {
                                         navController.navigate(route)
                                     }
+                                },
+                                onOpenPremium = {
+                                    navController.navigate(Screen.Premium.route) {
+                                        launchSingleTop = true
+                                    }
                                 }
                             )
+                        }
+                        composable(Screen.Premium.route) {
+                            PremiumScreen(onBack = { navController.popBackStack() })
                         }
                         composable(Screen.SaeMetric.route) {
                             SaeMetricScreen(
@@ -277,6 +310,7 @@ class MainActivity : ComponentActivity() {
 
 sealed class Screen(val route: String) {
     data object Home : Screen("home")
+    data object Premium : Screen("premium")
     data object SaeMetric : Screen("sae_metric")
     data object WrenchFastener : Screen("wrench_fastener")
     data object TapsAndDrills : Screen("taps_and_drills")

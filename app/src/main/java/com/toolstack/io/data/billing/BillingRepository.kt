@@ -28,8 +28,11 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -78,6 +81,15 @@ class BillingRepository @Inject constructor(
 
     private val _purchaseState = MutableStateFlow<PurchaseState>(PurchaseState.None)
     val purchaseState: StateFlow<PurchaseState> = _purchaseState.asStateFlow()
+
+    /**
+     * One-shot event fired only when a *new* purchase is verified in this
+     * session — i.e. via [onPurchasesUpdated] -> [verifyAndHandlePurchase].
+     * Deliberately not emitted by [queryActivePurchases], so startup/resume
+     * entitlement queries and restores never trigger it.
+     */
+    private val _purchaseCompleted = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val purchaseCompleted: SharedFlow<Unit> = _purchaseCompleted.asSharedFlow()
 
     private val _products = MutableStateFlow<List<BillingProduct>>(emptyList())
     val products: StateFlow<List<BillingProduct>> = _products.asStateFlow()
@@ -417,10 +429,12 @@ class BillingRepository @Inject constructor(
             when {
                 purchase.products.contains(ProductIds.MONTHLY_SUBSCRIPTION) -> {
                     _purchaseState.value = PurchaseState.ActiveSubscription
+                    _purchaseCompleted.tryEmit(Unit)
                     Log.d(TAG, "Subscription activated")
                 }
                 purchase.products.contains(ProductIds.ONE_TIME_PURCHASE) -> {
                     _purchaseState.value = PurchaseState.LifetimePurchase
+                    _purchaseCompleted.tryEmit(Unit)
                     Log.d(TAG, "Lifetime purchase activated")
                 }
             }
