@@ -28,8 +28,11 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -78,6 +81,15 @@ class BillingRepository @Inject constructor(
 
     private val _purchaseState = MutableStateFlow<PurchaseState>(PurchaseState.None)
     val purchaseState: StateFlow<PurchaseState> = _purchaseState.asStateFlow()
+
+    /**
+     * One-shot event fired only when a *new* purchase is verified in this
+     * session — i.e. via [onPurchasesUpdated] -> [verifyAndHandlePurchase].
+     * Deliberately not emitted by [queryActivePurchases], so startup/resume
+     * entitlement queries and restores never trigger it.
+     */
+    private val _purchaseCompleted = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val purchaseCompleted: SharedFlow<Unit> = _purchaseCompleted.asSharedFlow()
 
     private val _products = MutableStateFlow<List<BillingProduct>>(emptyList())
     val products: StateFlow<List<BillingProduct>> = _products.asStateFlow()
@@ -329,9 +341,15 @@ class BillingRepository @Inject constructor(
      * Query order matters: subscription is checked first so that a user with
      * both a lifetime purchase and a lapsed subscription is not incorrectly
      * downgraded on the subscription query alone.
+     *
+     * Returns true when both queries ran to completion — whether or not an
+     * entitlement was found. Returns false when the query could not run
+     * (billing unavailable, non-OK response, or exception), in which case
+     * [purchaseState] is left unchanged and callers must not treat a stale
+     * [PurchaseState.None] as "no entitlement".
      */
-    suspend fun queryActivePurchases() {
-        if (!ensureConnected()) return
+    suspend fun queryActivePurchases(): Boolean {
+        if (!ensureConnected()) return false
 
         try {
             // --- subscriptions ---
@@ -342,7 +360,7 @@ class BillingRepository @Inject constructor(
             )
             if (subsResult.billingResult.responseCode != BillingClient.BillingResponseCode.OK) {
                 Log.w(TAG, "Subscription query failed with code ${subsResult.billingResult.responseCode}")
-                return
+                return false
             }
 
             val activeSubscription = subsResult.purchasesList.orEmpty().any { purchase ->
@@ -352,7 +370,7 @@ class BillingRepository @Inject constructor(
             if (activeSubscription) {
                 _purchaseState.value = PurchaseState.ActiveSubscription
                 subsResult.purchasesList.orEmpty().forEach { acknowledgePurchaseIfNeeded(it) }
-                return
+                return true
             }
 
             // --- one-time purchases ---
@@ -363,7 +381,7 @@ class BillingRepository @Inject constructor(
             )
             if (inAppResult.billingResult.responseCode != BillingClient.BillingResponseCode.OK) {
                 Log.w(TAG, "INAPP query failed with code ${inAppResult.billingResult.responseCode}")
-                return
+                return false
             }
 
             val lifetimePurchase = inAppResult.purchasesList.orEmpty().any { purchase ->
@@ -373,17 +391,19 @@ class BillingRepository @Inject constructor(
             if (lifetimePurchase) {
                 _purchaseState.value = PurchaseState.LifetimePurchase
                 inAppResult.purchasesList.orEmpty().forEach { acknowledgePurchaseIfNeeded(it) }
-                return
+                return true
             }
 
             // Both queries succeeded with no active entitlement
             val hasPending = (subsResult.purchasesList.orEmpty() + inAppResult.purchasesList.orEmpty())
                 .any { it.purchaseState == Purchase.PurchaseState.PENDING }
             _purchaseState.value = if (hasPending) PurchaseState.Pending else PurchaseState.None
+            return true
 
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             Log.e(TAG, "Exception querying active purchases", e)
+            return false
         }
     }
 
@@ -417,10 +437,12 @@ class BillingRepository @Inject constructor(
             when {
                 purchase.products.contains(ProductIds.MONTHLY_SUBSCRIPTION) -> {
                     _purchaseState.value = PurchaseState.ActiveSubscription
+                    _purchaseCompleted.tryEmit(Unit)
                     Log.d(TAG, "Subscription activated")
                 }
                 purchase.products.contains(ProductIds.ONE_TIME_PURCHASE) -> {
                     _purchaseState.value = PurchaseState.LifetimePurchase
+                    _purchaseCompleted.tryEmit(Unit)
                     Log.d(TAG, "Lifetime purchase activated")
                 }
             }

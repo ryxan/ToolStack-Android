@@ -7,7 +7,7 @@ import com.android.billingclient.api.ProductDetails
  * These must match exactly what is configured in the Play Console.
  */
 object ProductIds {
-    const val MONTHLY_SUBSCRIPTION = "toolstack_pro_monthly"
+    const val MONTHLY_SUBSCRIPTION = "toolstack_pro_monthly_sub"
     const val ONE_TIME_PURCHASE = "toolstack_pro_lifetime"
 }
 

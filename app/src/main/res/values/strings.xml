@@ -180,6 +180,77 @@
     <string name="premium_product_lifetime">Buy once — %1$s lifetime</string>
     <string name="purchase_error_title">Purchase Failed</string>
     <string name="purchase_error_dismiss">OK</string>
+    <string name="purchase_thank_you">Thanks for your support — Premium is unlocked.</string>
+
+    <!-- Premium page -->
+    <string name="premium_title">Premium</string>
+    <string name="content_description_premium">Premium</string>
+    <string name="premium_see_details">See what\'s included</string>
+    <string name="premium_eyebrow">TOOLSTACK PREMIUM</string>
+    <string name="premium_headline">The full toolkit, without the noise.</string>
+    <string name="premium_subhead">Unlock the specialist tools, go ad-free, and put any tool on your home screen.</string>
+
+    <string name="premium_highlights_title">What Premium adds</string>
+    <string name="premium_feature_conduit_title">Conduit Bends</string>
+    <string name="premium_feature_conduit_body">Bend marks, offsets and step-by-step instructions for EMT conduit.</string>
+    <string name="premium_feature_shortcuts_title">Home screen shortcuts</string>
+    <string name="premium_feature_shortcuts_body">Pin any tool to your home screen and open it in one tap.</string>
+    <string name="premium_feature_ad_free_title">Ad-free</string>
+    <string name="premium_feature_ad_free_body">Use every tool without ads, now and as the app grows.</string>
+    <string name="premium_feature_ai_title">AI Recipe Importer</string>
+    <string name="premium_feature_ai_body">Import recipes into the Recipe Scaler with AI.</string>
+    <string name="premium_coming_soon">Soon</string>
+
+    <string name="premium_compare_title">Free and Premium</string>
+    <string name="premium_compare_free">Free</string>
+    <string name="premium_compare_premium">Premium</string>
+    <string name="premium_compare_tools">Reference tables and calculators</string>
+    <string name="premium_compare_recipes">Recipe Scaler, saved recipes and scanning</string>
+    <string name="premium_compare_conduit">Conduit Bends</string>
+    <string name="premium_compare_shortcuts">Home screen shortcuts</string>
+    <string name="premium_compare_ad_free">Ad-free experience</string>
+    <string name="premium_compare_ai">AI Recipe Importer</string>
+    <string name="premium_included">Included</string>
+    <string name="premium_not_included">Not included</string>
+
+    <string name="premium_plans_title">Choose your plan</string>
+    <string name="premium_plan_monthly">Monthly</string>
+    <string name="premium_plan_monthly_desc">Cancel anytime in Google Play</string>
+    <string name="premium_plan_monthly_period">per month</string>
+    <string name="premium_plan_lifetime">Lifetime</string>
+    <string name="premium_plan_lifetime_desc">Pay once, keep it for good</string>
+    <string name="premium_plan_lifetime_period">one-time</string>
+    <string name="premium_cta">Unlock Premium</string>
+    <string name="premium_legal_subscription">Billed monthly to your Google Play account until you cancel. Manage or cancel anytime in Google Play.</string>
+    <string name="premium_legal_lifetime">A single payment charged to your Google Play account. No renewals.</string>
+    <string name="premium_pending_note">Your purchase is pending approval from Google Play. Premium unlocks as soon as it completes.</string>
+    <string name="premium_prices_error">We couldn\'t load prices from Google Play. Check your connection and try again.</string>
+    <string name="premium_retry">Try again</string>
+    <string name="premium_restore">Restore purchases</string>
+    <string name="premium_restore_not_found">No active purchase found. Check you\'re signed in to the Google account you bought with.</string>
+
+    <string name="premium_trust_secure">Secure checkout through Google Play</string>
+    <string name="premium_trust_cancel">Cancel a subscription anytime</string>
+    <string name="premium_trust_restore">Your purchase follows your Google account</string>
+
+    <string name="premium_faq_title">Questions</string>
+    <string name="premium_faq_cancel_q">What happens if I cancel?</string>
+    <string name="premium_faq_cancel_a">You keep Premium until the end of the period you\'ve paid for. After that, Premium tools lock again. Your saved data stays on your device.</string>
+    <string name="premium_faq_lifetime_q">Is Lifetime really a single payment?</string>
+    <string name="premium_faq_lifetime_a">Yes. Lifetime is a one-time purchase tied to your Google account, with no renewals.</string>
+    <string name="premium_faq_devices_q">Will Premium work on my other devices?</string>
+    <string name="premium_faq_devices_a">Premium follows your Google account. Install ToolStack on another Android device signed in with the same account and it unlocks automatically, or tap Restore purchases.</string>
+    <string name="premium_faq_data_q">Do I lose my recipes and presets if I don\'t subscribe?</string>
+    <string name="premium_faq_data_a">No. They\'re stored on your device and aren\'t affected by your plan.</string>
+    <string name="premium_faq_refund_q">How do refunds work?</string>
+    <string name="premium_faq_refund_a">Purchases are handled by Google Play, so refund requests go through Google Play\'s standard refund process.</string>
+    <string name="premium_faq_next_q">What\'s coming next?</string>
+    <string name="premium_faq_next_a">An AI recipe importer for the Recipe Scaler is in development, with more tools to follow.</string>
+
+    <string name="premium_pro_title">Thank you for your support</string>
+    <string name="premium_pro_body_subscription">Your Premium subscription is active. Every Premium feature is unlocked.</string>
+    <string name="premium_pro_body_lifetime">Your lifetime purchase is active. Every Premium feature is unlocked, for good.</string>
+    <string name="premium_manage_subscription">Manage subscription</string>
 
     <!-- Home screen shortcuts -->
     <string name="shortcut_add_to_home">Add to Home Screen</string>

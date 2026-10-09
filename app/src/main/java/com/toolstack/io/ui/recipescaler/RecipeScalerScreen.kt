@@ -1190,7 +1190,7 @@ private fun CompactIngredientRow(
                 .focusRequester(unitFocusRequester)
                 .clickable {
                     keyboardController?.hide()
-                    unitFocusRequ ester.requestFocus()
+                    unitFocusRequester.requestFocus()
                 }
                 .onFocusChanged { focusState ->
                     if (focusState.isFocused) {

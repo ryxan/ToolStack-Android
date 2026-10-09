@@ -71,9 +71,7 @@ class ShortcutViewModel @Inject constructor(
         label: String,
         @DrawableRes iconResId: Int
     ) {
-        // TODO: remove override before release — bypasses paywall for testing
-        val effectivelyPremium = true // _uiState.value.isPremium
-        if (effectivelyPremium) {
+        if (_uiState.value.isPremium) {
             ShortcutUtil.requestPinShortcut(context, route, label, iconResId)
         } else {
             viewModelScope.launch { billingRepository.queryProductDetails() }
@@ -92,6 +90,17 @@ class ShortcutViewModel @Inject constructor(
                 else -> {}
             }
         }
+    }
+
+    /**
+     * Surface the paywall dialog without an "Add to Home Screen" tap — e.g.
+     * when a pinned-shortcut deep link targets a premium tool but no active
+     * entitlement was found. Queries product details first so the dialog has
+     * prices ready, mirroring the non-premium branch of [onAddShortcutClicked].
+     */
+    fun showPaywall() {
+        viewModelScope.launch { billingRepository.queryProductDetails() }
+        _uiState.update { it.copy(showPaywall = true) }
     }
 
     fun dismissPaywall() {

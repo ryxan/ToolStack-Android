@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -42,6 +43,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -74,6 +76,7 @@ import com.toolstack.io.ui.components.rememberDragDropState
 @Composable
 fun HomeScreen(
     onNavigate: (String) -> Unit,
+    onOpenPremium: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
@@ -101,6 +104,12 @@ fun HomeScreen(
             CenterAlignedTopAppBar(
                 title = { Text(text = stringResource(R.string.home_title)) },
                 actions = {
+                    IconButton(onClick = onOpenPremium) {
+                        Icon(
+                            imageVector = Icons.Filled.WorkspacePremium,
+                            contentDescription = stringResource(R.string.content_description_premium)
+                        )
+                    }
                     FilledTonalIconButton(
                         onClick = { viewModel.toggleEditMode() },
                         colors = androidx.compose.material3.IconButtonDefaults.filledTonalIconButtonColors(
@@ -186,6 +195,10 @@ fun HomeScreen(
             moduleName = stringResource(module.titleRes),
             products = uiState.availableProducts,
             onDismiss = { pendingPremiumModule = null },
+            onSeeDetails = {
+                pendingPremiumModule = null
+                onOpenPremium()
+            },
             onUpgrade = { product ->
                 pendingPremiumModule = null
                 val activity = context as? Activity ?: return@PremiumGateDialog
@@ -200,6 +213,7 @@ private fun PremiumGateDialog(
     moduleName: String,
     products: List<BillingProduct>,
     onDismiss: () -> Unit,
+    onSeeDetails: () -> Unit,
     onUpgrade: (BillingProduct) -> Unit
 ) {
     AlertDialog(
@@ -241,7 +255,11 @@ private fun PremiumGateDialog(
                 }
             }
         },
-        confirmButton = {},
+        confirmButton = {
+            TextButton(onClick = onSeeDetails) {
+                Text(text = stringResource(R.string.premium_see_details))
+            }
+        },
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text(text = stringResource(R.string.premium_dismiss))
