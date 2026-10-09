@@ -90,9 +90,15 @@ class PremiumViewModel @Inject constructor(
         if (_uiState.value.isRestoring) return
         viewModelScope.launch {
             _uiState.update { it.copy(isRestoring = true) }
-            billingRepository.queryActivePurchases()
-            val active = billingRepository.purchaseState.value.toEntitlement() != Entitlement.NONE
-            _uiState.update { it.copy(isRestoring = false, restoreNotFound = !active) }
+            val querySucceeded = billingRepository.queryActivePurchases()
+            if (querySucceeded) {
+                val active = billingRepository.purchaseState.value.toEntitlement() != Entitlement.NONE
+                _uiState.update { it.copy(isRestoring = false, restoreNotFound = !active) }
+            } else {
+                // Query failed (billing unavailable etc.) — leave purchaseState
+                // untouched and don't claim nothing was found.
+                _uiState.update { it.copy(isRestoring = false) }
+            }
         }
     }
 
