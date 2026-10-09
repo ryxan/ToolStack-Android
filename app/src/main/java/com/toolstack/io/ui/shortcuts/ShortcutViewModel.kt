@@ -92,6 +92,17 @@ class ShortcutViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Surface the paywall dialog without an "Add to Home Screen" tap — e.g.
+     * when a pinned-shortcut deep link targets a premium tool but no active
+     * entitlement was found. Queries product details first so the dialog has
+     * prices ready, mirroring the non-premium branch of [onAddShortcutClicked].
+     */
+    fun showPaywall() {
+        viewModelScope.launch { billingRepository.queryProductDetails() }
+        _uiState.update { it.copy(showPaywall = true) }
+    }
+
     fun dismissPaywall() {
         _uiState.update { it.copy(showPaywall = false) }
     }

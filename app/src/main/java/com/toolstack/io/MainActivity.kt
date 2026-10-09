@@ -22,6 +22,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.toolstack.io.data.billing.BillingRepository
+import com.toolstack.io.data.billing.PurchaseState
 import com.toolstack.io.data.repository.UserPreferencesRepository
 import com.toolstack.io.ui.bearings.BearingsScreen
 import com.toolstack.io.ui.calculator.CalculatorScreen
@@ -115,6 +116,34 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    // True once the user holds an active Pro entitlement.
+                    // Fast path: trust an already-resolved state so premium users
+                    // navigate instantly; otherwise await one entitlement query
+                    // so the init-time query is never raced by a quick tap.
+                    suspend fun hasProEntitlement(): Boolean {
+                        if (billingRepository.purchaseState.value.isActiveEntitlement()) return true
+                        billingRepository.queryActivePurchases()
+                        return billingRepository.purchaseState.value.isActiveEntitlement()
+                    }
+
+                    // Shared shortcut/deep-link navigation. Premium routes are
+                    // gated here because pinned shortcuts and toolstack:// deep
+                    // links bypass the home-screen premium gate entirely —
+                    // e.g. a shortcut pinned during a subscription that has
+                    // since lapsed. Non-premium taps are rejected with the
+                    // paywall instead of opening the tool.
+                    suspend fun handleShortcutRoute(route: String) {
+                        if (navController.graph.findNode(route) == null) return
+                        if (route in PREMIUM_ROUTES && !hasProEntitlement()) {
+                            shortcutViewModel.showPaywall()
+                            return
+                        }
+                        navController.navigate(route) {
+                            popUpTo(Screen.Home.route) { saveState = false }
+                            launchSingleTop = true
+                        }
+                    }
+
                     // Render paywall / purchase-error dialogs on top of whatever
                     // screen is currently visible. ShortcutPaywallHost is
                     // stateless — it only shows when showPaywall/purchaseError
@@ -149,20 +178,25 @@ class MainActivity : ComponentActivity() {
                     // or Home → Tool (shortcut launch).
                     LaunchedEffect(Unit) {
                         _shortcutRoute.consumeEach { route ->
-                            if (navController.graph.findNode(route) != null) {
-                                navController.navigate(route) {
-                                    popUpTo(Screen.Home.route) { saveState = false }
-                                    launchSingleTop = true
-                                }
-                            }
+                            handleShortcutRoute(route)
                         }
+                    }
+
+                    // Cold-launch deep links to premium tools start at Home
+                    // while the entitlement query resolves, then either
+                    // navigate forward or surface the paywall.
+                    LaunchedEffect(Unit) {
+                        deepLinkRoute?.takeIf { it in PREMIUM_ROUTES }
+                            ?.let { handleShortcutRoute(it) }
                     }
 
                     // Dynamic start destination: deep-link shortcuts land directly on
                     // the tool screen; normal launches start at Home. The deep-link route
                     // is validated against the graph below — invalid routes fall back to Home.
+                    // Premium routes are excluded: they start at Home and are handled by
+                    // the entitlement check in handleShortcutRoute instead.
                     val startDestination = deepLinkRoute?.takeIf { route ->
-                        route != Screen.Home.route && listOf(
+                        route != Screen.Home.route && route !in PREMIUM_ROUTES && listOf(
                             Screen.SaeMetric.route,
                             Screen.WrenchFastener.route,
                             Screen.TapsAndDrills.route,
@@ -325,3 +359,14 @@ sealed class Screen(val route: String) {
     data object Sprayer : Screen("sprayer")
     data object RecipeScaler : Screen("recipe_scaler")
 }
+
+/**
+ * Tool routes that require an active Pro entitlement. Mirrors the `isPremium`
+ * flags in HomeViewModel.DEFAULT_MODULES; keep both in sync when adding a new
+ * premium tool.
+ */
+private val PREMIUM_ROUTES = setOf(Screen.ConduitBends.route)
+
+/** Maps [PurchaseState] to a simple boolean. Mirrors the same extension in HomeViewModel. */
+private fun PurchaseState.isActiveEntitlement(): Boolean =
+    this is PurchaseState.ActiveSubscription || this is PurchaseState.LifetimePurchase
