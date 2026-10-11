@@ -55,7 +55,11 @@ class FirebaseAiRecipeImporter @Inject constructor() : AiRecipeImporter {
 
     override suspend fun import(jpeg: ByteArray): AiImportResult {
         val bitmap = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size)
-            ?: return AiImportResult.Failed(IllegalArgumentException("Undecodable JPEG"))
+        if (bitmap == null) {
+            val cause = IllegalArgumentException("Undecodable JPEG (${jpeg.size} bytes)")
+            logFailure(cause)
+            return AiImportResult.Failed(cause)
+        }
         return try {
             val response = withTimeout(AiImportConfig.REQUEST_TIMEOUT_MS) {
                 model.generateContent(
@@ -73,12 +77,13 @@ class FirebaseAiRecipeImporter @Inject constructor() : AiRecipeImporter {
         } catch (e: Exception) {
             logFailure(e)
             mapException(e)
-        }
+        }.logResult()
     }
 
     private fun mapResponse(response: GenerateContentResponse): AiImportResult {
         val finishReason = response.candidates.firstOrNull()?.finishReason
         if (finishReason != null && finishReason != FinishReason.STOP) {
+            if (BuildConfig.DEBUG) Log.w(TAG, "unexpected finishReason: $finishReason")
             return if (finishReason in BLOCKED_FINISH_REASONS) {
                 AiImportResult.Blocked
             } else {
@@ -97,7 +102,7 @@ class FirebaseAiRecipeImporter @Inject constructor() : AiRecipeImporter {
             AiImportResult.NothingFound
         } else {
             AiImportResult.Success(recipe, items)
-        }
+        }.logResult()
     }
 
     private fun mapException(e: Exception): AiImportResult = when (e) {
@@ -113,6 +118,14 @@ class FirebaseAiRecipeImporter @Inject constructor() : AiRecipeImporter {
 
     private fun logFailure(e: Throwable) {
         if (BuildConfig.DEBUG) Log.w(TAG, "AI import failed", e)
+    }
+
+    /** Debug-logs any non-success result so silent failure modes stay visible. */
+    private fun AiImportResult.logResult(): AiImportResult {
+        if (BuildConfig.DEBUG && this !is AiImportResult.Success) {
+            Log.w(TAG, "AI import result: $this")
+        }
+        return this
     }
 
     private companion object {

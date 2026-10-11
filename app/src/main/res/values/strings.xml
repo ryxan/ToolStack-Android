@@ -401,7 +401,8 @@
     <!-- Recipe Scaler - Scan Feature -->
     <string name="recipe_scaler_scan_recipe">Scan recipe</string>
     <string name="recipe_scaler_scan_dialog_title">Add ingredients from photo</string>
-    <string name="recipe_scaler_scan_dialog_message">Take a photo of a printed or on-screen recipe, or pick an existing image. Ingredients will be extracted automatically — you can edit them afterwards.</string>
+    <string name="recipe_scaler_scan_dialog_message">Scan a recipe page, take a photo, or pick an existing image. Ingredients will be extracted automatically — you can edit them afterwards.</string>
+    <string name="recipe_scaler_scan_document">Scan document</string>
     <string name="recipe_scaler_scan_take_photo">Take Photo</string>
     <string name="recipe_scaler_scan_choose_gallery">Choose from Gallery</string>
     <string name="recipe_scaler_scan_processing">Reading recipe…</string>

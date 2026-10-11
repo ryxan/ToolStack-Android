@@ -736,26 +736,27 @@ class RecipeScalerViewModel @Inject constructor(
      */
     internal suspend fun prepareJpegForAi(uri: Uri): ByteArray? = withContext(Dispatchers.IO) {
         try {
-            val resolver = appContext.contentResolver
-
-            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
-                ?: return@withContext null
-            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@withContext null
-
-            var sample = 1
-            while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= AiImportConfig.MAX_IMAGE_EDGE_PX) {
-                sample *= 2
+            // ImageDecoder (API 28+) handles EXIF rotation and formats
+            // BitmapFactory can't decode from non-seekable streams (HEIF).
+            // BitmapFactory + ExifInterface is the fallback below API 28 and
+            // for sources ImageDecoder rejects.
+            val raw = decodeViaImageDecoder(uri)
+                ?: decodeViaBitmapFactory(uri)?.let { applyExifRotation(uri, it) }
+            if (raw == null) {
+                if (com.toolstack.io.BuildConfig.DEBUG) {
+                    Log.w(TAG, "prepareJpegForAi: undecodable image $uri")
+                }
+                return@withContext null
             }
-            val options = BitmapFactory.Options().apply { inSampleSize = sample }
-            val raw = resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
-                ?: return@withContext null
 
-            val rotated = applyExifRotation(uri, raw)
-            val scaled = scaleToMaxEdge(rotated, AiImportConfig.MAX_IMAGE_EDGE_PX)
-
+            val scaled = scaleToMaxEdge(raw, AiImportConfig.MAX_IMAGE_EDGE_PX)
             ByteArrayOutputStream().use { out ->
-                scaled.compress(Bitmap.CompressFormat.JPEG, AiImportConfig.JPEG_QUALITY, out)
+                if (!scaled.compress(Bitmap.CompressFormat.JPEG, AiImportConfig.JPEG_QUALITY, out)) {
+                    if (com.toolstack.io.BuildConfig.DEBUG) {
+                        Log.w(TAG, "prepareJpegForAi: JPEG compress failed $uri")
+                    }
+                    return@withContext null
+                }
                 out.toByteArray()
             }
         } catch (e: CancellationException) {
@@ -765,6 +766,54 @@ class RecipeScalerViewModel @Inject constructor(
             null
         }
     }
+
+    /**
+     * Decode via [ImageDecoder] (API 28+). Applies EXIF orientation itself —
+     * do not run [applyExifRotation] on the result.
+     */
+    private fun decodeViaImageDecoder(uri: Uri): Bitmap? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return null
+        return try {
+            val source = ImageDecoder.createSource(appContext.contentResolver, uri)
+            ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
+                decoder.isMutableRequired = false
+            }
+        } catch (e: Exception) {
+            if (com.toolstack.io.BuildConfig.DEBUG) {
+                Log.w(TAG, "ImageDecoder failed for $uri", e)
+            }
+            null
+        }
+    }
+
+    /**
+     * Decode via [BitmapFactory] with bounds pass + [inSampleSize]. EXIF is
+     * NOT applied — callers must run [applyExifRotation] on the result.
+     */
+    private suspend fun decodeViaBitmapFactory(uri: Uri): Bitmap? =
+        withContext(Dispatchers.IO) {
+            try {
+                val resolver = appContext.contentResolver
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+                    ?: return@withContext null
+                if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@withContext null
+
+                var sample = 1
+                while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= AiImportConfig.MAX_IMAGE_EDGE_PX) {
+                    sample *= 2
+                }
+                val options = BitmapFactory.Options().apply { inSampleSize = sample }
+                resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (com.toolstack.io.BuildConfig.DEBUG) {
+                    Log.w(TAG, "BitmapFactory decode failed for $uri", e)
+                }
+                null
+            }
+        }
 
     private suspend fun applyExifRotation(uri: Uri, bitmap: Bitmap): Bitmap =
         withContext(Dispatchers.IO) {

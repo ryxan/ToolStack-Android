@@ -11,8 +11,12 @@ import com.toolstack.io.domain.calculator.RecipeScalerCalculator
  */
 object AiImportConfig {
 
-    /** Gemini model used for imports. Benchmark "gemini-3.5-flash-lite" before launch. */
-    const val MODEL = "gemini-3.8-flash"
+    /**
+     * Gemini model used for imports. `gemini-3.5-flash` is a stable version
+     * (shutdown no earlier than 2027-05); `gemini-3.7-flash` is newer but
+     * short-term availability. Remote Config `ai_model_name` overrides later.
+     */
+    const val MODEL = "gemini-3.5-flash"
 
     /** Lifetime AI imports granted to a free user. */
     const val FREE_LIFETIME_LIMIT = 2

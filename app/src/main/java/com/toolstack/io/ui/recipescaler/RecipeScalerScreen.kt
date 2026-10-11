@@ -62,6 +62,7 @@ import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.CameraAlt
+import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.RestaurantMenu
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -252,6 +253,33 @@ fun RecipeScalerScreen(
             aiFreeRemaining = uiState.aiFreeRemaining,
             isPremium = uiState.isPremium,
             onUseAiImportChanged = viewModel::setUseAiImport,
+            // Prefer the ML Kit Document Scanner; on failure (UNSUPPORTED
+            // <1.7 GB RAM, missing Play Services, no Activity) reopen this
+            // dialog so camera/gallery are the fallback.
+            onScanDocument = {
+                showScanSourceDialog = false
+                val activity = context as? Activity
+                if (activity == null) {
+                    showScanSourceDialog = true
+                } else {
+                    viewModel.onScanLaunchStarted()
+                    scanner.getStartScanIntent(activity)
+                        .addOnSuccessListener { intentSender ->
+                            try {
+                                scannerLauncher.launch(
+                                    IntentSenderRequest.Builder(intentSender).build()
+                                )
+                            } catch (e: Exception) {
+                                viewModel.onScanCancelled()
+                                showScanSourceDialog = true
+                            }
+                        }
+                        .addOnFailureListener {
+                            viewModel.onScanCancelled()
+                            showScanSourceDialog = true
+                        }
+                }
+            },
             onTakePhoto = {
                 showScanSourceDialog = false
                 val uri = viewModel.createCameraImageUri()
@@ -464,34 +492,10 @@ fun RecipeScalerScreen(
                 },
                 actions = {
                     // ── Scan button ──────────────────────────────────────────
-                    // Prefer the ML Kit Document Scanner; on failure
-                    // (UNSUPPORTED <1.7 GB RAM, missing Play Services) fall
-                    // back silently to the camera/gallery source dialog.
-                    val startScan: () -> Unit = {
-                        val activity = context as? Activity
-                        if (activity == null) {
-                            showScanSourceDialog = true
-                        } else {
-                            viewModel.onScanLaunchStarted()
-                            scanner.getStartScanIntent(activity)
-                                .addOnSuccessListener { intentSender ->
-                                    try {
-                                        scannerLauncher.launch(
-                                            IntentSenderRequest.Builder(intentSender).build()
-                                        )
-                                    } catch (e: Exception) {
-                                        viewModel.onScanCancelled()
-                                        showScanSourceDialog = true
-                                    }
-                                }
-                                .addOnFailureListener {
-                                    viewModel.onScanCancelled()
-                                    showScanSourceDialog = true
-                                }
-                        }
-                    }
+                    // Opens the source dialog (document scan / camera /
+                    // gallery) which also carries the AI import toggle.
                     IconButton(
-                        onClick = startScan,
+                        onClick = { showScanSourceDialog = true },
                         enabled = !uiState.isScanProcessing && !uiState.isAiProcessing,
                         colors = IconButtonDefaults.iconButtonColors(
                             disabledContentColor = MaterialTheme.colorScheme.onPrimary
@@ -683,9 +687,10 @@ fun RecipeScalerScreen(
 // ── Scan source picker dialog ─────────────────────────────────────────────────
 
 /**
- * Fallback source picker — shown when the ML Kit Document Scanner is
- * unavailable (unsupported device, missing Play Services, or no Activity
- * context). Lets the user choose between the camera and the gallery.
+ * Source picker shown when the user taps scan — document scanner (preferred),
+ * camera, or gallery, plus the AI import toggle. Camera and gallery are also
+ * the fallback path when the Document Scanner can't launch (unsupported
+ * device, missing Play Services, or no Activity context).
  *
  * No CAMERA permission is required: TakePicture grants the camera app a scoped
  * URI permission for the photo file. [onTakePhoto] launches the camera
@@ -697,6 +702,7 @@ private fun ScanSourceDialog(
     aiFreeRemaining: Int,
     isPremium: Boolean,
     onUseAiImportChanged: (Boolean) -> Unit,
+    onScanDocument: () -> Unit,
     onTakePhoto: () -> Unit,
     onChooseGallery: () -> Unit,
     onDismiss: () -> Unit
@@ -762,8 +768,22 @@ private fun ScanSourceDialog(
                 }
 
                 Spacer(modifier = Modifier.size(4.dp))
-                // Camera button — opens the camera via TakePicture
+                // Document scanner — Play-Services UI with edge detection,
+                // perspective correction and cleanup filters.
                 Button(
+                    onClick = onScanDocument,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.DocumentScanner,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = stringResource(R.string.recipe_scaler_scan_document))
+                }
+                OutlinedButton(
                     onClick = onTakePhoto,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
