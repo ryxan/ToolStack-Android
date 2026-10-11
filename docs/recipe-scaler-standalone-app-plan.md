@@ -435,7 +435,7 @@ Each phase has exit criteria. Don't start the next phase until they're met.
 - **Exit:** no a11y scanner warnings; screenshots look right on phone, tablet, and dark mode.
 
 ### Phase 5: Import, Monetization and Ads (required for v1)
-- [ ] Ads: Google Mobile Ads SDK (AdMob) + **UMP consent** (GDPR/US-states consent form before the first ad request). Prefer banner placement on list/scale screens; no interstitials mid-cooking. Hide ads for Pro if Pro removes them.
+- [ ] Ads: Google Mobile Ads SDK (AdMob) + **UMP consent** (GDPR/US-states consent form before the first ad request). Prefer banner placement on list/scale screens; no interstitials mid-cooking. Don't initialize or request ads at all for Pro users.
 - [ ] Move image helpers out of the old VM into `ImagePreprocessor` (data layer).
 - [ ] ML Kit scan behind an `OcrEngine` interface → `RecipeOcrParser.parseLines`.
 - [ ] AI import: `AiRecipeImporter` + `FirebaseAiRecipeImporter` + quota repo; new Firebase project and App Check.
@@ -459,8 +459,8 @@ Each phase has exit criteria. Don't start the next phase until they're met.
 
 Decided on 2026-10-11:
 
-1. **Name (working):** launcher label `Rescale`, Play title `Rescale – Recipe Scaler`. Still open: the `applicationId`. Pick a brand-neutral one (e.g. `com.ryxan.rescale` or `com.ryxan.recipescaler`) so a later rename of the app doesn't matter. The ID is permanent once published.
-2. **Monetization:** free with ads. **Pro** unlocks AI recipe import (accurate handwriting import). Ads, billing, and AI import are all **in v1**. Still open: does Pro also remove ads?
+1. **Name (working):** launcher label `Rescale`, Play title `Rescale – Recipe Scaler`. **`applicationId`: `com.ryxan.recipescaler`** (brand-neutral, so a later rename of the app doesn't matter).
+2. **Monetization:** free with ads. **Pro** unlocks AI recipe import (accurate handwriting import) and **removes ads**. Ads, billing, and AI import are all **in v1**.
 3. **Measurement system:** user-selectable in Settings (US / Metric / Match recipe). First-run default follows the device locale (US locale → US, else Metric).
 4. **v1 scope:** a complete app at launch, with no rush to production. Photo scan (ML Kit) and AI import ship in v1, so Phase 5 is required.
 5. **Repo:** <https://github.com/ryxan/RecipeScaler-Android>, local at `C:\Users\ryxan\RecipeScaler-Android`. Code was extracted from ToolStack at tag `recipe-scaler-extract-base`.
@@ -471,7 +471,7 @@ Still open, not blocking: **should ToolStack keep its Recipe Scaler** after the 
 
 ## 8. First Week Checklist
 
-1. Pick the `applicationId` (§7 #1).
+1. ~~Pick the `applicationId`~~ (done: `com.ryxan.recipescaler`).
 2. Phase 0 skeleton with `:core:domain` as a JVM module.
 3. Copy the domain files and tests; get them green unchanged.
 4. Write the §3.3 spec table as failing tests in `KitchenFormatterTest`.
