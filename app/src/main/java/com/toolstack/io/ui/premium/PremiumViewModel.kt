@@ -102,6 +102,11 @@ class PremiumViewModel @Inject constructor(
         }
     }
 
+    /** Debug builds only: force/clear the Pro entitlement. No-op in release. */
+    fun setDebugEntitlement(state: PurchaseState?) {
+        billingRepository.setDebugEntitlement(state)
+    }
+
     fun onRestoreMessageShown() {
         _uiState.update { it.copy(restoreNotFound = false) }
     }

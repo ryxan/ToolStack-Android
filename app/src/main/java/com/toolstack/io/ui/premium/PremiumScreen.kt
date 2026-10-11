@@ -89,9 +89,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.toolstack.io.BuildConfig
 import com.toolstack.io.R
 import com.toolstack.io.data.billing.BillingProduct
 import com.toolstack.io.data.billing.ProductIds
+import com.toolstack.io.data.billing.PurchaseState
 import kotlinx.coroutines.delay
 
 private val PremiumCardShape = RoundedCornerShape(16.dp)
@@ -213,6 +215,15 @@ fun PremiumScreen(
                 }
 
                 item { FaqSection() }
+
+                if (BuildConfig.DEBUG) {
+                    item {
+                        DevEntitlementSection(
+                            entitlement = uiState.entitlement,
+                            onSet = viewModel::setDebugEntitlement
+                        )
+                    }
+                }
             }
         }
     }
@@ -897,6 +908,44 @@ private fun SectionCard(
         ) {
             Column(modifier = Modifier.padding(vertical = 4.dp)) {
                 content()
+            }
+        }
+    }
+}
+
+// ── Debug ───────────────────────────────────────────────────────────────────
+
+/**
+ * Debug builds only: forces the Pro entitlement without a Play purchase.
+ * The override is session-scoped and survives the repository's automatic
+ * entitlement re-queries until cleared. Never composed in release builds.
+ */
+@Composable
+private fun DevEntitlementSection(
+    entitlement: Entitlement,
+    onSet: (PurchaseState?) -> Unit
+) {
+    SectionCard(title = "Dev") {
+        Text(
+            text = "Entitlement: $entitlement (debug override)",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            TextButton(onClick = { onSet(PurchaseState.ActiveSubscription) }) {
+                Text("Sub")
+            }
+            TextButton(onClick = { onSet(PurchaseState.LifetimePurchase) }) {
+                Text("Lifetime")
+            }
+            TextButton(onClick = { onSet(null) }) {
+                Text("Clear")
             }
         }
     }

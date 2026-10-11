@@ -21,6 +21,7 @@ import com.android.billingclient.api.QueryProductDetailsParams
 import com.android.billingclient.api.QueryPurchasesParams
 import com.android.billingclient.api.queryProductDetails
 import com.android.billingclient.api.queryPurchasesAsync
+import com.toolstack.io.BuildConfig
 import com.toolstack.io.data.api.BillingVerificationApi
 import com.toolstack.io.data.api.VerifyPurchaseRequest
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -96,6 +97,15 @@ open class BillingRepository @Inject constructor(
 
     @Volatile
     private var isConnected = false
+
+    /**
+     * Debug-only forced entitlement. When non-null, [queryActivePurchases]
+     * returns immediately with this state instead of querying Play, so the
+     * init/resume re-queries can't clobber it. Always null in release builds —
+     * [setDebugEntitlement] is a no-op unless [BuildConfig.DEBUG].
+     */
+    @Volatile
+    private var debugEntitlementOverride: PurchaseState? = null
 
     private val connectionMutex = Mutex()
 
@@ -348,7 +358,33 @@ open class BillingRepository @Inject constructor(
      * [purchaseState] is left unchanged and callers must not treat a stale
      * [PurchaseState.None] as "no entitlement".
      */
+    /**
+     * Debug builds only: force [purchaseState] to [state] and pin it against
+     * the automatic init/resume queries. Pass null to clear the override and
+     * restore real Play Billing state. No-op in release builds.
+     */
+    fun setDebugEntitlement(state: PurchaseState?) {
+        if (!BuildConfig.DEBUG) return
+        debugEntitlementOverride = state
+        if (state != null) {
+            _purchaseState.value = state
+        } else {
+            GlobalScope.launch {
+                try {
+                    queryActivePurchases()
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    Log.e(TAG, "Failed to re-query after clearing debug override", e)
+                }
+            }
+        }
+    }
+
     suspend fun queryActivePurchases(): Boolean {
+        debugEntitlementOverride?.let {
+            _purchaseState.value = it
+            return true
+        }
         if (!ensureConnected()) return false
 
         try {
