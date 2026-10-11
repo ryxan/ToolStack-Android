@@ -1,8 +1,12 @@
 package com.toolstack.io.ui.recipescaler
 
+import android.app.Activity
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
+import android.graphics.Matrix
+import android.media.ExifInterface
 import android.net.Uri
 import android.os.Build
 import android.util.Log
@@ -13,7 +17,15 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import com.toolstack.io.data.ai.AiImportQuotaRepository
+import com.toolstack.io.data.ai.AiImportResult
+import com.toolstack.io.data.ai.AiRecipeImporter
+import com.toolstack.io.data.billing.BillingProduct
+import com.toolstack.io.data.billing.BillingRepository
+import com.toolstack.io.data.billing.BillingResult
+import com.toolstack.io.data.billing.PurchaseState
 import com.toolstack.io.data.repository.UserPreferencesRepository
+import com.toolstack.io.domain.ai.AiImportConfig
 import com.toolstack.io.domain.calculator.OcrLine
 import com.toolstack.io.domain.calculator.RecipeOcrParser
 import com.toolstack.io.domain.calculator.RecipeScalerCalculator
@@ -34,6 +46,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.Locale
 import java.util.UUID
@@ -42,7 +55,10 @@ import javax.inject.Inject
 @HiltViewModel
 class RecipeScalerViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
-    private val userPreferencesRepository: UserPreferencesRepository
+    private val userPreferencesRepository: UserPreferencesRepository,
+    private val billingRepository: BillingRepository,
+    private val aiImporter: AiRecipeImporter,
+    private val aiQuota: AiImportQuotaRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RecipeScalerUiState())
@@ -51,6 +67,11 @@ class RecipeScalerViewModel @Inject constructor(
     // Holds the File written before the camera is launched so we can delete it
     // after ML Kit finishes (or on cancellation).
     private var pendingScanFile: File? = null
+
+    // JPEG prepared for the AI importer, cached so "Try AI import" retries and
+    // the on-device fallback work after the source file is deleted. Internal
+    // for unit-test seeding; cleared on each new scan, on cancel, onCleared.
+    internal var lastScanJpeg: ByteArray? = null
 
     // One recognizer for the ViewModel's lifetime — creating a client per scan
     // pays native init cost each time. `recognizerInitialized` tracks whether
@@ -61,6 +82,7 @@ class RecipeScalerViewModel @Inject constructor(
 
     override fun onCleared() {
         if (recognizerInitialized) recognizer.close()
+        lastScanJpeg = null
         super.onCleared()
     }
 
@@ -70,6 +92,24 @@ class RecipeScalerViewModel @Inject constructor(
         userPreferencesRepository.savedRecipes
             .onEach { recipes ->
                 _uiState.update { it.copy(savedRecipes = recipes) }
+            }
+            .launchIn(viewModelScope)
+
+        billingRepository.purchaseState
+            .onEach { state ->
+                _uiState.update { it.copy(isPremium = state.isActive) }
+            }
+            .launchIn(viewModelScope)
+
+        billingRepository.products
+            .onEach { products ->
+                _uiState.update { it.copy(availableProducts = products) }
+            }
+            .launchIn(viewModelScope)
+
+        aiQuota.remainingFree
+            .onEach { remaining ->
+                _uiState.update { it.copy(aiFreeRemaining = remaining) }
             }
             .launchIn(viewModelScope)
     }
@@ -410,67 +450,356 @@ class RecipeScalerViewModel @Inject constructor(
      *   isScanProcessing = false → done (success or error)
      *   scanError                → non-null on failure, null on success
      *   pendingScanResult        → non-null when confirmation is needed
+     *
+     * When [RecipeScalerUiState.useAiImport] is on, the image goes to the AI
+     * importer instead of ML Kit (see [runAiImport]).
      */
     fun onImageCaptured(uri: Uri, deleteWhenDone: Boolean = false) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isScanProcessing = true, scanError = null) }
+            _uiState.update {
+                it.copy(
+                    isScanProcessing      = true,
+                    scanError             = null,
+                    canOfferAiRetry       = false,
+                    canOfferMlKitFallback = false
+                )
+            }
             if (deleteWhenDone && uri.scheme == "file") {
                 pendingScanFile = uri.path?.let(::File)
             }
-            var scanBitmap: Bitmap? = null
-            try {
-                val (image, bitmap) = loadScanImage(uri)
-                scanBitmap = bitmap
+            lastScanJpeg = null
+            if (_uiState.value.useAiImport) {
+                runAiImport(uri)
+            } else {
+                runMlKitScan(uri)
+            }
+        }
+    }
 
-                val visionText = runTextRecognition(image)
+    /**
+     * ML Kit path: decode → text recognition → parse → replace/append.
+     * On an empty or poor result the image is re-encoded for the AI importer
+     * and cached, so the error banner can offer "Try AI import".
+     */
+    private suspend fun runMlKitScan(uri: Uri) {
+        var scanBitmap: Bitmap? = null
+        try {
+            val (image, bitmap) = loadScanImage(uri)
+            scanBitmap = bitmap
+            runMlKitRecognition(image, uri)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            _uiState.update {
+                it.copy(
+                    isScanProcessing = false,
+                    scanError        = ScanError.RECOGNITION_FAILED
+                )
+            }
+        } finally {
+            scanBitmap?.recycle()
+            deletePendingScanFile()
+        }
+    }
 
-                // Parsing is pure CPU work — keep it off the main thread.
-                val parsed = withContext(Dispatchers.Default) {
-                    parseVisionText(visionText)
-                }
+    /**
+     * Recognition → parse → apply. Shared by the normal scan path and the
+     * on-device fallback after an AI network error ([uri] is null there —
+     * nothing left to re-encode, the JPEG is already cached).
+     */
+    private suspend fun runMlKitRecognition(image: InputImage, uri: Uri?) {
+        val visionText = runTextRecognition(image)
 
-                if (parsed.isEmpty()) {
-                    _uiState.update {
-                        it.copy(
-                            isScanProcessing = false,
-                            scanError        = ScanError.NO_INGREDIENTS_FOUND
-                        )
-                    }
+        // Parsing is pure CPU work — keep it off the main thread.
+        val parsed = withContext(Dispatchers.Default) {
+            parseVisionText(visionText)
+        }
+
+        if (parsed.isEmpty()) {
+            if (uri != null) cacheJpegForAiRetry(uri)
+            _uiState.update {
+                it.copy(
+                    isScanProcessing = false,
+                    scanError        = ScanError.NO_INGREDIENTS_FOUND,
+                    canOfferAiRetry  = lastScanJpeg != null
+                )
+            }
+        } else {
+            // Poor result: the parse ran but probably missed lines. Apply it as
+            // usual (the low-confidence hints still fire) and offer AI retry.
+            val poorResult = parsed.size < POOR_RESULT_MIN_ITEMS ||
+                parsed.count { it.lowConfidence } * 2 > parsed.size
+            if (poorResult && uri != null) cacheJpegForAiRetry(uri)
+            _uiState.update { state ->
+                // Only replace silently when the current list is entirely
+                // blank; otherwise ask the user (replace / append / cancel).
+                if (state.ingredients.all { it.name.isBlank() && it.qtyString.isBlank() }) {
+                    state.copy(
+                        ingredients         = parsed,
+                        isScanProcessing    = false,
+                        scanError           = null,
+                        canOfferAiRetry     = poorResult && lastScanJpeg != null,
+                        focusedIngredientId = null,
+                        focusedField        = FocusedIngredientField.NONE
+                    ).recalculate()
                 } else {
-                    _uiState.update { state ->
-                        // Only replace silently when the current list is entirely
-                        // blank; otherwise ask the user (replace / append / cancel).
-                        if (state.ingredients.all { it.name.isBlank() && it.qtyString.isBlank() }) {
-                            state.copy(
-                                ingredients         = parsed,
-                                isScanProcessing    = false,
-                                scanError           = null,
-                                focusedIngredientId = null,
-                                focusedField        = FocusedIngredientField.NONE
-                            ).recalculate()
-                        } else {
-                            state.copy(
-                                pendingScanResult = parsed,
-                                isScanProcessing  = false,
-                                scanError         = null
-                            )
-                        }
-                    }
+                    state.copy(
+                        pendingScanResult = parsed,
+                        isScanProcessing  = false,
+                        scanError         = null,
+                        canOfferAiRetry   = poorResult && lastScanJpeg != null
+                    )
                 }
+            }
+        }
+    }
+
+    // ── AI import ─────────────────────────────────────────────────────────────
+
+    /** ScanSourceDialog toggle: route the next scan through the AI importer. */
+    fun setUseAiImport(enabled: Boolean) {
+        _uiState.update { it.copy(useAiImport = enabled) }
+    }
+
+    /**
+     * AI path: prepare the JPEG, cache it for retries, reserve a credit, then
+     * call the importer. A credit is spent only on a successful parse — every
+     * non-success is refunded.
+     */
+    private suspend fun runAiImport(uri: Uri) {
+        _uiState.update { it.copy(isScanProcessing = false, isAiProcessing = true) }
+        try {
+            val jpeg = prepareJpegForAi(uri)
+            if (jpeg == null) {
+                _uiState.update {
+                    it.copy(isAiProcessing = false, scanError = ScanError.AI_FAILED)
+                }
+                return
+            }
+            lastScanJpeg = jpeg
+            runAiImportBytes(jpeg)
+        } finally {
+            deletePendingScanFile()
+        }
+    }
+
+    /**
+     * Reserve → import → apply for an already-prepared JPEG. Shared by the
+     * toggle-on scan path and the "Try AI import" retry.
+     */
+    private suspend fun runAiImportBytes(jpeg: ByteArray) {
+        val isPremium = _uiState.value.isPremium
+        if (!aiQuota.tryReserve(isPremium)) {
+            _uiState.update {
+                it.copy(
+                    isAiProcessing = false,
+                    showAiPaywall  = !isPremium,
+                    scanError      = if (isPremium) ScanError.AI_LIMIT_REACHED else null
+                )
+            }
+            if (!isPremium) viewModelScope.launch { billingRepository.queryProductDetails() }
+            return
+        }
+        when (val result = aiImporter.import(jpeg)) {
+            is AiImportResult.Success -> applyAiSuccess(result)
+            else -> {
+                aiQuota.refund(isPremium)
+                _uiState.update {
+                    it.copy(
+                        isAiProcessing        = false,
+                        scanError             = result.toScanError(),
+                        canOfferMlKitFallback = result == AiImportResult.NetworkError
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Apply a successful import using the same replace/append flow as ML Kit:
+     * silently replace when the list is blank, otherwise store in
+     * pendingScanResult for confirmation. Servings and title prefill the
+     * servings field and save-name input when returned.
+     */
+    private fun applyAiSuccess(result: AiImportResult.Success) {
+        _uiState.update { state ->
+            val base = state.copy(
+                isAiProcessing       = false,
+                scanError            = null,
+                originalServingsText = result.recipe.servings
+                    ?.takeIf { it.isNotBlank() } ?: state.originalServingsText,
+                recipeNameInput      = result.recipe.title
+                    ?.takeIf { it.isNotBlank() } ?: state.recipeNameInput
+            )
+            if (state.ingredients.all { it.name.isBlank() && it.qtyString.isBlank() }) {
+                base.copy(
+                    ingredients         = result.ingredients,
+                    focusedIngredientId = null,
+                    focusedField        = FocusedIngredientField.NONE
+                ).recalculate()
+            } else {
+                base.copy(pendingScanResult = result.ingredients)
+            }
+        }
+    }
+
+    /**
+     * "Try AI import" after a failed or poor ML Kit scan — reuses the JPEG
+     * cached during the original scan so no new photo is needed.
+     */
+    fun onTryAiImport() {
+        val jpeg = lastScanJpeg ?: return
+        if (_uiState.value.isAiProcessing || _uiState.value.isScanProcessing) return
+        _uiState.update {
+            it.copy(
+                isAiProcessing    = true,
+                scanError         = null,
+                pendingScanResult = null,
+                canOfferAiRetry   = false
+            )
+        }
+        viewModelScope.launch { runAiImportBytes(jpeg) }
+    }
+
+    /**
+     * "Scan on-device" after an AI network error — runs the normal ML Kit
+     * pipeline on the cached JPEG; no new photo needed.
+     */
+    fun onAiFallbackToMlKit() {
+        val jpeg = lastScanJpeg ?: return
+        if (_uiState.value.isAiProcessing || _uiState.value.isScanProcessing) return
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(isScanProcessing = true, scanError = null, canOfferMlKitFallback = false)
+            }
+            var bitmap: Bitmap? = null
+            try {
+                bitmap = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size)
+                    ?: error("Cached JPEG undecodable")
+                runMlKitRecognition(InputImage.fromBitmap(bitmap, 0), uri = null)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(
-                        isScanProcessing = false,
-                        scanError        = ScanError.RECOGNITION_FAILED
-                    )
+                    it.copy(isScanProcessing = false, scanError = ScanError.RECOGNITION_FAILED)
                 }
             } finally {
-                scanBitmap?.recycle()
-                deletePendingScanFile()
+                bitmap?.recycle()
             }
         }
+    }
+
+    fun onDismissAiPaywall() {
+        _uiState.update { it.copy(showAiPaywall = false) }
+    }
+
+    /** Launch the Google Play purchase flow from the AI paywall dialog. */
+    fun startPurchaseFlow(activity: Activity, product: BillingProduct) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(purchaseError = null) }
+            when (val result = billingRepository.launchPurchaseFlow(activity, product)) {
+                is BillingResult.Error -> {
+                    _uiState.update { it.copy(purchaseError = result.message) }
+                }
+                else -> {}
+            }
+        }
+    }
+
+    fun clearPurchaseError() {
+        _uiState.update { it.copy(purchaseError = null) }
+    }
+
+    private fun AiImportResult.toScanError(): ScanError = when (this) {
+        AiImportResult.NothingFound -> ScanError.NO_INGREDIENTS_FOUND
+        AiImportResult.NetworkError -> ScanError.AI_NETWORK_ERROR
+        AiImportResult.Blocked      -> ScanError.AI_BLOCKED
+        AiImportResult.RateLimited  -> ScanError.AI_RATE_LIMITED
+        is AiImportResult.Failed    -> ScanError.AI_FAILED
+        is AiImportResult.Success   -> ScanError.AI_FAILED // unreachable — handled earlier
+    }
+
+    /** Re-encode [uri] for the AI importer once per scan, for the retry cache. */
+    private suspend fun cacheJpegForAiRetry(uri: Uri) {
+        if (lastScanJpeg == null) {
+            lastScanJpeg = prepareJpegForAi(uri)
+        }
+    }
+
+    /**
+     * Decode [uri] and re-encode as a bounded JPEG for the AI importer:
+     * [inSampleSize] bounds decode → EXIF rotation → scale so the longest edge
+     * is at most [AiImportConfig.MAX_IMAGE_EDGE_PX] → JPEG at
+     * [AiImportConfig.JPEG_QUALITY] quality. Runs on all API levels (unlike
+     * [loadScanImage], which needs API 28 for EXIF). Returns null when the
+     * source can't be decoded.
+     */
+    internal suspend fun prepareJpegForAi(uri: Uri): ByteArray? = withContext(Dispatchers.IO) {
+        try {
+            val resolver = appContext.contentResolver
+
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+                ?: return@withContext null
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@withContext null
+
+            var sample = 1
+            while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= AiImportConfig.MAX_IMAGE_EDGE_PX) {
+                sample *= 2
+            }
+            val options = BitmapFactory.Options().apply { inSampleSize = sample }
+            val raw = resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+                ?: return@withContext null
+
+            val rotated = applyExifRotation(uri, raw)
+            val scaled = scaleToMaxEdge(rotated, AiImportConfig.MAX_IMAGE_EDGE_PX)
+
+            ByteArrayOutputStream().use { out ->
+                scaled.compress(Bitmap.CompressFormat.JPEG, AiImportConfig.JPEG_QUALITY, out)
+                out.toByteArray()
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            if (com.toolstack.io.BuildConfig.DEBUG) Log.w(TAG, "prepareJpegForAi failed", e)
+            null
+        }
+    }
+
+    private suspend fun applyExifRotation(uri: Uri, bitmap: Bitmap): Bitmap =
+        withContext(Dispatchers.IO) {
+            val orientation = appContext.contentResolver.openInputStream(uri)?.use { stream ->
+                ExifInterface(stream).getAttributeInt(
+                    ExifInterface.TAG_ORIENTATION,
+                    ExifInterface.ORIENTATION_NORMAL
+                )
+            } ?: ExifInterface.ORIENTATION_NORMAL
+            val degrees = when (orientation) {
+                ExifInterface.ORIENTATION_ROTATE_90  -> 90f
+                ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+                ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+                else -> 0f
+            }
+            if (degrees == 0f) {
+                bitmap
+            } else {
+                Bitmap.createBitmap(
+                    bitmap, 0, 0, bitmap.width, bitmap.height,
+                    Matrix().apply { postRotate(degrees) }, true
+                )
+            }
+        }
+
+    private fun scaleToMaxEdge(bitmap: Bitmap, maxEdge: Int): Bitmap {
+        val longest = maxOf(bitmap.width, bitmap.height)
+        if (longest <= maxEdge) return bitmap
+        val scale = maxEdge.toFloat() / longest
+        return Bitmap.createScaledBitmap(
+            bitmap,
+            (bitmap.width * scale).toInt().coerceAtLeast(1),
+            (bitmap.height * scale).toInt().coerceAtLeast(1),
+            true
+        )
     }
 
     /**
@@ -485,7 +814,10 @@ class RecipeScalerViewModel @Inject constructor(
     /** Called when the user cancels the camera/gallery without selecting an image. */
     fun onScanCancelled() {
         deletePendingScanFile()
-        _uiState.update { it.copy(isScanProcessing = false, scanError = null) }
+        lastScanJpeg = null
+        _uiState.update {
+            it.copy(isScanProcessing = false, isAiProcessing = false, scanError = null)
+        }
     }
 
     /** Dismiss a previously-shown scan error banner. */
@@ -626,6 +958,12 @@ class RecipeScalerViewModel @Inject constructor(
         const val MAX_INGREDIENTS = 50
         /** Longest-edge pixel cap for scan images; large photos waste memory/OCR time. */
         const val MAX_SCAN_EDGE_PX = 2048
+        /**
+         * An ML Kit parse with fewer rows than this — or one where over half
+         * the rows are low-confidence — is treated as a poor result and gets
+         * a "Try AI import" offer.
+         */
+        private const val POOR_RESULT_MIN_ITEMS = 2
     }
 }
 
@@ -639,6 +977,16 @@ sealed interface ScanError {
     data object RECOGNITION_FAILED : ScanError
     /** The camera could not be launched (no camera app or temp-file failure). */
     data object CAMERA_UNAVAILABLE : ScanError
+    /** AI import failed because the device has no usable network. */
+    data object AI_NETWORK_ERROR : ScanError
+    /** The image was rejected by the model's safety filters. */
+    data object AI_BLOCKED : ScanError
+    /** AI import failed for another reason (timeout, quota, malformed response). */
+    data object AI_FAILED : ScanError
+    /** Pro user hit the hidden daily AI cap — resets tomorrow. */
+    data object AI_LIMIT_REACHED : ScanError
+    /** The model's request quota is exhausted right now — retry shortly. */
+    data object AI_RATE_LIMITED : ScanError
 }
 
 // ── UiState ───────────────────────────────────────────────────────────────────
@@ -675,7 +1023,26 @@ data class RecipeScalerUiState(
      * Parsed scan result awaiting the user's replace/append/cancel choice.
      * Non-null only when a scan succeeded but the current list isn't blank.
      */
-    val pendingScanResult: List<IngredientItem>? = null
+    val pendingScanResult: List<IngredientItem>? = null,
+    // ── AI import ─────────────────────────────────────────────────────────────
+    /** True once the user holds an active Pro entitlement. */
+    val isPremium: Boolean = false,
+    /** Remaining lifetime AI imports for a free user. */
+    val aiFreeRemaining: Int = AiImportConfig.FREE_LIFETIME_LIMIT,
+    /** ScanSourceDialog toggle: route scans through the AI importer. */
+    val useAiImport: Boolean = false,
+    /** True while an AI import request is in flight. */
+    val isAiProcessing: Boolean = false,
+    /** Free user exhausted imports — show the AI paywall dialog. */
+    val showAiPaywall: Boolean = false,
+    /** Products listed in the AI paywall dialog (mirrors BillingRepository). */
+    val availableProducts: List<BillingProduct> = emptyList(),
+    /** Purchase-flow error surfaced by the AI paywall host. */
+    val purchaseError: String? = null,
+    /** A poor/failed ML Kit scan left a cached JPEG that AI can retry on. */
+    val canOfferAiRetry: Boolean = false,
+    /** An AI network failure left a cached JPEG that ML Kit can fall back to. */
+    val canOfferMlKitFallback: Boolean = false
 ) {
     fun recalculate(): RecipeScalerUiState {
         val originalServings = originalServingsText.toDoubleOrNull() ?: 0.0
@@ -709,3 +1076,7 @@ data class RecipeScalerUiState(
 enum class FocusedIngredientField {
     QUANTITY, UNIT, NAME, NONE
 }
+
+/** Maps [PurchaseState] to a simple boolean. Mirrors the same extension in HomeViewModel. */
+private val PurchaseState.isActive: Boolean
+    get() = this is PurchaseState.ActiveSubscription || this is PurchaseState.LifetimePurchase

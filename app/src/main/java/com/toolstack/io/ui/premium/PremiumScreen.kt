@@ -374,8 +374,7 @@ private fun HighlightsCard() {
                 )
             },
             title = stringResource(R.string.premium_feature_ai_title),
-            body = stringResource(R.string.premium_feature_ai_body),
-            soon = true
+            body = stringResource(R.string.premium_feature_ai_body)
         )
     }
 }
@@ -468,7 +467,7 @@ private val comparisonRows = listOf(
     ComparisonRow(R.string.premium_compare_conduit, Availability.NOT_INCLUDED, Availability.INCLUDED),
     ComparisonRow(R.string.premium_compare_shortcuts, Availability.NOT_INCLUDED, Availability.INCLUDED),
     ComparisonRow(R.string.premium_compare_ad_free, Availability.NOT_INCLUDED, Availability.INCLUDED),
-    ComparisonRow(R.string.premium_compare_ai, Availability.NOT_INCLUDED, Availability.SOON)
+    ComparisonRow(R.string.premium_compare_ai, Availability.NOT_INCLUDED, Availability.INCLUDED)
 )
 
 @Composable

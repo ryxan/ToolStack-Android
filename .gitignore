@@ -48,3 +48,9 @@ ConduitBenderIcons-Android/
 fastnerandwrenchsize/
 recipescalericons/
 sprayercalcicon/
+
+# Firebase config (contains API key — keep out of the public repo)
+app/google-services.json
+
+# Node dependencies inside tooling folders
+node_modules/

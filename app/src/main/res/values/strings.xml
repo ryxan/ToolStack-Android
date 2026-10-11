@@ -245,7 +245,7 @@
     <string name="premium_faq_refund_q">How do refunds work?</string>
     <string name="premium_faq_refund_a">Purchases are handled by Google Play, so refund requests go through Google Play\'s standard refund process.</string>
     <string name="premium_faq_next_q">What\'s coming next?</string>
-    <string name="premium_faq_next_a">An AI recipe importer for the Recipe Scaler is in development, with more tools to follow.</string>
+    <string name="premium_faq_next_a">More specialist tools are in development, and the AI recipe importer keeps getting better.</string>
 
     <string name="premium_pro_title">Thank you for your support</string>
     <string name="premium_pro_body_subscription">Your Premium subscription is active. Every Premium feature is unlocked.</string>
@@ -416,5 +416,23 @@
     <string name="recipe_scaler_scan_replace_action">Replace</string>
     <string name="recipe_scaler_scan_add_to_list_action">Add to list</string>
     <string name="recipe_scaler_low_confidence_hint">Scan was unsure about this row — please check it</string>
+
+    <!-- Recipe Scaler - AI Import -->
+    <string name="recipe_scaler_ai_toggle_title">Use AI import</string>
+    <plurals name="recipe_scaler_ai_free_left">
+        <item quantity="one">%d free import left</item>
+        <item quantity="other">%d free imports left</item>
+    </plurals>
+    <string name="recipe_scaler_ai_pro_label">Pro — unlimited</string>
+    <string name="recipe_scaler_ai_privacy_note">The photo is sent to Google for processing.</string>
+    <string name="recipe_scaler_ai_processing">Importing with AI…</string>
+    <string name="recipe_scaler_scan_try_ai">Try AI import</string>
+    <string name="recipe_scaler_scan_try_ondevice">Scan on-device</string>
+    <string name="recipe_scaler_scan_error_ai_network">No connection. AI import needs internet — check your connection or scan on-device.</string>
+    <string name="recipe_scaler_scan_error_ai_blocked">That photo can\'t be imported. Try a different image or scan on-device.</string>
+    <string name="recipe_scaler_scan_error_ai_failed">AI import didn\'t work this time. Try again or scan on-device.</string>
+    <string name="recipe_scaler_scan_error_ai_limit">You\'ve reached today\'s AI import limit. It resets tomorrow.</string>
+    <string name="recipe_scaler_scan_error_ai_rate_limited">AI import is busy right now — try again in a minute.</string>
+    <string name="recipe_scaler_ai_paywall_body">You\'ve used your free AI imports. Upgrade to Pro for unlimited AI recipe imports — or keep scanning on-device for free.</string>
 </resources>
 

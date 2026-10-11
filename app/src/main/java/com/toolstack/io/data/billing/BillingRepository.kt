@@ -62,7 +62,7 @@ import kotlin.jvm.Volatile
  */
 @OptIn(DelicateCoroutinesApi::class)
 @Singleton
-class BillingRepository @Inject constructor(
+open class BillingRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val verificationApi: BillingVerificationApi
 ) : PurchasesUpdatedListener {
@@ -80,7 +80,7 @@ class BillingRepository @Inject constructor(
     }
 
     private val _purchaseState = MutableStateFlow<PurchaseState>(PurchaseState.None)
-    val purchaseState: StateFlow<PurchaseState> = _purchaseState.asStateFlow()
+    open val purchaseState: StateFlow<PurchaseState> = _purchaseState.asStateFlow()
 
     /**
      * One-shot event fired only when a *new* purchase is verified in this
@@ -92,7 +92,7 @@ class BillingRepository @Inject constructor(
     val purchaseCompleted: SharedFlow<Unit> = _purchaseCompleted.asSharedFlow()
 
     private val _products = MutableStateFlow<List<BillingProduct>>(emptyList())
-    val products: StateFlow<List<BillingProduct>> = _products.asStateFlow()
+    open val products: StateFlow<List<BillingProduct>> = _products.asStateFlow()
 
     @Volatile
     private var isConnected = false

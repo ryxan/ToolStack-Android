@@ -318,7 +318,12 @@ class MainActivity : ComponentActivity() {
                         composable(Screen.RecipeScaler.route) {
                             RecipeScalerScreen(
                                 onBack = { navController.popBackStack() },
-                                onAddShortcut = addShortcutFor(Screen.RecipeScaler.route)
+                                onAddShortcut = addShortcutFor(Screen.RecipeScaler.route),
+                                onNavigateToPremium = {
+                                    navController.navigate(Screen.Premium.route) {
+                                        launchSingleTop = true
+                                    }
+                                }
                             )
                         }
                     }
