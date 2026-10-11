@@ -9,6 +9,7 @@ import android.graphics.Matrix
 import android.media.ExifInterface
 import android.net.Uri
 import android.os.Build
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
@@ -567,9 +568,14 @@ class RecipeScalerViewModel @Inject constructor(
      * non-success is refunded.
      */
     private suspend fun runAiImport(uri: Uri) {
+        val totalStartedAt = SystemClock.elapsedRealtime()
         _uiState.update { it.copy(isScanProcessing = false, isAiProcessing = true) }
         try {
+            val preparationStartedAt = SystemClock.elapsedRealtime()
             val jpeg = prepareJpegForAi(uri)
+            if (com.toolstack.io.BuildConfig.DEBUG) {
+                Log.d(TAG, "AI timing: prepare=${SystemClock.elapsedRealtime() - preparationStartedAt}ms")
+            }
             if (jpeg == null) {
                 _uiState.update {
                     it.copy(isAiProcessing = false, scanError = ScanError.AI_FAILED)
@@ -579,6 +585,9 @@ class RecipeScalerViewModel @Inject constructor(
             lastScanJpeg = jpeg
             runAiImportBytes(jpeg)
         } finally {
+            if (com.toolstack.io.BuildConfig.DEBUG) {
+                Log.d(TAG, "AI timing: capture-to-result=${SystemClock.elapsedRealtime() - totalStartedAt}ms")
+            }
             deletePendingScanFile()
         }
     }
@@ -588,8 +597,14 @@ class RecipeScalerViewModel @Inject constructor(
      * toggle-on scan path and the "Try AI import" retry.
      */
     private suspend fun runAiImportBytes(jpeg: ByteArray) {
+        val totalStartedAt = SystemClock.elapsedRealtime()
         val isPremium = _uiState.value.isPremium
-        if (!aiQuota.tryReserve(isPremium)) {
+        val quotaStartedAt = SystemClock.elapsedRealtime()
+        val reserved = aiQuota.tryReserve(isPremium)
+        if (com.toolstack.io.BuildConfig.DEBUG) {
+            Log.d(TAG, "AI timing: quota=${SystemClock.elapsedRealtime() - quotaStartedAt}ms reserved=$reserved bytes=${jpeg.size}")
+        }
+        if (!reserved) {
             _uiState.update {
                 it.copy(
                     isAiProcessing = false,
@@ -600,7 +615,17 @@ class RecipeScalerViewModel @Inject constructor(
             if (!isPremium) viewModelScope.launch { billingRepository.queryProductDetails() }
             return
         }
-        when (val result = aiImporter.import(jpeg)) {
+        val importStartedAt = SystemClock.elapsedRealtime()
+        val result = aiImporter.import(jpeg)
+        if (com.toolstack.io.BuildConfig.DEBUG) {
+            Log.d(
+                TAG,
+                "AI timing: importer=${SystemClock.elapsedRealtime() - importStartedAt}ms " +
+                    "prepared-to-result=${SystemClock.elapsedRealtime() - totalStartedAt}ms " +
+                    "result=${result.javaClass.simpleName}"
+            )
+        }
+        when (result) {
             is AiImportResult.Success -> applyAiSuccess(result)
             else -> {
                 aiQuota.refund(isPremium)
@@ -735,13 +760,16 @@ class RecipeScalerViewModel @Inject constructor(
      * source can't be decoded.
      */
     internal suspend fun prepareJpegForAi(uri: Uri): ByteArray? = withContext(Dispatchers.IO) {
+        val totalStartedAt = SystemClock.elapsedRealtime()
         try {
             // ImageDecoder (API 28+) handles EXIF rotation and formats
             // BitmapFactory can't decode from non-seekable streams (HEIF).
             // BitmapFactory + ExifInterface is the fallback below API 28 and
             // for sources ImageDecoder rejects.
+            val decodeStartedAt = SystemClock.elapsedRealtime()
             val raw = decodeViaImageDecoder(uri)
                 ?: decodeViaBitmapFactory(uri)?.let { applyExifRotation(uri, it) }
+            val decodeMs = SystemClock.elapsedRealtime() - decodeStartedAt
             if (raw == null) {
                 if (com.toolstack.io.BuildConfig.DEBUG) {
                     Log.w(TAG, "prepareJpegForAi: undecodable image $uri")
@@ -749,7 +777,12 @@ class RecipeScalerViewModel @Inject constructor(
                 return@withContext null
             }
 
+            val scaleStartedAt = SystemClock.elapsedRealtime()
+            val sourceWidth = raw.width
+            val sourceHeight = raw.height
             val scaled = scaleToMaxEdge(raw, AiImportConfig.MAX_IMAGE_EDGE_PX)
+            val scaleMs = SystemClock.elapsedRealtime() - scaleStartedAt
+            val compressStartedAt = SystemClock.elapsedRealtime()
             ByteArrayOutputStream().use { out ->
                 if (!scaled.compress(Bitmap.CompressFormat.JPEG, AiImportConfig.JPEG_QUALITY, out)) {
                     if (com.toolstack.io.BuildConfig.DEBUG) {
@@ -757,7 +790,17 @@ class RecipeScalerViewModel @Inject constructor(
                     }
                     return@withContext null
                 }
-                out.toByteArray()
+                val jpeg = out.toByteArray()
+                if (com.toolstack.io.BuildConfig.DEBUG) {
+                    Log.d(
+                        TAG,
+                        "AI timing: image decode=${decodeMs}ms scale=${scaleMs}ms " +
+                            "compress=${SystemClock.elapsedRealtime() - compressStartedAt}ms " +
+                            "total=${SystemClock.elapsedRealtime() - totalStartedAt}ms " +
+                            "source=${sourceWidth}x$sourceHeight output=${scaled.width}x${scaled.height} bytes=${jpeg.size}"
+                    )
+                }
+                jpeg
             }
         } catch (e: CancellationException) {
             throw e

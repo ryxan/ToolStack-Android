@@ -1,6 +1,7 @@
 package com.toolstack.io.data.ai
 
 import android.graphics.BitmapFactory
+import android.os.SystemClock
 import android.util.Log
 import com.google.firebase.Firebase
 import com.google.firebase.ai.ai
@@ -14,9 +15,11 @@ import com.google.firebase.ai.type.RequestTimeoutException
 import com.google.firebase.ai.type.ResponseStoppedException
 import com.google.firebase.ai.type.Schema
 import com.google.firebase.ai.type.ServerException
+import com.google.firebase.ai.type.ThinkingLevel
 import com.google.firebase.ai.type.UnknownException
 import com.google.firebase.ai.type.content
 import com.google.firebase.ai.type.generationConfig
+import com.google.firebase.ai.type.thinkingConfig
 import com.toolstack.io.BuildConfig
 import com.toolstack.io.domain.ai.AiImportConfig
 import com.toolstack.io.domain.ai.AiRecipeMapper
@@ -48,18 +51,26 @@ class FirebaseAiRecipeImporter @Inject constructor() : AiRecipeImporter {
             generationConfig = generationConfig {
                 responseMimeType = "application/json"
                 responseSchema = RECIPE_SCHEMA
+                thinkingConfig = thinkingConfig {
+                    thinkingLevel = ThinkingLevel.LOW
+                }
             },
             systemInstruction = content { text(AiImportConfig.SYSTEM_PROMPT) }
         )
     }
 
     override suspend fun import(jpeg: ByteArray): AiImportResult {
+        val totalStartedAt = SystemClock.elapsedRealtime()
+        val decodeStartedAt = SystemClock.elapsedRealtime()
         val bitmap = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size)
+        val decodeMs = SystemClock.elapsedRealtime() - decodeStartedAt
         if (bitmap == null) {
             val cause = IllegalArgumentException("Undecodable JPEG (${jpeg.size} bytes)")
             logFailure(cause)
+            logTiming(totalStartedAt, decodeMs, null, null, jpeg.size, null, cause.javaClass.simpleName)
             return AiImportResult.Failed(cause)
         }
+        val requestStartedAt = SystemClock.elapsedRealtime()
         return try {
             val response = withTimeout(AiImportConfig.REQUEST_TIMEOUT_MS) {
                 model.generateContent(
@@ -69,14 +80,45 @@ class FirebaseAiRecipeImporter @Inject constructor() : AiRecipeImporter {
                     }
                 )
             }
-            mapResponse(response)
+            val requestMs = SystemClock.elapsedRealtime() - requestStartedAt
+            val mappingStartedAt = SystemClock.elapsedRealtime()
+            val result = mapResponse(response)
+            logTiming(
+                totalStartedAt,
+                decodeMs,
+                requestMs,
+                SystemClock.elapsedRealtime() - mappingStartedAt,
+                jpeg.size,
+                "${bitmap.width}x${bitmap.height}",
+                result.javaClass.simpleName
+            )
+            result
         } catch (e: TimeoutCancellationException) {
+            logTiming(
+                totalStartedAt,
+                decodeMs,
+                SystemClock.elapsedRealtime() - requestStartedAt,
+                null,
+                jpeg.size,
+                "${bitmap.width}x${bitmap.height}",
+                "Timeout"
+            )
             AiImportResult.NetworkError
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             logFailure(e)
-            mapException(e)
+            val result = mapException(e)
+            logTiming(
+                totalStartedAt,
+                decodeMs,
+                SystemClock.elapsedRealtime() - requestStartedAt,
+                null,
+                jpeg.size,
+                "${bitmap.width}x${bitmap.height}",
+                result.javaClass.simpleName
+            )
+            result
         }.logResult()
     }
 
@@ -122,6 +164,25 @@ class FirebaseAiRecipeImporter @Inject constructor() : AiRecipeImporter {
         }
         is RequestTimeoutException, is IOException -> AiImportResult.NetworkError
         else -> if (e.cause is IOException) AiImportResult.NetworkError else AiImportResult.Failed(e)
+    }
+
+    private fun logTiming(
+        totalStartedAt: Long,
+        decodeMs: Long,
+        requestMs: Long?,
+        mappingMs: Long?,
+        jpegBytes: Int,
+        dimensions: String?,
+        result: String
+    ) {
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                TAG,
+                "AI timing: decode=${decodeMs}ms request=${requestMs ?: "n/a"}ms " +
+                    "mapping=${mappingMs ?: "n/a"}ms total=${SystemClock.elapsedRealtime() - totalStartedAt}ms " +
+                    "dimensions=${dimensions ?: "unknown"} bytes=$jpegBytes result=$result model=${AiImportConfig.MODEL}"
+            )
+        }
     }
 
     private fun logFailure(e: Throwable) {
