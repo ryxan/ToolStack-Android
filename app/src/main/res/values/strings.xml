@@ -342,6 +342,10 @@
     <string name="recipe_scaler_ingredient_name_hint">e.g. flour</string>
     <string name="recipe_scaler_add_ingredient">Add Ingredient</string>
     <string name="recipe_scaler_remove_ingredient">Remove ingredient</string>
+    <string name="recipe_scaler_edit_ingredients">Edit ingredients</string>
+    <string name="recipe_scaler_delete_selected">Delete (%1$d)</string>
+    <string name="recipe_scaler_cancel_edit">Cancel</string>
+    <string name="recipe_scaler_tap_to_select">Tap rows to select</string>
     <string name="recipe_scaler_results_title">Scaled Recipe</string>
     <string name="recipe_scaler_unnamed_ingredient">Unnamed</string>
     <string name="recipe_scaler_copy_shopping_list">Copy shopping list</string>

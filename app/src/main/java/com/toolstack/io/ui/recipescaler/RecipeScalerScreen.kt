@@ -10,6 +10,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -19,6 +20,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,6 +45,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -57,6 +60,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Warning
@@ -872,6 +876,16 @@ private fun OriginalRecipeCard(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // ── Edit / select-to-delete mode ──────────────────────────────────
+            var isEditMode by rememberSaveable { mutableStateOf(false) }
+            var selectedIds by remember { mutableStateOf(emptySet<String>()) }
+            // Exit edit mode when the ingredient list changes externally (e.g. scan import).
+            LaunchedEffect(ingredients.map { it.id }) {
+                if (isEditMode) {
+                    selectedIds = selectedIds.intersect(ingredients.map { it.id }.toSet())
+                }
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -889,7 +903,17 @@ private fun OriginalRecipeCard(
                         fontWeight = FontWeight.Bold
                     )
                 }
-                if (ingredients.isNotEmpty()) {
+                if (ingredients.isNotEmpty() && !isEditMode) {
+                    IconButton(onClick = {
+                        isEditMode = true
+                        selectedIds = emptySet()
+                    }) {
+                        Icon(
+                            imageVector = Icons.Filled.Edit,
+                            contentDescription = stringResource(R.string.recipe_scaler_edit_ingredients),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     TextButton(onClick = onClearAll) {
                         Icon(
                             imageVector = Icons.Filled.Delete,
@@ -902,6 +926,67 @@ private fun OriginalRecipeCard(
                             text = stringResource(R.string.recipe_scaler_clear_all),
                             color = MaterialTheme.colorScheme.error
                         )
+                    }
+                }
+            }
+
+            // ── Edit-mode action bar ──────────────────────────────────────────
+            AnimatedVisibility(
+                visible = isEditMode,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.errorContainer
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(onClick = {
+                            isEditMode = false
+                            selectedIds = emptySet()
+                        }) {
+                            Text(
+                                text = stringResource(R.string.recipe_scaler_cancel_edit),
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                        if (selectedIds.isEmpty()) {
+                            Text(
+                                text = stringResource(R.string.recipe_scaler_tap_to_select),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                        Button(
+                            onClick = {
+                                selectedIds.forEach { id ->
+                                    ingredientCallbacks.onRemove(id)
+                                }
+                                selectedIds = emptySet()
+                                isEditMode = false
+                            },
+                            enabled = selectedIds.isNotEmpty()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Delete,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = stringResource(
+                                    R.string.recipe_scaler_delete_selected,
+                                    selectedIds.size
+                                )
+                            )
+                        }
                     }
                 }
             }
@@ -1106,21 +1191,20 @@ private fun OriginalRecipeCard(
                     text = stringResource(R.string.recipe_scaler_qty_header),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1.1f)
+                    modifier = Modifier.weight(1.4f)
                 )
                 Text(
                     text = stringResource(R.string.recipe_scaler_unit_header),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1.1f)
+                    modifier = Modifier.weight(0.8f)
                 )
                 Text(
                     text = stringResource(R.string.recipe_scaler_ingredient_header),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(2.2f)
+                    modifier = Modifier.weight(2.4f)
                 )
-                Spacer(modifier = Modifier.width(48.dp))
             }
 
             ingredients.forEach { ingredient ->
@@ -1129,11 +1213,19 @@ private fun OriginalRecipeCard(
                         ingredient = ingredient,
                         onQuantityChanged = { ingredientCallbacks.onQuantityChanged(ingredient.id, it) },
                         onNameChanged = { ingredientCallbacks.onNameChanged(ingredient.id, it) },
-                        onRemove = { ingredientCallbacks.onRemove(ingredient.id) },
                         onDone = { ingredientCallbacks.onNameDone(ingredient.id) },
                         onFocusChanged = { field -> ingredientCallbacks.onFocusChanged(ingredient.id, field) },
                         onFocusCleared = { field -> ingredientCallbacks.onFocusCleared(ingredient.id, field) },
-                        focusedField = if (focusedIngredientId == ingredient.id) focusedField else null
+                        focusedField = if (focusedIngredientId == ingredient.id) focusedField else null,
+                        isEditMode = isEditMode,
+                        isSelected = ingredient.id in selectedIds,
+                        onToggleSelection = {
+                            selectedIds = if (ingredient.id in selectedIds) {
+                                selectedIds - ingredient.id
+                            } else {
+                                selectedIds + ingredient.id
+                            }
+                        }
                     )
                 }
             }
@@ -1196,11 +1288,13 @@ private fun CompactIngredientRow(
     ingredient: IngredientItem,
     onQuantityChanged: (String) -> Unit,
     onNameChanged: (String) -> Unit,
-    onRemove: () -> Unit,
     onDone: () -> Unit,
     onFocusChanged: (FocusedIngredientField) -> Unit,
     onFocusCleared: (FocusedIngredientField) -> Unit,
-    focusedField: FocusedIngredientField?
+    focusedField: FocusedIngredientField?,
+    isEditMode: Boolean = false,
+    isSelected: Boolean = false,
+    onToggleSelection: () -> Unit = {}
 ) {
     val quantityFocusRequester = remember { FocusRequester() }
     val unitFocusRequester = remember { FocusRequester() }
@@ -1286,9 +1380,27 @@ private fun CompactIngredientRow(
         }
     }
 
+    val rowBackgroundColor by animateColorAsState(
+        targetValue = if (isSelected) {
+            MaterialTheme.colorScheme.errorContainer
+        } else {
+            Color.Transparent
+        },
+        label = "rowSelectionBg"
+    )
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(rowBackgroundColor)
+            .then(
+                if (isEditMode) {
+                    Modifier.clickable { onToggleSelection() }
+                } else {
+                    Modifier
+                }
+            )
             .bringIntoViewRequester(bringIntoViewRequester),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -1299,6 +1411,7 @@ private fun CompactIngredientRow(
                 qtyFieldValue = newValue
                 onQuantityChanged(newValue.text)
             },
+            enabled = !isEditMode,
             singleLine = true,
             placeholder = {
                 Text(
@@ -1318,7 +1431,7 @@ private fun CompactIngredientRow(
             ),
             colors = flaggedFieldColors,
             modifier = Modifier
-                .weight(1.1f)
+                .weight(1.4f)
                 .focusRequester(quantityFocusRequester)
                 .onFocusChanged { focusState ->
                     if (focusState.isFocused) {
@@ -1335,6 +1448,7 @@ private fun CompactIngredientRow(
             value = RecipeScalerCalculator.ALL_UNITS.find { it.first == ingredient.unit }?.second ?: "-",
             onValueChange = {},
             readOnly = true,
+            enabled = !isEditMode,
             singleLine = true,
             placeholder = {
                 Text(
@@ -1351,11 +1465,13 @@ private fun CompactIngredientRow(
             ),
             colors = fieldColors,
             modifier = Modifier
-                .weight(1.1f)
+                .weight(0.8f)
                 .focusRequester(unitFocusRequester)
                 .clickable {
-                    keyboardController?.hide()
-                    unitFocusRequester.requestFocus()
+                    if (!isEditMode) {
+                        keyboardController?.hide()
+                        unitFocusRequester.requestFocus()
+                    }
                 }
                 .onFocusChanged { focusState ->
                     if (focusState.isFocused) {
@@ -1375,6 +1491,7 @@ private fun CompactIngredientRow(
         OutlinedTextField(
             value = ingredient.name,
             onValueChange = onNameChanged,
+            enabled = !isEditMode,
             singleLine = true,
             placeholder = {
                 Text(
@@ -1403,7 +1520,7 @@ private fun CompactIngredientRow(
                 null
             },
             modifier = Modifier
-                .weight(2.2f)
+                .weight(2.4f)
                 .focusRequester(nameFocusRequester)
                 .onFocusChanged { focusState ->
                     if (focusState.isFocused) {
@@ -1415,14 +1532,6 @@ private fun CompactIngredientRow(
                 },
             textStyle = MaterialTheme.typography.bodyLarge
         )
-
-        IconButton(onClick = onRemove) {
-            Icon(
-                imageVector = Icons.Filled.Close,
-                contentDescription = stringResource(R.string.recipe_scaler_remove_ingredient),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-            )
-        }
     }
 }
 
