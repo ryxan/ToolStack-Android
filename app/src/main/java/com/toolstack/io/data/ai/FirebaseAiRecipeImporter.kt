@@ -112,7 +112,15 @@ class FirebaseAiRecipeImporter @Inject constructor() : AiRecipeImporter {
             if (reason in BLOCKED_FINISH_REASONS) AiImportResult.Blocked else AiImportResult.Failed(e)
         }
         is QuotaExceededException -> AiImportResult.RateLimited
-        is RequestTimeoutException, is ServerException, is IOException -> AiImportResult.NetworkError
+        // An App Check attestation failure surfaces as a ServerException but
+        // is a config problem, not connectivity — report as Failed so the UI
+        // doesn't claim "check your internet".
+        is ServerException -> if (e.message?.contains("app check", ignoreCase = true) == true) {
+            AiImportResult.Failed(e)
+        } else {
+            AiImportResult.NetworkError
+        }
+        is RequestTimeoutException, is IOException -> AiImportResult.NetworkError
         else -> if (e.cause is IOException) AiImportResult.NetworkError else AiImportResult.Failed(e)
     }
 
