@@ -585,6 +585,8 @@ open class BillingRepository @Inject constructor(
      *
      * Failure modes:
      * - HTTP 4xx/5xx → fail closed (do not grant access, do not acknowledge)
+     * - HTTP 429/503 → backend rate-limit or transient Google error; fail open
+     *   on the client-side PURCHASED state like a network failure
      * - Network/IO error → fail open on the client-side PURCHASED state
      * - Any other exception → fail closed
      */
@@ -614,9 +616,16 @@ open class BillingRepository @Inject constructor(
                 response.valid
             }
         } catch (e: retrofit2.HttpException) {
-            // Backend explicitly rejected — fail closed
-            Log.e(TAG, "Backend verification rejected with HTTP ${e.code()}: ${e.message()}")
-            false
+            if (e.code() == 429 || e.code() == 503) {
+                // Backend rate-limited or Google API transiently down —
+                // same treatment as a network failure
+                Log.w(TAG, "Backend temporarily unavailable (HTTP ${e.code()}), falling back to client-side: isClientValid=$isClientValid")
+                isClientValid
+            } else {
+                // Backend explicitly rejected — fail closed
+                Log.e(TAG, "Backend verification rejected with HTTP ${e.code()}: ${e.message()}")
+                false
+            }
         } catch (e: java.net.UnknownHostException) {
             // DNS failure — backend unreachable; fall back to client-side state
             Log.w(TAG, "Backend unreachable (DNS), falling back to client-side: isClientValid=$isClientValid")
