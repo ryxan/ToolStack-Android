@@ -10,6 +10,7 @@ import com.toolstack.io.R
 import com.toolstack.io.data.billing.BillingProduct
 import com.toolstack.io.data.billing.BillingRepository
 import com.toolstack.io.data.billing.BillingResult
+import com.toolstack.io.data.billing.ProductIds
 import com.toolstack.io.data.billing.PurchaseState
 import com.toolstack.io.util.ShortcutUtil
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -52,7 +53,15 @@ class ShortcutViewModel @Inject constructor(
 
         billingRepository.products
             .onEach { products ->
-                _uiState.update { it.copy(availableProducts = products) }
+                // Consumable top-ups aren't plans — the paywall only offers
+                // subscription/lifetime upgrades.
+                _uiState.update {
+                    it.copy(
+                        availableProducts = products.filter { product ->
+                            product.productId !in ProductIds.CONSUMABLE_PRODUCT_IDS
+                        }
+                    )
+                }
             }
             .launchIn(viewModelScope)
     }
@@ -71,9 +80,7 @@ class ShortcutViewModel @Inject constructor(
         label: String,
         @DrawableRes iconResId: Int
     ) {
-        // TODO: remove override before release — bypasses paywall for testing
-        val effectivelyPremium = true // _uiState.value.isPremium
-        if (effectivelyPremium) {
+        if (_uiState.value.isPremium) {
             ShortcutUtil.requestPinShortcut(context, route, label, iconResId)
         } else {
             viewModelScope.launch { billingRepository.queryProductDetails() }
@@ -92,6 +99,17 @@ class ShortcutViewModel @Inject constructor(
                 else -> {}
             }
         }
+    }
+
+    /**
+     * Surface the paywall dialog without an "Add to Home Screen" tap — e.g.
+     * when a pinned-shortcut deep link targets a premium tool but no active
+     * entitlement was found. Queries product details first so the dialog has
+     * prices ready, mirroring the non-premium branch of [onAddShortcutClicked].
+     */
+    fun showPaywall() {
+        viewModelScope.launch { billingRepository.queryProductDetails() }
+        _uiState.update { it.copy(showPaywall = true) }
     }
 
     fun dismissPaywall() {

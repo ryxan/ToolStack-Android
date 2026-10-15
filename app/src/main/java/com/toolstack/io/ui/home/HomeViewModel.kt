@@ -7,6 +7,7 @@ import com.toolstack.io.R
 import com.toolstack.io.data.billing.BillingProduct
 import com.toolstack.io.data.billing.BillingRepository
 import com.toolstack.io.data.billing.BillingResult
+import com.toolstack.io.data.billing.ProductIds
 import com.toolstack.io.data.billing.PurchaseState
 import com.toolstack.io.data.repository.UserPreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -45,7 +46,15 @@ class HomeViewModel @Inject constructor(
 
         billingRepository.products
             .onEach { products ->
-                _uiState.update { it.copy(availableProducts = products) }
+                // Consumable top-ups aren't plans — the gate dialog only
+                // offers subscription/lifetime upgrades.
+                _uiState.update {
+                    it.copy(
+                        availableProducts = products.filter { product ->
+                            product.productId !in ProductIds.CONSUMABLE_PRODUCT_IDS
+                        }
+                    )
+                }
             }
             .launchIn(viewModelScope)
 
@@ -135,7 +144,7 @@ class HomeViewModel @Inject constructor(
             HomeModule("sae_metric",      R.string.sae_to_metric,        HomeModuleIcon.SaeMetric),
             HomeModule("wrench_fastener", R.string.wrench_fastener,       HomeModuleIcon.WrenchFastener),
             HomeModule("taps_and_drills", R.string.taps_and_drills,       HomeModuleIcon.TapsAndDrills),
-            HomeModule("conduit_bends",   R.string.conduit_bends,         HomeModuleIcon.ConduitBends),
+            HomeModule("conduit_bends",   R.string.conduit_bends,         HomeModuleIcon.ConduitBends, isPremium = true),
             HomeModule("unit_converter",  R.string.unit_converter,        HomeModuleIcon.UnitConverter),
             HomeModule("ratio_mix",       R.string.ratio_mix_title,       HomeModuleIcon.RatioMix),
             HomeModule("calculator",      R.string.calculator_title,      HomeModuleIcon.Calculator),

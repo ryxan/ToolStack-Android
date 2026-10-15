@@ -43,7 +43,7 @@ In the ToolStack Play Console entry, create these two products:
 
 | Type | Product ID | Notes |
 |---|---|---|
-| Subscription | `toolstack_pro_monthly` | Monthly recurring |
+| Subscription | `toolstack_pro_monthly_sub` | Monthly recurring |
 | One-time | `toolstack_pro_lifetime` | Non-consumable |
 
 These IDs are hardcoded in `BillingModels.ProductIds`. If you use different IDs
@@ -78,19 +78,30 @@ which is populated by querying Google Play on startup and every resume. This mea
 `SettingsRepository.isAdFree` in RiverWatch), and seed `HomeUiState.isPremium`
 from that cached value so the UI is correct immediately on launch.
 
-### 4. Restore Purchases UI (optional)
+### 4. Restore Purchases UI — done
 
-`BillingRepository.queryActivePurchases()` is already the restore mechanism —
-it re-queries Play for all active purchases. Adding a "Restore Purchases" button
-(e.g. in a future Settings screen) is just calling `viewModel.loadProducts()` +
-`billingRepository.queryActivePurchases()`. No new backend work required.
+Done: the Premium screen has a "Restore purchases" button wired to
+`BillingRepository.queryActivePurchases()`, with a snackbar when nothing is
+found. The same call is the restore mechanism if a Settings screen ever needs
+its own button.
 
-### 5. Decide on Pro feature set
+### 5. Auto-resume shortcut pinning after purchase (UX polish)
 
-No modules are currently flagged `isPremium = true` — all `HomeModule` entries in
-`HomeViewModel.DEFAULT_MODULES` use the default `isPremium = false`. The gate logic
-is already generic: set `isPremium = true` on any `HomeModule` entry and the lock
-badge + upgrade dialog appear automatically in `HomeScreen`.
+When a non-premium user taps "Add to Home Screen", buys via the paywall
+dialog, and the purchase verifies, nothing happens — they have to tap the
+shortcut button again. Improve: have `ShortcutViewModel` stash the pending
+`(route, label, iconResId)` when it shows the paywall, collect the new
+`BillingRepository.purchaseCompleted` SharedFlow, and call
+`ShortcutUtil.requestPinShortcut` automatically once the purchase lands.
+
+### 6. Decide on Pro feature set
+
+Currently gated: `conduit_bends` (`isPremium = true` in `DEFAULT_MODULES`) and
+home-screen shortcuts (paywall in `ShortcutViewModel.onAddShortcutClicked`).
+The gate logic is generic: set `isPremium = true` on any `HomeModule` entry
+and the lock badge + upgrade dialog appear automatically in `HomeScreen`.
+Note the conduit gate is Home-screen only — a pinned shortcut or deep link
+still reaches `conduit_bends` directly (route-level check is a future fix).
 
 ---
 

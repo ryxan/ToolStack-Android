@@ -27,12 +27,10 @@ annotation class BillingRetrofit
 object BillingNetworkModule {
 
     /**
-     * Purchase-verification backend.
-     *
-     * Currently shared with RiverWatch (same developer account, same service account).
-     * When ToolStack ships, swap this for a dedicated domain and backend instance.
-     * The Android client already sends packageName + productId in the request body,
-     * so the backend can distinguish apps without any other changes here.
+     * Shared purchase-verification backend for all three apps (RiverWatch,
+     * ToolStack, RecipeScaler). The backend scopes entitlements by the
+     * packageName + productId in the request body, validated server-side
+     * against its app/product registry — no client change needed per app.
      */
     private const val BILLING_VERIFICATION_URL = "https://api.riverwatch.cc/"
 

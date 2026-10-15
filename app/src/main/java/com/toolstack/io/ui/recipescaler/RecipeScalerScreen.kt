@@ -10,6 +10,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -19,6 +20,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,6 +45,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -57,10 +60,13 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.CameraAlt
+import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.RestaurantMenu
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -84,6 +90,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -142,6 +149,7 @@ private val LowConfidenceAmber = Color(0xFFF59E0B)
 fun RecipeScalerScreen(
     onBack: () -> Unit,
     onAddShortcut: (() -> Unit)? = null,
+    onNavigateToPremium: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: RecipeScalerViewModel = hiltViewModel()
 ) {
@@ -245,6 +253,37 @@ fun RecipeScalerScreen(
 
     if (showScanSourceDialog) {
         ScanSourceDialog(
+            useAiImport = uiState.useAiImport,
+            aiScansRemaining = uiState.aiScansRemaining,
+            isPremium = uiState.isPremium,
+            onUseAiImportChanged = viewModel::setUseAiImport,
+            // Prefer the ML Kit Document Scanner; on failure (UNSUPPORTED
+            // <1.7 GB RAM, missing Play Services, no Activity) reopen this
+            // dialog so camera/gallery are the fallback.
+            onScanDocument = {
+                showScanSourceDialog = false
+                val activity = context as? Activity
+                if (activity == null) {
+                    showScanSourceDialog = true
+                } else {
+                    viewModel.onScanLaunchStarted()
+                    scanner.getStartScanIntent(activity)
+                        .addOnSuccessListener { intentSender ->
+                            try {
+                                scannerLauncher.launch(
+                                    IntentSenderRequest.Builder(intentSender).build()
+                                )
+                            } catch (e: Exception) {
+                                viewModel.onScanCancelled()
+                                showScanSourceDialog = true
+                            }
+                        }
+                        .addOnFailureListener {
+                            viewModel.onScanCancelled()
+                            showScanSourceDialog = true
+                        }
+                }
+            },
             onTakePhoto = {
                 showScanSourceDialog = false
                 val uri = viewModel.createCameraImageUri()
@@ -302,12 +341,63 @@ fun RecipeScalerScreen(
             },
             dismissButton = {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (uiState.canOfferAiRetry) {
+                        TextButton(onClick = viewModel::onTryAiImport) {
+                            Text(text = stringResource(R.string.recipe_scaler_scan_try_ai))
+                        }
+                    }
                     TextButton(onClick = viewModel::onScanResultAppend) {
                         Text(text = stringResource(R.string.recipe_scaler_scan_add_to_list_action))
                     }
                     TextButton(onClick = viewModel::onScanResultDismiss) {
                         Text(text = stringResource(android.R.string.cancel))
                     }
+                }
+            }
+        )
+    }
+
+    // ── AI paywall + purchase error ───────────────────────────────────────────
+    if (uiState.showAiPaywall) {
+        AiImportPaywallDialog(
+            products = uiState.availableProducts,
+            rewardedAdAvailable = uiState.rewardedAdAvailable,
+            isAdLoading = uiState.isAdLoading,
+            onDismiss = viewModel::onDismissAiPaywall,
+            onUpgrade = { product ->
+                viewModel.onDismissAiPaywall()
+                val activity = context as? Activity ?: return@AiImportPaywallDialog
+                viewModel.startPurchaseFlow(activity, product)
+            },
+            onWatchAd = {
+                val activity = context as? Activity ?: return@AiImportPaywallDialog
+                viewModel.onWatchAdRequested(activity)
+            },
+            onSeeDetails = {
+                viewModel.onDismissAiPaywall()
+                onNavigateToPremium()
+            }
+        )
+    }
+
+    // Bonus scans just landed (scan pack or rewarded ad) — confirm with a snackbar.
+    val creditsGranted = uiState.creditsGranted
+    if (creditsGranted != null) {
+        val message = pluralStringResource(R.plurals.ai_scans_granted, creditsGranted, creditsGranted)
+        LaunchedEffect(creditsGranted) {
+            snackbarHostState.showSnackbar(message)
+            viewModel.onCreditsGrantedShown()
+        }
+    }
+
+    uiState.purchaseError?.let { error ->
+        AlertDialog(
+            onDismissRequest = viewModel::clearPurchaseError,
+            title = { Text(text = stringResource(R.string.purchase_error_title)) },
+            text = { Text(text = error) },
+            confirmButton = {
+                TextButton(onClick = viewModel::clearPurchaseError) {
+                    Text(text = stringResource(R.string.purchase_error_dismiss))
                 }
             }
         )
@@ -422,40 +512,16 @@ fun RecipeScalerScreen(
                 },
                 actions = {
                     // ── Scan button ──────────────────────────────────────────
-                    // Prefer the ML Kit Document Scanner; on failure
-                    // (UNSUPPORTED <1.7 GB RAM, missing Play Services) fall
-                    // back silently to the camera/gallery source dialog.
-                    val startScan: () -> Unit = {
-                        val activity = context as? Activity
-                        if (activity == null) {
-                            showScanSourceDialog = true
-                        } else {
-                            viewModel.onScanLaunchStarted()
-                            scanner.getStartScanIntent(activity)
-                                .addOnSuccessListener { intentSender ->
-                                    try {
-                                        scannerLauncher.launch(
-                                            IntentSenderRequest.Builder(intentSender).build()
-                                        )
-                                    } catch (e: Exception) {
-                                        viewModel.onScanCancelled()
-                                        showScanSourceDialog = true
-                                    }
-                                }
-                                .addOnFailureListener {
-                                    viewModel.onScanCancelled()
-                                    showScanSourceDialog = true
-                                }
-                        }
-                    }
+                    // Opens the source dialog (document scan / camera /
+                    // gallery) which also carries the AI import toggle.
                     IconButton(
-                        onClick = startScan,
-                        enabled = !uiState.isScanProcessing,
+                        onClick = { showScanSourceDialog = true },
+                        enabled = !uiState.isScanProcessing && !uiState.isAiProcessing,
                         colors = IconButtonDefaults.iconButtonColors(
                             disabledContentColor = MaterialTheme.colorScheme.onPrimary
                         )
                     ) {
-                        if (uiState.isScanProcessing) {
+                        if (uiState.isScanProcessing || uiState.isAiProcessing) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(20.dp),
                                 strokeWidth = 2.dp,
@@ -524,7 +590,12 @@ fun RecipeScalerScreen(
                         focusedIngredientId = uiState.focusedIngredientId,
                         focusedField = uiState.focusedField,
                         isScanProcessing = uiState.isScanProcessing,
+                        isAiProcessing = uiState.isAiProcessing,
                         scanError = uiState.scanError,
+                        canOfferAiRetry = uiState.canOfferAiRetry,
+                        canOfferMlKitFallback = uiState.canOfferMlKitFallback,
+                        onTryAiImport = viewModel::onTryAiImport,
+                        onAiFallbackToMlKit = viewModel::onAiFallbackToMlKit,
                         onOriginalServingsChanged = viewModel::onOriginalServingsChanged,
                         onDesiredServingsChanged = viewModel::onDesiredServingsChanged,
                         onClearAll = { showClearAllConfirm = true },
@@ -636,9 +707,10 @@ fun RecipeScalerScreen(
 // ── Scan source picker dialog ─────────────────────────────────────────────────
 
 /**
- * Fallback source picker — shown when the ML Kit Document Scanner is
- * unavailable (unsupported device, missing Play Services, or no Activity
- * context). Lets the user choose between the camera and the gallery.
+ * Source picker shown when the user taps scan — document scanner (preferred),
+ * camera, or gallery, plus the AI import toggle. Camera and gallery are also
+ * the fallback path when the Document Scanner can't launch (unsupported
+ * device, missing Play Services, or no Activity context).
  *
  * No CAMERA permission is required: TakePicture grants the camera app a scoped
  * URI permission for the photo file. [onTakePhoto] launches the camera
@@ -646,6 +718,11 @@ fun RecipeScalerScreen(
  */
 @Composable
 private fun ScanSourceDialog(
+    useAiImport: Boolean,
+    aiScansRemaining: Int,
+    isPremium: Boolean,
+    onUseAiImportChanged: (Boolean) -> Unit,
+    onScanDocument: () -> Unit,
     onTakePhoto: () -> Unit,
     onChooseGallery: () -> Unit,
     onDismiss: () -> Unit
@@ -660,9 +737,73 @@ private fun ScanSourceDialog(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                // ── AI import toggle ──────────────────────────────────────────
+                // Free users see their remaining lifetime imports; Pro users
+                // see an "unlimited" hint. The AI path sends the photo to
+                // Firebase AI Logic; the off path stays fully on-device.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onUseAiImportChanged(!useAiImport) },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.AutoAwesome,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.recipe_scaler_ai_toggle_title),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = if (isPremium) {
+                                stringResource(R.string.recipe_scaler_ai_pro_label)
+                            } else {
+                                pluralStringResource(
+                                    R.plurals.recipe_scaler_ai_free_left,
+                                    aiScansRemaining,
+                                    aiScansRemaining
+                                )
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = useAiImport,
+                        onCheckedChange = onUseAiImportChanged
+                    )
+                }
+                if (useAiImport) {
+                    Text(
+                        text = stringResource(R.string.recipe_scaler_ai_privacy_note),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
                 Spacer(modifier = Modifier.size(4.dp))
-                // Camera button — opens the camera via TakePicture
+                // Document scanner — Play-Services UI with edge detection,
+                // perspective correction and cleanup filters.
                 Button(
+                    onClick = onScanDocument,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.DocumentScanner,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = stringResource(R.string.recipe_scaler_scan_document))
+                }
+                OutlinedButton(
                     onClick = onTakePhoto,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
@@ -719,7 +860,12 @@ private fun OriginalRecipeCard(
     focusedIngredientId: String?,
     focusedField: FocusedIngredientField?,
     isScanProcessing: Boolean,
+    isAiProcessing: Boolean,
     scanError: ScanError?,
+    canOfferAiRetry: Boolean,
+    canOfferMlKitFallback: Boolean,
+    onTryAiImport: () -> Unit,
+    onAiFallbackToMlKit: () -> Unit,
     onOriginalServingsChanged: (String) -> Unit,
     onDesiredServingsChanged: (String) -> Unit,
     onClearAll: () -> Unit,
@@ -746,6 +892,16 @@ private fun OriginalRecipeCard(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // ── Edit / select-to-delete mode ──────────────────────────────────
+            var isEditMode by rememberSaveable { mutableStateOf(false) }
+            var selectedIds by remember { mutableStateOf(emptySet<String>()) }
+            // Exit edit mode when the ingredient list changes externally (e.g. scan import).
+            LaunchedEffect(ingredients.map { it.id }) {
+                if (isEditMode) {
+                    selectedIds = selectedIds.intersect(ingredients.map { it.id }.toSet())
+                }
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -763,7 +919,17 @@ private fun OriginalRecipeCard(
                         fontWeight = FontWeight.Bold
                     )
                 }
-                if (ingredients.isNotEmpty()) {
+                if (ingredients.isNotEmpty() && !isEditMode) {
+                    IconButton(onClick = {
+                        isEditMode = true
+                        selectedIds = emptySet()
+                    }) {
+                        Icon(
+                            imageVector = Icons.Filled.Edit,
+                            contentDescription = stringResource(R.string.recipe_scaler_edit_ingredients),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     TextButton(onClick = onClearAll) {
                         Icon(
                             imageVector = Icons.Filled.Delete,
@@ -780,9 +946,70 @@ private fun OriginalRecipeCard(
                 }
             }
 
+            // ── Edit-mode action bar ──────────────────────────────────────────
+            AnimatedVisibility(
+                visible = isEditMode,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.errorContainer
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(onClick = {
+                            isEditMode = false
+                            selectedIds = emptySet()
+                        }) {
+                            Text(
+                                text = stringResource(R.string.recipe_scaler_cancel_edit),
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                        if (selectedIds.isEmpty()) {
+                            Text(
+                                text = stringResource(R.string.recipe_scaler_tap_to_select),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                        Button(
+                            onClick = {
+                                selectedIds.forEach { id ->
+                                    ingredientCallbacks.onRemove(id)
+                                }
+                                selectedIds = emptySet()
+                                isEditMode = false
+                            },
+                            enabled = selectedIds.isNotEmpty()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Delete,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = stringResource(
+                                    R.string.recipe_scaler_delete_selected,
+                                    selectedIds.size
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
             // ── Scan processing indicator ─────────────────────────────────────
             AnimatedVisibility(
-                visible = isScanProcessing,
+                visible = isScanProcessing || isAiProcessing,
                 enter = expandVertically() + fadeIn(),
                 exit = shrinkVertically() + fadeOut()
             ) {
@@ -804,7 +1031,13 @@ private fun OriginalRecipeCard(
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                         Text(
-                            text = stringResource(R.string.recipe_scaler_scan_processing),
+                            text = stringResource(
+                                if (isAiProcessing) {
+                                    R.string.recipe_scaler_ai_processing
+                                } else {
+                                    R.string.recipe_scaler_scan_processing
+                                }
+                            ),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
@@ -850,12 +1083,45 @@ private fun OriginalRecipeCard(
                                             R.string.recipe_scaler_scan_error_failed
                                         ScanError.CAMERA_UNAVAILABLE ->
                                             R.string.recipe_scaler_scan_error_camera_unavailable
+                                        ScanError.AI_NETWORK_ERROR ->
+                                            R.string.recipe_scaler_scan_error_ai_network
+                                        ScanError.AI_BLOCKED ->
+                                            R.string.recipe_scaler_scan_error_ai_blocked
+                                        ScanError.AI_FAILED ->
+                                            R.string.recipe_scaler_scan_error_ai_failed
+                                        ScanError.AI_LIMIT_REACHED ->
+                                            R.string.recipe_scaler_scan_error_ai_limit
+                                        ScanError.AI_RATE_LIMITED ->
+                                            R.string.recipe_scaler_scan_error_ai_rate_limited
                                     }
                                 ),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onErrorContainer,
                                 modifier = Modifier.weight(1f)
                             )
+                            // "Try AI import" — a poor/failed on-device scan left
+                            // a cached JPEG the AI importer can retry on.
+                            if (canOfferAiRetry &&
+                                (error == ScanError.NO_INGREDIENTS_FOUND ||
+                                    error == ScanError.RECOGNITION_FAILED)
+                            ) {
+                                TextButton(onClick = onTryAiImport) {
+                                    Text(
+                                        text = stringResource(R.string.recipe_scaler_scan_try_ai),
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                }
+                            }
+                            // "Scan on-device" — AI failed on the network; the
+                            // cached JPEG can go through ML Kit instead.
+                            if (canOfferMlKitFallback && error == ScanError.AI_NETWORK_ERROR) {
+                                TextButton(onClick = onAiFallbackToMlKit) {
+                                    Text(
+                                        text = stringResource(R.string.recipe_scaler_scan_try_ondevice),
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                }
+                            }
                             IconButton(
                                 onClick = onDismissScanError,
                                 modifier = Modifier.size(24.dp)
@@ -941,21 +1207,20 @@ private fun OriginalRecipeCard(
                     text = stringResource(R.string.recipe_scaler_qty_header),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1.1f)
+                    modifier = Modifier.weight(1.4f)
                 )
                 Text(
                     text = stringResource(R.string.recipe_scaler_unit_header),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1.1f)
+                    modifier = Modifier.weight(0.8f)
                 )
                 Text(
                     text = stringResource(R.string.recipe_scaler_ingredient_header),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(2.2f)
+                    modifier = Modifier.weight(2.4f)
                 )
-                Spacer(modifier = Modifier.width(48.dp))
             }
 
             ingredients.forEach { ingredient ->
@@ -964,11 +1229,19 @@ private fun OriginalRecipeCard(
                         ingredient = ingredient,
                         onQuantityChanged = { ingredientCallbacks.onQuantityChanged(ingredient.id, it) },
                         onNameChanged = { ingredientCallbacks.onNameChanged(ingredient.id, it) },
-                        onRemove = { ingredientCallbacks.onRemove(ingredient.id) },
                         onDone = { ingredientCallbacks.onNameDone(ingredient.id) },
                         onFocusChanged = { field -> ingredientCallbacks.onFocusChanged(ingredient.id, field) },
                         onFocusCleared = { field -> ingredientCallbacks.onFocusCleared(ingredient.id, field) },
-                        focusedField = if (focusedIngredientId == ingredient.id) focusedField else null
+                        focusedField = if (focusedIngredientId == ingredient.id) focusedField else null,
+                        isEditMode = isEditMode,
+                        isSelected = ingredient.id in selectedIds,
+                        onToggleSelection = {
+                            selectedIds = if (ingredient.id in selectedIds) {
+                                selectedIds - ingredient.id
+                            } else {
+                                selectedIds + ingredient.id
+                            }
+                        }
                     )
                 }
             }
@@ -1031,11 +1304,13 @@ private fun CompactIngredientRow(
     ingredient: IngredientItem,
     onQuantityChanged: (String) -> Unit,
     onNameChanged: (String) -> Unit,
-    onRemove: () -> Unit,
     onDone: () -> Unit,
     onFocusChanged: (FocusedIngredientField) -> Unit,
     onFocusCleared: (FocusedIngredientField) -> Unit,
-    focusedField: FocusedIngredientField?
+    focusedField: FocusedIngredientField?,
+    isEditMode: Boolean = false,
+    isSelected: Boolean = false,
+    onToggleSelection: () -> Unit = {}
 ) {
     val quantityFocusRequester = remember { FocusRequester() }
     val unitFocusRequester = remember { FocusRequester() }
@@ -1121,9 +1396,27 @@ private fun CompactIngredientRow(
         }
     }
 
+    val rowBackgroundColor by animateColorAsState(
+        targetValue = if (isSelected) {
+            MaterialTheme.colorScheme.errorContainer
+        } else {
+            Color.Transparent
+        },
+        label = "rowSelectionBg"
+    )
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(rowBackgroundColor)
+            .then(
+                if (isEditMode) {
+                    Modifier.clickable { onToggleSelection() }
+                } else {
+                    Modifier
+                }
+            )
             .bringIntoViewRequester(bringIntoViewRequester),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -1134,6 +1427,7 @@ private fun CompactIngredientRow(
                 qtyFieldValue = newValue
                 onQuantityChanged(newValue.text)
             },
+            enabled = !isEditMode,
             singleLine = true,
             placeholder = {
                 Text(
@@ -1153,7 +1447,7 @@ private fun CompactIngredientRow(
             ),
             colors = flaggedFieldColors,
             modifier = Modifier
-                .weight(1.1f)
+                .weight(1.4f)
                 .focusRequester(quantityFocusRequester)
                 .onFocusChanged { focusState ->
                     if (focusState.isFocused) {
@@ -1170,6 +1464,7 @@ private fun CompactIngredientRow(
             value = RecipeScalerCalculator.ALL_UNITS.find { it.first == ingredient.unit }?.second ?: "-",
             onValueChange = {},
             readOnly = true,
+            enabled = !isEditMode,
             singleLine = true,
             placeholder = {
                 Text(
@@ -1186,11 +1481,13 @@ private fun CompactIngredientRow(
             ),
             colors = fieldColors,
             modifier = Modifier
-                .weight(1.1f)
+                .weight(0.8f)
                 .focusRequester(unitFocusRequester)
                 .clickable {
-                    keyboardController?.hide()
-                    unitFocusRequ ester.requestFocus()
+                    if (!isEditMode) {
+                        keyboardController?.hide()
+                        unitFocusRequester.requestFocus()
+                    }
                 }
                 .onFocusChanged { focusState ->
                     if (focusState.isFocused) {
@@ -1210,6 +1507,7 @@ private fun CompactIngredientRow(
         OutlinedTextField(
             value = ingredient.name,
             onValueChange = onNameChanged,
+            enabled = !isEditMode,
             singleLine = true,
             placeholder = {
                 Text(
@@ -1238,7 +1536,7 @@ private fun CompactIngredientRow(
                 null
             },
             modifier = Modifier
-                .weight(2.2f)
+                .weight(2.4f)
                 .focusRequester(nameFocusRequester)
                 .onFocusChanged { focusState ->
                     if (focusState.isFocused) {
@@ -1250,14 +1548,6 @@ private fun CompactIngredientRow(
                 },
             textStyle = MaterialTheme.typography.bodyLarge
         )
-
-        IconButton(onClick = onRemove) {
-            Icon(
-                imageVector = Icons.Filled.Close,
-                contentDescription = stringResource(R.string.recipe_scaler_remove_ingredient),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-            )
-        }
     }
 }
 
