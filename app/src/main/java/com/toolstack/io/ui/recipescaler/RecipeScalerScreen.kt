@@ -254,7 +254,7 @@ fun RecipeScalerScreen(
     if (showScanSourceDialog) {
         ScanSourceDialog(
             useAiImport = uiState.useAiImport,
-            aiFreeRemaining = uiState.aiFreeRemaining,
+            aiScansRemaining = uiState.aiScansRemaining,
             isPremium = uiState.isPremium,
             onUseAiImportChanged = viewModel::setUseAiImport,
             // Prefer the ML Kit Document Scanner; on failure (UNSUPPORTED
@@ -361,17 +361,33 @@ fun RecipeScalerScreen(
     if (uiState.showAiPaywall) {
         AiImportPaywallDialog(
             products = uiState.availableProducts,
+            rewardedAdAvailable = uiState.rewardedAdAvailable,
+            isAdLoading = uiState.isAdLoading,
             onDismiss = viewModel::onDismissAiPaywall,
             onUpgrade = { product ->
                 viewModel.onDismissAiPaywall()
                 val activity = context as? Activity ?: return@AiImportPaywallDialog
                 viewModel.startPurchaseFlow(activity, product)
             },
+            onWatchAd = {
+                val activity = context as? Activity ?: return@AiImportPaywallDialog
+                viewModel.onWatchAdRequested(activity)
+            },
             onSeeDetails = {
                 viewModel.onDismissAiPaywall()
                 onNavigateToPremium()
             }
         )
+    }
+
+    // Bonus scans just landed (scan pack or rewarded ad) — confirm with a snackbar.
+    val creditsGranted = uiState.creditsGranted
+    if (creditsGranted != null) {
+        val message = pluralStringResource(R.plurals.ai_scans_granted, creditsGranted, creditsGranted)
+        LaunchedEffect(creditsGranted) {
+            snackbarHostState.showSnackbar(message)
+            viewModel.onCreditsGrantedShown()
+        }
     }
 
     uiState.purchaseError?.let { error ->
@@ -703,7 +719,7 @@ fun RecipeScalerScreen(
 @Composable
 private fun ScanSourceDialog(
     useAiImport: Boolean,
-    aiFreeRemaining: Int,
+    aiScansRemaining: Int,
     isPremium: Boolean,
     onUseAiImportChanged: (Boolean) -> Unit,
     onScanDocument: () -> Unit,
@@ -750,8 +766,8 @@ private fun ScanSourceDialog(
                             } else {
                                 pluralStringResource(
                                     R.plurals.recipe_scaler_ai_free_left,
-                                    aiFreeRemaining,
-                                    aiFreeRemaining
+                                    aiScansRemaining,
+                                    aiScansRemaining
                                 )
                             },
                             style = MaterialTheme.typography.bodySmall,

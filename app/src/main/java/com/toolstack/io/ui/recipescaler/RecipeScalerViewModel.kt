@@ -21,6 +21,7 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.toolstack.io.data.ai.AiImportQuotaRepository
 import com.toolstack.io.data.ai.AiImportResult
 import com.toolstack.io.data.ai.AiRecipeImporter
+import com.toolstack.io.data.ai.RewardedAdProvider
 import com.toolstack.io.data.billing.BillingProduct
 import com.toolstack.io.data.billing.BillingRepository
 import com.toolstack.io.data.billing.BillingResult
@@ -59,7 +60,8 @@ class RecipeScalerViewModel @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val billingRepository: BillingRepository,
     private val aiImporter: AiRecipeImporter,
-    private val aiQuota: AiImportQuotaRepository
+    private val aiQuota: AiImportQuotaRepository,
+    private val rewardedAds: RewardedAdProvider
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RecipeScalerUiState())
@@ -108,9 +110,21 @@ class RecipeScalerViewModel @Inject constructor(
             }
             .launchIn(viewModelScope)
 
-        aiQuota.remainingFree
+        aiQuota.remainingImports
             .onEach { remaining ->
-                _uiState.update { it.copy(aiFreeRemaining = remaining) }
+                _uiState.update { it.copy(aiScansRemaining = remaining) }
+            }
+            .launchIn(viewModelScope)
+
+        billingRepository.creditsGranted
+            .onEach { credits ->
+                _uiState.update { it.copy(creditsGranted = credits, showAiPaywall = false) }
+            }
+            .launchIn(viewModelScope)
+
+        rewardedAds.isAvailable
+            .onEach { available ->
+                _uiState.update { it.copy(rewardedAdAvailable = available) }
             }
             .launchIn(viewModelScope)
     }
@@ -735,6 +749,31 @@ class RecipeScalerViewModel @Inject constructor(
         _uiState.update { it.copy(purchaseError = null) }
     }
 
+    /**
+     * "Watch ad for +5 scans" on the AI paywall. The provider grants the
+     * credits; when it reports a reward the paywall closes and the snackbar
+     * shows the new balance.
+     */
+    fun onWatchAdRequested(activity: Activity) {
+        if (_uiState.value.isAdLoading) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isAdLoading = true) }
+            val earned = rewardedAds.showRewardedForScans(activity)
+            _uiState.update {
+                it.copy(
+                    isAdLoading = false,
+                    showAiPaywall = if (earned > 0) false else it.showAiPaywall,
+                    creditsGranted = if (earned > 0) earned else it.creditsGranted
+                )
+            }
+        }
+    }
+
+    /** Called after the "scans added" snackbar has been shown. */
+    fun onCreditsGrantedShown() {
+        _uiState.update { it.copy(creditsGranted = null) }
+    }
+
     private fun AiImportResult.toScanError(): ScanError = when (this) {
         AiImportResult.NothingFound -> ScanError.NO_INGREDIENTS_FOUND
         AiImportResult.NetworkError -> ScanError.AI_NETWORK_ERROR
@@ -1119,8 +1158,14 @@ data class RecipeScalerUiState(
     // ── AI import ─────────────────────────────────────────────────────────────
     /** True once the user holds an active Pro entitlement. */
     val isPremium: Boolean = false,
-    /** Remaining lifetime AI imports for a free user. */
-    val aiFreeRemaining: Int = AiImportConfig.FREE_LIFETIME_LIMIT,
+    /** Imports a free user can still run — free allowance plus bonus credits. */
+    val aiScansRemaining: Int = AiImportConfig.FREE_LIFETIME_LIMIT,
+    /** True while a rewarded ad can be shown (see [RewardedAdProvider]). */
+    val rewardedAdAvailable: Boolean = false,
+    /** True while a rewarded ad is being loaded/shown. */
+    val isAdLoading: Boolean = false,
+    /** Bonus scans just granted (purchase or ad) — surfaced as a snackbar, then cleared. */
+    val creditsGranted: Int? = null,
     /** ScanSourceDialog toggle: route scans through the AI importer. */
     val useAiImport: Boolean = false,
     /** True while an AI import request is in flight. */

@@ -9,6 +9,7 @@ import com.google.firebase.ai.type.ContentBlockedException
 import com.google.firebase.ai.type.FinishReason
 import com.google.firebase.ai.type.FirebaseAIException
 import com.google.firebase.ai.type.GenerateContentResponse
+import com.google.firebase.ai.type.GenerativeBackend
 import com.google.firebase.ai.type.PromptBlockedException
 import com.google.firebase.ai.type.QuotaExceededException
 import com.google.firebase.ai.type.RequestTimeoutException
@@ -46,7 +47,7 @@ class FirebaseAiRecipeImporter @Inject constructor() : AiRecipeImporter {
     private val json = Json { ignoreUnknownKeys = true }
 
     private val model by lazy {
-        Firebase.ai.generativeModel(
+        Firebase.ai(backend = GenerativeBackend.googleAI()).generativeModel(
             modelName = AiImportConfig.MODEL,
             generationConfig = generationConfig {
                 responseMimeType = "application/json"

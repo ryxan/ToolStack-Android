@@ -2,6 +2,8 @@ package com.toolstack.io.di
 
 import com.toolstack.io.data.ai.AiRecipeImporter
 import com.toolstack.io.data.ai.FirebaseAiRecipeImporter
+import com.toolstack.io.data.ai.NoopRewardedAdProvider
+import com.toolstack.io.data.ai.RewardedAdProvider
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -15,4 +17,9 @@ abstract class AiModule {
     abstract fun bindAiRecipeImporter(
         impl: FirebaseAiRecipeImporter
     ): AiRecipeImporter
+
+    @Binds
+    abstract fun bindRewardedAdProvider(
+        impl: NoopRewardedAdProvider
+    ): RewardedAdProvider
 }

@@ -46,8 +46,9 @@ class AiImportQuotaRepositoryTest {
     fun `refund restores a free credit`() = runTest {
         val repo = AiImportQuotaRepository(FakeDataStore()) { DAY }
 
-        assertTrue(repo.tryReserve(isPremium = false))
-        assertTrue(repo.tryReserve(isPremium = false))
+        repeat(AiImportConfig.FREE_LIFETIME_LIMIT) {
+            assertTrue(repo.tryReserve(isPremium = false))
+        }
         repo.refund(isPremium = false)
 
         assertEquals(1, repo.remainingFree.first())
@@ -65,9 +66,56 @@ class AiImportQuotaRepositoryTest {
     }
 
     @Test
+    fun `bonus credits are spent only after the free allowance`() = runTest {
+        val repo = AiImportQuotaRepository(FakeDataStore()) { DAY }
+        repo.grantCredits(5)
+
+        repeat(AiImportConfig.FREE_LIFETIME_LIMIT) {
+            assertTrue(repo.tryReserve(isPremium = false))
+        }
+        // Free allowance spent — the bonus balance is untouched so far.
+        assertEquals(5, repo.bonusCredits.first())
+
+        repeat(5) { assertTrue(repo.tryReserve(isPremium = false)) }
+        assertFalse(repo.tryReserve(isPremium = false))
+        assertEquals(0, repo.bonusCredits.first())
+    }
+
+    @Test
+    fun `refund restores a bonus credit when the last debit was bonus`() = runTest {
+        val repo = AiImportQuotaRepository(FakeDataStore()) { DAY }
+        repo.grantCredits(2)
+        repeat(AiImportConfig.FREE_LIFETIME_LIMIT) {
+            assertTrue(repo.tryReserve(isPremium = false))
+        }
+
+        assertTrue(repo.tryReserve(isPremium = false)) // spends a bonus credit
+        assertEquals(1, repo.bonusCredits.first())
+        repo.refund(isPremium = false)
+
+        assertEquals(2, repo.bonusCredits.first())
+        assertEquals(0, repo.remainingFree.first())
+    }
+
+    @Test
+    fun `remainingImports combines the free allowance and bonus credits`() = runTest {
+        val repo = AiImportQuotaRepository(FakeDataStore()) { DAY }
+
+        assertEquals(AiImportConfig.FREE_LIFETIME_LIMIT, repo.remainingImports.first())
+        repo.grantCredits(AiImportConfig.SCANS_PER_PACK)
+
+        assertEquals(
+            AiImportConfig.FREE_LIFETIME_LIMIT + AiImportConfig.SCANS_PER_PACK,
+            repo.remainingImports.first()
+        )
+    }
+
+    @Test
     fun `concurrent reserves cannot overspend the last free credit`() = runTest {
         val repo = AiImportQuotaRepository(FakeDataStore()) { DAY }
-        assertTrue(repo.tryReserve(isPremium = false)) // one credit left
+        repeat(AiImportConfig.FREE_LIFETIME_LIMIT - 1) {
+            assertTrue(repo.tryReserve(isPremium = false)) // one credit left
+        }
 
         val results = (1..4)
             .map { async(Dispatchers.Default) { repo.tryReserve(isPremium = false) } }

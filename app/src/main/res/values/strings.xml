@@ -425,8 +425,8 @@
     <!-- Recipe Scaler - AI Import -->
     <string name="recipe_scaler_ai_toggle_title">Use AI import</string>
     <plurals name="recipe_scaler_ai_free_left">
-        <item quantity="one">%d free import left</item>
-        <item quantity="other">%d free imports left</item>
+        <item quantity="one">%d AI import left</item>
+        <item quantity="other">%d AI imports left</item>
     </plurals>
     <string name="recipe_scaler_ai_pro_label">Pro — unlimited</string>
     <string name="recipe_scaler_ai_privacy_note">The photo is sent to Google for processing.</string>
@@ -438,6 +438,22 @@
     <string name="recipe_scaler_scan_error_ai_failed">AI import didn\'t work this time. Try again or scan on-device.</string>
     <string name="recipe_scaler_scan_error_ai_limit">You\'ve reached today\'s AI import limit. It resets tomorrow.</string>
     <string name="recipe_scaler_scan_error_ai_rate_limited">AI import is busy right now — try again in a minute.</string>
-    <string name="recipe_scaler_ai_paywall_body">You\'ve used your free AI imports. Upgrade to Pro for unlimited AI recipe imports — or keep scanning on-device for free.</string>
+    <string name="ai_paywall_title">You\'re out of AI scans</string>
+    <string name="ai_paywall_subtitle">Top up to keep importing recipes with AI — or keep scanning on-device for free, anytime.</string>
+    <string name="ai_paywall_pack_title">100 AI scans</string>
+    <string name="ai_paywall_pack_subtitle">One-time top-up · never expires</string>
+    <string name="ai_paywall_best_value">Best value</string>
+    <string name="ai_paywall_pro_title">ToolStack Pro</string>
+    <string name="ai_paywall_pro_subtitle">Unlimited AI scans, every premium tool, ad-free</string>
+    <string name="ai_paywall_free_option">or earn scans for free</string>
+    <string name="ai_paywall_ad_title">Watch a short ad</string>
+    <plurals name="ai_paywall_ad_reward">
+        <item quantity="one">Get %d AI scan</item>
+        <item quantity="other">Get %d AI scans</item>
+    </plurals>
+    <plurals name="ai_scans_granted">
+        <item quantity="one">+%d AI scan added</item>
+        <item quantity="other">+%d AI scans added</item>
+    </plurals>
 </resources>
 

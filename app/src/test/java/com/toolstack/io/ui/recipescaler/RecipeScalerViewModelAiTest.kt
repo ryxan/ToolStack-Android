@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.emptyPreferences
 import com.toolstack.io.data.ai.AiImportQuotaRepository
 import com.toolstack.io.data.ai.AiImportResult
 import com.toolstack.io.data.ai.AiRecipeImporter
+import com.toolstack.io.data.ai.NoopRewardedAdProvider
 import com.toolstack.io.data.api.BillingVerificationApi
 import com.toolstack.io.data.api.VerifyPurchaseRequest
 import com.toolstack.io.data.api.VerifyPurchaseResponse
@@ -72,9 +73,10 @@ class RecipeScalerViewModelAiTest {
         return RecipeScalerViewModel(
             appContext = context,
             userPreferencesRepository = UserPreferencesRepository(dataStore),
-            billingRepository = FakeBillingRepository(context, premium),
+            billingRepository = FakeBillingRepository(context, premium, quota),
             aiImporter = importer,
-            aiQuota = quota
+            aiQuota = quota,
+            rewardedAds = NoopRewardedAdProvider()
         )
     }
 
@@ -94,7 +96,7 @@ class RecipeScalerViewModelAiTest {
         assertNull(state.pendingScanResult)
         assertNull(state.scanError)
         assertFalse(state.isAiProcessing)
-        assertEquals(AiImportConfig.FREE_LIFETIME_LIMIT - 1, state.aiFreeRemaining)
+        assertEquals(AiImportConfig.FREE_LIFETIME_LIMIT - 1, state.aiScansRemaining)
         // Title and servings from the AI result prefill their fields.
         assertEquals("Test Cake", state.recipeNameInput)
         assertEquals("8", state.originalServingsText)
@@ -135,7 +137,7 @@ class RecipeScalerViewModelAiTest {
         val state = viewModel.uiState.value
         assertEquals(ScanError.AI_NETWORK_ERROR, state.scanError)
         assertTrue(state.canOfferMlKitFallback)
-        assertEquals(AiImportConfig.FREE_LIFETIME_LIMIT, state.aiFreeRemaining)
+        assertEquals(AiImportConfig.FREE_LIFETIME_LIMIT, state.aiScansRemaining)
     }
 
     @Test
@@ -204,7 +206,7 @@ class RecipeScalerViewModelAiTest {
         advanceUntilIdle()
 
         assertEquals(1, importer.callCount)
-        assertEquals(AiImportConfig.FREE_LIFETIME_LIMIT - 1, viewModel.uiState.value.aiFreeRemaining)
+        assertEquals(AiImportConfig.FREE_LIFETIME_LIMIT - 1, viewModel.uiState.value.aiScansRemaining)
     }
 
     @Test
@@ -256,8 +258,9 @@ class RecipeScalerViewModelAiTest {
 
     private class FakeBillingRepository(
         context: Context,
-        premium: Boolean
-    ) : BillingRepository(context, FakeVerificationApi) {
+        premium: Boolean,
+        quota: AiImportQuotaRepository
+    ) : BillingRepository(context, FakeVerificationApi, quota) {
         private val _state = MutableStateFlow<PurchaseState>(
             if (premium) PurchaseState.LifetimePurchase else PurchaseState.None
         )
