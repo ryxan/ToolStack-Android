@@ -379,21 +379,6 @@ open class BillingRepository @Inject constructor(
     // -------------------------------------------------------------------------
 
     /**
-     * Query Play Store for any active subscriptions or lifetime purchases and
-     * update [purchaseState]. Safe to call at any time; callers can await it
-     * rather than relying on a timer.
-     *
-     * Query order matters: subscription is checked first so that a user with
-     * both a lifetime purchase and a lapsed subscription is not incorrectly
-     * downgraded on the subscription query alone.
-     *
-     * Returns true when both queries ran to completion — whether or not an
-     * entitlement was found. Returns false when the query could not run
-     * (billing unavailable, non-OK response, or exception), in which case
-     * [purchaseState] is left unchanged and callers must not treat a stale
-     * [PurchaseState.None] as "no entitlement".
-     */
-    /**
      * Debug builds only: force [purchaseState] to [state] and pin it against
      * the automatic init/resume queries. Pass null to clear the override and
      * restore real Play Billing state. No-op in release builds.
@@ -415,6 +400,21 @@ open class BillingRepository @Inject constructor(
         }
     }
 
+    /**
+     * Query Play Store for any active subscriptions or lifetime purchases and
+     * update [purchaseState]. Safe to call at any time; callers can await it
+     * rather than relying on a timer.
+     *
+     * Query order matters: subscription is checked first so that a user with
+     * both a lifetime purchase and a lapsed subscription is not incorrectly
+     * downgraded on the subscription query alone.
+     *
+     * Returns true when both queries ran to completion — whether or not an
+     * entitlement was found. Returns false when the query could not run
+     * (billing unavailable, non-OK response, or exception), in which case
+     * [purchaseState] is left unchanged and callers must not treat a stale
+     * [PurchaseState.None] as "no entitlement".
+     */
     suspend fun queryActivePurchases(): Boolean {
         debugEntitlementOverride?.let {
             _purchaseState.value = it
