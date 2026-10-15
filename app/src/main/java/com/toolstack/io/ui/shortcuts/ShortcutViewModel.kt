@@ -10,6 +10,7 @@ import com.toolstack.io.R
 import com.toolstack.io.data.billing.BillingProduct
 import com.toolstack.io.data.billing.BillingRepository
 import com.toolstack.io.data.billing.BillingResult
+import com.toolstack.io.data.billing.ProductIds
 import com.toolstack.io.data.billing.PurchaseState
 import com.toolstack.io.util.ShortcutUtil
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -52,7 +53,15 @@ class ShortcutViewModel @Inject constructor(
 
         billingRepository.products
             .onEach { products ->
-                _uiState.update { it.copy(availableProducts = products) }
+                // Consumable top-ups aren't plans — the paywall only offers
+                // subscription/lifetime upgrades.
+                _uiState.update {
+                    it.copy(
+                        availableProducts = products.filter { product ->
+                            product.productId !in ProductIds.CONSUMABLE_PRODUCT_IDS
+                        }
+                    )
+                }
             }
             .launchIn(viewModelScope)
     }

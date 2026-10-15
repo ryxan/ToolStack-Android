@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.toolstack.io.data.billing.BillingProduct
 import com.toolstack.io.data.billing.BillingRepository
 import com.toolstack.io.data.billing.BillingResult
+import com.toolstack.io.data.billing.ProductIds
 import com.toolstack.io.data.billing.PurchaseState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,7 +42,11 @@ class PremiumViewModel @Inject constructor(
             .onEach { products ->
                 _uiState.update { current ->
                     // Monthly first, lifetime second; lifetime is preselected.
-                    val ordered = products.sortedByDescending { it.isSubscription }
+                    // Consumable top-ups aren't plans — they're bought from
+                    // contextual paywalls like the AI import dialog.
+                    val ordered = products
+                        .filter { it.productId !in ProductIds.CONSUMABLE_PRODUCT_IDS }
+                        .sortedByDescending { it.isSubscription }
                     val selected = current.selectedProductId
                         ?.takeIf { id -> ordered.any { it.productId == id } }
                         ?: ordered.firstOrNull { !it.isSubscription }?.productId
@@ -60,7 +65,11 @@ class PremiumViewModel @Inject constructor(
 
     fun loadProducts() {
         viewModelScope.launch {
-            _uiState.update { it.copy(pricesState = PricesState.LOADING) }
+            // Only show the spinner when there's nothing on screen — a refresh
+            // keeps the loaded plans visible while the re-query runs.
+            _uiState.update {
+                if (it.products.isEmpty()) it.copy(pricesState = PricesState.LOADING) else it
+            }
             when (billingRepository.queryProductDetails()) {
                 is BillingResult.Error ->
                     _uiState.update {
