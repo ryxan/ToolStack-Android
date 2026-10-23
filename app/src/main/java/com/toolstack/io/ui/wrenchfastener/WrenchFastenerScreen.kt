@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.AddToHomeScreen
-import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -24,6 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -34,7 +34,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -126,7 +128,9 @@ fun WrenchFastenerScreen(
             LazyColumn(
                 contentPadding = PaddingValues(bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(0.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
             ) {
                 stickyHeader {
                     WrenchFastenerTableHeader(selectedSystem)
@@ -154,7 +158,11 @@ private fun WrenchFastenerTableHeader(selectedSystem: FastenerSystem) {
         FastenerSystem.METRIC -> stringResource(R.string.metric_wrench_header)
     }
 
-    Card(
+    val headerStyle = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+    val headerColor = MaterialTheme.colorScheme.onPrimaryContainer
+
+    Surface(
+        color = MaterialTheme.colorScheme.primaryContainer,
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -164,8 +172,8 @@ private fun WrenchFastenerTableHeader(selectedSystem: FastenerSystem) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            WrenchColumnText(text = wrenchHeader, weight = 1f)
-            WrenchColumnText(text = stringResource(R.string.fastener_header), weight = 1f)
+            WrenchColumnText(text = wrenchHeader, weight = 1f, style = headerStyle, color = headerColor)
+            WrenchColumnText(text = stringResource(R.string.fastener_header), weight = 1f, style = headerStyle, color = headerColor)
         }
     }
 }
@@ -188,11 +196,14 @@ private fun WrenchFastenerTableRow(entry: WrenchFastenerEntry) {
 private fun RowScope.WrenchColumnText(
     text: String,
     weight: Float,
+    style: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodyMedium,
+    color: Color = Color.Unspecified,
     modifier: Modifier = Modifier
 ) {
     Text(
         text = text,
-        style = MaterialTheme.typography.bodyMedium,
+        style = style,
+        color = color,
         textAlign = TextAlign.Center,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
