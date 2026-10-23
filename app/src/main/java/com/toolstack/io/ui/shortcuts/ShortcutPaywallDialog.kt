@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -31,7 +30,8 @@ import com.toolstack.io.data.billing.BillingProduct
 fun ShortcutPaywallDialog(
     products: List<BillingProduct>,
     onDismiss: () -> Unit,
-    onUpgrade: (BillingProduct) -> Unit
+    onUpgrade: (BillingProduct) -> Unit,
+    onSeeDetails: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -72,7 +72,11 @@ fun ShortcutPaywallDialog(
                 }
             }
         },
-        confirmButton = {},
+        confirmButton = {
+            TextButton(onClick = onSeeDetails) {
+                Text(text = stringResource(R.string.premium_see_details))
+            }
+        },
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text(text = stringResource(R.string.premium_dismiss))
@@ -83,18 +87,17 @@ fun ShortcutPaywallDialog(
 
 /**
  * Convenience composable that observes [uiState] and renders both the paywall
- * dialog and purchase-error dialog when needed.  Drop this into any tool screen
- * composable alongside the "Add to Home Screen" button.
+ * dialog and purchase-error dialog when needed.
  *
  * [shortcutViewModel] must be the same instance used to call
- * [ShortcutViewModel.onAddShortcutClicked] — typically obtained via
- * `hiltViewModel<ShortcutViewModel>(LocalActivity.current as ViewModelStoreOwner)`
- * so it is scoped to [MainActivity] and shared across all screens.
+ * [ShortcutViewModel.onAddShortcutClicked] — scoped to [MainActivity] and shared
+ * across all screens.
  */
 @Composable
 fun ShortcutPaywallHost(
     uiState: ShortcutUiState,
-    shortcutViewModel: ShortcutViewModel
+    shortcutViewModel: ShortcutViewModel,
+    onSeeDetails: () -> Unit
 ) {
     val context = LocalContext.current
 
@@ -106,6 +109,10 @@ fun ShortcutPaywallHost(
                 shortcutViewModel.dismissPaywall()
                 val activity = context as? Activity ?: return@ShortcutPaywallDialog
                 shortcutViewModel.startPurchaseFlow(activity, product)
+            },
+            onSeeDetails = {
+                shortcutViewModel.dismissPaywall()
+                onSeeDetails()
             }
         )
     }

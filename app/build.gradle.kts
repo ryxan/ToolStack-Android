@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
     alias(libs.plugins.serialization)
+    alias(libs.plugins.google.services)
 }
 
 // Version lives in version.properties (tracked in git) rather than being hardcoded here, so the
@@ -67,7 +68,10 @@ android {
             isDebuggable = true
         }
         release {
-            isMinifyEnabled = true
+            // Disabled during internal testing to keep release builds fast.
+            // Re-enable before production — check proguard-rules.pro keeps the
+            // Retrofit/Gson billing-verification DTOs.
+            isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -132,6 +136,13 @@ dependencies {
     implementation(libs.mlkit.text.recognition)
     implementation(libs.mlkit.document.scanner)
 
+    // Firebase AI Logic — recipe AI import + App Check (versions managed by BoM)
+    val firebaseBom = platform(libs.firebase.bom)
+    implementation(firebaseBom)
+    implementation(libs.firebase.ai)
+    implementation(libs.firebase.appcheck.playintegrity)
+    debugImplementation(libs.firebase.appcheck.debug)
+
     val composeBom = platform(libs.compose.bom)
     implementation(composeBom)
     androidTestImplementation(composeBom)
@@ -147,6 +158,7 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso)
     androidTestImplementation(libs.compose.ui.test.junit4)

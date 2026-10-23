@@ -7,8 +7,27 @@ import com.android.billingclient.api.ProductDetails
  * These must match exactly what is configured in the Play Console.
  */
 object ProductIds {
-    const val MONTHLY_SUBSCRIPTION = "toolstack_pro_monthly"
+    const val MONTHLY_SUBSCRIPTION = "toolstack_pro_monthly_sub"
     const val ONE_TIME_PURCHASE = "toolstack_pro_lifetime"
+
+    /**
+     * Consumable AI scan pack — grants [com.toolstack.io.domain.ai.AiImportConfig.SCANS_PER_PACK]
+     * bonus credits on purchase. Consumed immediately so it can be repurchased.
+     */
+    const val AI_SCANS_100 = "ai_scans_100_recreated"
+
+    /**
+     * Original scan-pack ID, deactivated in Play Console but the ID stays
+     * reserved. Kept so the recovery path still consumes any unconsumed
+     * purchases made under it.
+     */
+    const val LEGACY_AI_SCANS_100 = "ai_scans_100"
+
+    /**
+     * Consumable top-up products — purchasable from contextual paywalls (e.g.
+     * the AI import dialog) but never shown as Pro plans.
+     */
+    val CONSUMABLE_PRODUCT_IDS = setOf(AI_SCANS_100, LEGACY_AI_SCANS_100)
 }
 
 /**
