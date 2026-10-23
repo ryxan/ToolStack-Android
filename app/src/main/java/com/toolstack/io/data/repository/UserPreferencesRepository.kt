@@ -43,6 +43,16 @@ class UserPreferencesRepository @Inject constructor(
         }
     }
 
+    val saeMetricShowOnlyCommonWrenches: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[KEY_SAE_METRIC_SHOW_ONLY_COMMON_WRENCHES] ?: DEFAULT_SHOW_ONLY_COMMON_WRENCHES
+    }
+
+    suspend fun saveSaeMetricShowOnlyCommonWrenches(showOnlyCommonWrenches: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[KEY_SAE_METRIC_SHOW_ONLY_COMMON_WRENCHES] = showOnlyCommonWrenches
+        }
+    }
+
     /**
      * Persisted order for the home screen module list. Stored as a comma-separated
      * string of route names (e.g. "sae_metric,wrench_fastener,unit_converter,…").
@@ -346,6 +356,9 @@ class UserPreferencesRepository @Inject constructor(
 
         private val KEY_SAE_METRIC_SHOW_ONLY_COMMON = booleanPreferencesKey("sae_metric_show_only_common")
         private const val DEFAULT_SHOW_ONLY_COMMON = false
+
+        private val KEY_SAE_METRIC_SHOW_ONLY_COMMON_WRENCHES = booleanPreferencesKey("sae_metric_show_only_common_wrenches")
+        private const val DEFAULT_SHOW_ONLY_COMMON_WRENCHES = false
 
         private val KEY_HOME_MODULE_ORDER = stringPreferencesKey("home_module_order")
         private val KEY_HIDDEN_HOME_MODULES = stringPreferencesKey("hidden_home_modules")

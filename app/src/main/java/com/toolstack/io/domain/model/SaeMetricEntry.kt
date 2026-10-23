@@ -7,6 +7,7 @@ package com.toolstack.io.domain.model
  * @param decimalInch decimal inch value
  * @param metricMm equivalent millimetres (1 inch = 25.4 mm exactly)
  * @param isCommon true when the size is a common shop fraction
+ * @param nearestWrenchMm closest standard metric wrench size, null when none is close enough to suggest
  */
 data class SaeMetricEntry(
     val fractionLabel: String,
@@ -14,5 +15,7 @@ data class SaeMetricEntry(
     val metricMm: Double,
     val isCommon: Boolean,
     val decimalDisplay: String = "",
-    val metricDisplay: String = ""
+    val metricDisplay: String = "",
+    val nearestWrenchMm: Double? = null,
+    val nearestWrenchDisplay: String = ""
 )

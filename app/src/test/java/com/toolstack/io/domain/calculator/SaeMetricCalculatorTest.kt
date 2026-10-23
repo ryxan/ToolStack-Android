@@ -88,4 +88,41 @@ class SaeMetricCalculatorTest {
         assertEquals("0.3125", fiveSixteenths.decimalDisplay)
         assertEquals("7.938", fiveSixteenths.metricDisplay)
     }
+
+    @Test
+    fun `nearest wrench snaps to standard wrench sizes`() {
+        val entries = SaeMetricCalculator.generate(1)
+
+        val fiveEighths = entries.first { it.fractionLabel == "5/8" }
+        assertEquals(16.0, fiveEighths.nearestWrenchMm!!, 0.0)
+        assertEquals("16", fiveEighths.nearestWrenchDisplay)
+
+        val half = entries.first { it.fractionLabel == "1/2" }
+        assertEquals(13.0, half.nearestWrenchMm!!, 0.0)
+
+        val sevenThirtySeconds = entries.first { it.fractionLabel == "7/32" }
+        assertEquals(5.5, sevenThirtySeconds.nearestWrenchMm!!, 0.0)
+        assertEquals("5.5", sevenThirtySeconds.nearestWrenchDisplay)
+    }
+
+    @Test
+    fun `sizes with no close wrench show a dash`() {
+        val entries = SaeMetricCalculator.generate(2)
+
+        val tiny = entries.first { it.fractionLabel == "1/64" }
+        assertEquals(null, tiny.nearestWrenchMm)
+        assertEquals("—", tiny.nearestWrenchDisplay)
+
+        // 1-45/64" lands mid-gap between the 41 mm and 46 mm wrench sizes.
+        val midGap = entries.first { it.fractionLabel == "1-45/64" }
+        assertEquals(null, midGap.nearestWrenchMm)
+        assertEquals("—", midGap.nearestWrenchDisplay)
+    }
+
+    @Test
+    fun `large sizes still snap to standard wrench sizes`() {
+        val entries = SaeMetricCalculator.generate(3)
+        val twoInch = entries.first { it.fractionLabel == "2" }
+        assertEquals(50.0, twoInch.nearestWrenchMm!!, 0.0)
+    }
 }

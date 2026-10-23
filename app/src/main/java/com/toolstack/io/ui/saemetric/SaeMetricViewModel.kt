@@ -33,7 +33,13 @@ class SaeMetricViewModel @Inject constructor(
         viewModelScope.launch {
             val savedMaxInches = preferencesRepository.saeMetricMaxInches.first()
             val savedShowOnlyCommon = preferencesRepository.saeMetricShowOnlyCommon.first()
-            _uiState.update { it.copy(showOnlyCommon = savedShowOnlyCommon) }
+            val savedShowOnlyCommonWrenches = preferencesRepository.saeMetricShowOnlyCommonWrenches.first()
+            _uiState.update {
+                it.copy(
+                    showOnlyCommon = savedShowOnlyCommon,
+                    showOnlyCommonWrenches = savedShowOnlyCommonWrenches
+                )
+            }
             if (!hasUserSelectedMaxInches) {
                 loadEntries(savedMaxInches)
             }
@@ -57,6 +63,14 @@ class SaeMetricViewModel @Inject constructor(
         _uiState.update { it.copy(showOnlyCommon = showOnlyCommon) }
     }
 
+    fun onShowOnlyCommonWrenchesChanged(showOnlyCommonWrenches: Boolean) {
+        if (showOnlyCommonWrenches == _uiState.value.showOnlyCommonWrenches) return
+        viewModelScope.launch {
+            preferencesRepository.saveSaeMetricShowOnlyCommonWrenches(showOnlyCommonWrenches)
+        }
+        _uiState.update { it.copy(showOnlyCommonWrenches = showOnlyCommonWrenches) }
+    }
+
     private fun loadEntries(maxInches: Int) {
         _uiState.update { it.copy(maxInches = maxInches) }
         generateJob?.cancel()
@@ -74,8 +88,12 @@ class SaeMetricViewModel @Inject constructor(
 data class SaeMetricUiState(
     val maxInches: Int = 1,
     val showOnlyCommon: Boolean = false,
+    val showOnlyCommonWrenches: Boolean = false,
     val entries: List<SaeMetricEntry> = emptyList()
 ) {
     val displayedEntries: List<SaeMetricEntry>
-        get() = if (showOnlyCommon) entries.filter { it.isCommon } else entries
+        get() = entries.filter {
+            (!showOnlyCommon || it.isCommon) &&
+                (!showOnlyCommonWrenches || SaeMetricCalculator.isCommonWrench(it.nearestWrenchMm))
+        }
 }

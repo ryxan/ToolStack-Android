@@ -134,6 +134,19 @@ fun SaeMetricScreen(
                         }
                     }
                 )
+                FilterChip(
+                    selected = uiState.showOnlyCommonWrenches,
+                    onClick = { viewModel.onShowOnlyCommonWrenchesChanged(!uiState.showOnlyCommonWrenches) },
+                    label = { Text(text = stringResource(R.string.show_only_common_wrenches)) },
+                    leadingIcon = {
+                        if (uiState.showOnlyCommonWrenches) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null
+                            )
+                        }
+                    }
+                )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -183,6 +196,7 @@ private fun SaeTableHeader() {
             SaeColumnText(text = stringResource(R.string.sae_header), weight = 1f, style = headerStyle, color = headerColor)
             SaeColumnText(text = stringResource(R.string.decimal_header), weight = 1f, style = headerStyle, color = headerColor)
             SaeColumnText(text = stringResource(R.string.metric_header), weight = 1f, style = headerStyle, color = headerColor)
+            SaeColumnText(text = stringResource(R.string.nearest_wrench_header), weight = 1f, style = headerStyle, color = headerColor)
         }
     }
 }
@@ -216,6 +230,11 @@ private fun SaeTableRow(entry: SaeMetricEntry) {
         )
         SaeColumnText(
             text = entry.metricDisplay,
+            weight = 1f,
+            style = textStyle
+        )
+        SaeColumnText(
+            text = entry.nearestWrenchDisplay,
             weight = 1f,
             style = textStyle
         )

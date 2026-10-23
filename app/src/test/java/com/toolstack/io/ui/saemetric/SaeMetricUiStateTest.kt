@@ -24,4 +24,30 @@ class SaeMetricUiStateTest {
         assertEquals(expected.size, uiState.displayedEntries.size)
         assertTrue(uiState.displayedEntries.all { it.isCommon })
     }
+
+    @Test
+    fun `displayed entries filter to common wrench sizes when flag is on`() {
+        val entries = SaeMetricCalculator.generate(1)
+        val uiState = SaeMetricUiState(entries = entries, showOnlyCommonWrenches = true)
+
+        assertTrue(uiState.displayedEntries.isNotEmpty())
+        assertTrue(uiState.displayedEntries.all {
+            SaeMetricCalculator.isCommonWrench(it.nearestWrenchMm)
+        })
+    }
+
+    @Test
+    fun `common size and common wrench filters combine`() {
+        val entries = SaeMetricCalculator.generate(1)
+        val uiState = SaeMetricUiState(
+            entries = entries,
+            showOnlyCommon = true,
+            showOnlyCommonWrenches = true
+        )
+
+        assertTrue(uiState.displayedEntries.isNotEmpty())
+        assertTrue(uiState.displayedEntries.all {
+            it.isCommon && SaeMetricCalculator.isCommonWrench(it.nearestWrenchMm)
+        })
+    }
 }

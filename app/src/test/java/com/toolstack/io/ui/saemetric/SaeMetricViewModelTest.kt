@@ -27,6 +27,7 @@ import org.junit.runner.Description
 
 private val saeMetricMaxInchesKey = intPreferencesKey("sae_metric_max_inches")
 private val saeMetricShowOnlyCommonKey = booleanPreferencesKey("sae_metric_show_only_common")
+private val saeMetricShowOnlyCommonWrenchesKey = booleanPreferencesKey("sae_metric_show_only_common_wrenches")
 
 class SaeMetricViewModelTest {
 
@@ -50,6 +51,7 @@ class SaeMetricViewModelTest {
             )
             dataStore.emit(savedPreferences)
             dataStore.emit(savedPreferences)
+            dataStore.emit(savedPreferences)
             advanceUntilIdle()
 
             assertEquals(5, viewModel.uiState.value.maxInches)
@@ -65,14 +67,17 @@ class SaeMetricViewModelTest {
 
             val savedPreferences = preferencesOf(
                 saeMetricMaxInchesKey to 10,
-                saeMetricShowOnlyCommonKey to true
+                saeMetricShowOnlyCommonKey to true,
+                saeMetricShowOnlyCommonWrenchesKey to true
             )
+            dataStore.emit(savedPreferences)
             dataStore.emit(savedPreferences)
             dataStore.emit(savedPreferences)
             advanceUntilIdle()
 
             assertEquals(10, viewModel.uiState.value.maxInches)
             assertEquals(true, viewModel.uiState.value.showOnlyCommon)
+            assertEquals(true, viewModel.uiState.value.showOnlyCommonWrenches)
         }
 
     @Test
@@ -91,10 +96,24 @@ class SaeMetricViewModelTest {
             )
             dataStore.emit(savedPreferences)
             dataStore.emit(savedPreferences)
+            dataStore.emit(savedPreferences)
             advanceUntilIdle()
 
             assertEquals(1, viewModel.uiState.value.maxInches)
             assertEquals(true, viewModel.uiState.value.showOnlyCommon)
+        }
+
+    @Test
+    fun `common wrenches toggle updates state`() =
+        runTest(mainDispatcherRule.dispatcher) {
+            val dataStore = FakeDataStore()
+            val repository = UserPreferencesRepository(dataStore)
+            val viewModel = SaeMetricViewModel(repository)
+
+            viewModel.onShowOnlyCommonWrenchesChanged(true)
+            advanceUntilIdle()
+
+            assertEquals(true, viewModel.uiState.value.showOnlyCommonWrenches)
         }
 
     class MainDispatcherRule(
