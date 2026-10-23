@@ -1,6 +1,6 @@
 ---
 name: git-commit
-description: Create clean, atomic git commits using Conventional Commits. Use when the user asks to commit, when a piece of work is finished and AGENTS.md directs committing with this skill, or when the working tree holds several unrelated changes that need separate commits. Groups changes by intent, splits mixed files by hunk, and writes searchable type(scope): subject messages.
+description: "Create clean, atomic git commits using Conventional Commits. Use when the user asks to commit, when a piece of work is finished and AGENTS.md directs committing with this skill, or when the working tree holds several unrelated changes that need separate commits. Groups changes by intent, splits mixed files by hunk, and writes searchable type(scope): subject messages."
 ---
 
 # Git commit
