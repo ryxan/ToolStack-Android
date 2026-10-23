@@ -168,6 +168,9 @@
     <string name="ratio_mix_delete_preset">Delete %1$s</string>
     <string name="ratio_mix_no_saved_presets">No saved presets yet. Set up a mix above and tap Save preset.</string>
     <string name="ratio_mix_preset_part_summary">%1$d parts: %2$s</string>
+    <string name="ratio_mix_volume_section">Volume</string>
+    <string name="ratio_mix_unit_label">Unit</string>
+    <string name="ratio_mix_results_hint">Enter a volume above to see how much of each part you need.</string>
 
     <!-- Premium gate -->
     <string name="premium_required_title">Premium Feature</string>
